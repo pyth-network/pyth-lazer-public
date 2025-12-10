@@ -29,7 +29,7 @@ pyth-lazer-agent --help
 ```
 
 ### From source
-Please check [rust-toolchain](rust-toolchain.toml) to see the version of Rust needed to build (currently 1.88).
+Please check [rust-toolchain](../rust-toolchain.toml) to see the version of Rust needed to build.
 You will also need SSL and CA certificates. `cargo build` should then work as usual.
 
 ### Docker
