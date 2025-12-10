@@ -31,6 +31,6 @@ message DynamicValue {
         google.protobuf.Duration duration_value = 7;
         google.protobuf.Timestamp timestamp_value = 8;
         List list = 9;
-        Map map = 11;
+        Map map = 10;
     }
 }
