@@ -56,7 +56,7 @@ winnow = "0.7.6"
 
 [workspace.dependencies.pyth-lazer-publisher-sdk]
 path = "publisher_sdk/rust"
-version = "0.26.0"
+version = "0.26.1"
 
 [workspace.dependencies.pyth-lazer-protocol]
 path = "sdk/rust/protocol"
