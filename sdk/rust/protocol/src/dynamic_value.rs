@@ -4,8 +4,8 @@ use crate::time::{DurationUs, TimestampUs};
 use anyhow::bail;
 use derive_more::From;
 use serde::{
-    ser::{SerializeMap, SerializeSeq},
     Serialize,
+    ser::{SerializeMap, SerializeSeq},
 };
 
 #[derive(Debug, Clone, PartialEq, From)]

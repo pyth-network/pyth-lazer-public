@@ -4,7 +4,7 @@ use {
     futures::Stream,
     futures_util::StreamExt as _,
     std::sync::Arc,
-    tracing::{info, Instrument as _},
+    tracing::{Instrument as _, info},
 };
 
 #[async_trait::async_trait]

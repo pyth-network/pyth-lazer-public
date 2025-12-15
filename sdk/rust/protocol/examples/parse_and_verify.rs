@@ -1,14 +1,14 @@
 use {
     anyhow::bail,
-    byteorder::{ReadBytesExt, LE},
+    byteorder::{LE, ReadBytesExt},
     pyth_lazer_protocol::{
         message::{
-            format_magics_le::{EVM_FORMAT_MAGIC, SOLANA_FORMAT_MAGIC},
             EvmMessage, SolanaMessage,
+            format_magics_le::{EVM_FORMAT_MAGIC, SOLANA_FORMAT_MAGIC},
         },
         payload::PayloadData,
     },
-    std::io::{stdin, BufRead, Cursor},
+    std::io::{BufRead, Cursor, stdin},
 };
 
 fn main() -> anyhow::Result<()> {

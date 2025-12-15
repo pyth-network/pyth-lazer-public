@@ -2,9 +2,9 @@ use crate::publisher_update::feed_update::Update;
 use crate::publisher_update::{FeedUpdate, FundingRateUpdate, PriceUpdate};
 use crate::state::FeedState;
 use ::protobuf::MessageField;
-use pyth_lazer_protocol::jrpc::{FeedUpdateParams, UpdateParams};
 use pyth_lazer_protocol::FeedKind;
 use pyth_lazer_protocol::SymbolState;
+use pyth_lazer_protocol::jrpc::{FeedUpdateParams, UpdateParams};
 
 pub mod transaction_envelope {
     pub use crate::protobuf::transaction_envelope::*;

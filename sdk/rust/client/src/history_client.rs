@@ -1,14 +1,14 @@
 use {
-    anyhow::{bail, format_err, Context as _},
+    anyhow::{Context as _, bail, format_err},
     atomicwrites::replace_atomic,
-    backoff::{exponential::ExponentialBackoff, future::retry_notify, SystemClock},
-    futures::{future::BoxFuture, stream::FuturesUnordered, Stream, StreamExt},
+    backoff::{SystemClock, exponential::ExponentialBackoff, future::retry_notify},
+    futures::{Stream, StreamExt, future::BoxFuture, stream::FuturesUnordered},
     pyth_lazer_protocol::jrpc::SymbolMetadata,
     pyth_lazer_publisher_sdk::state::State,
     serde::{
+        Deserialize, Serialize,
         de::{DeserializeOwned, Error as _},
         ser::Error as _,
-        Deserialize, Serialize,
     },
     std::{
         future::Future,
@@ -19,7 +19,7 @@ use {
     },
     tokio::{sync::mpsc, time::sleep},
     tokio_stream::wrappers::ReceiverStream,
-    tracing::{info, info_span, warn, Instrument},
+    tracing::{Instrument, info, info_span, warn},
     url::Url,
 };
 
@@ -155,7 +155,7 @@ impl PythLazerHistoryClient {
     /// You should continuously poll the stream to receive updates.
     pub async fn all_symbols_metadata_stream(
         &self,
-    ) -> anyhow::Result<impl Stream<Item = Vec<SymbolMetadata>> + Unpin> {
+    ) -> anyhow::Result<impl Stream<Item = Vec<SymbolMetadata>> + use<> + Unpin> {
         self.stream(self.symbols_cache_file_path(), |client, url| {
             Box::pin(client.request_symbols(url))
         })
@@ -174,7 +174,7 @@ impl PythLazerHistoryClient {
         &self,
         cache_file_path: Option<PathBuf>,
         f: F,
-    ) -> anyhow::Result<impl Stream<Item = R> + Unpin>
+    ) -> anyhow::Result<impl Stream<Item = R> + use<F, R> + Unpin>
     where
         for<'a> F: Fn(&'a Self, &'a Url) -> BoxFuture<'a, Result<R, backoff::Error<anyhow::Error>>>
             + Send
@@ -234,7 +234,8 @@ impl PythLazerHistoryClient {
                     if previous_data != new_data {
                         info!("data changed");
                         if let Some(cache_file_path) = &cache_file_path {
-                            if let Err(err) = atomic_save_file(cache_file_path, &new_data) {
+                            let result = atomic_save_file(cache_file_path, &new_data);
+                            if let Err(err) = result {
                                 warn!(?err, ?cache_file_path, "failed to save data to cache file");
                             }
                         }
@@ -272,7 +273,8 @@ impl PythLazerHistoryClient {
             Ok(data) => {
                 info!("fetched initial data from history service");
                 if let Some(cache_file_path) = cache_file_path {
-                    if let Err(err) = atomic_save_file::<R>(&cache_file_path, &data) {
+                    let result = atomic_save_file::<R>(&cache_file_path, &data);
+                    if let Err(err) = result {
                         warn!(?err, ?cache_file_path, "failed to save data to cache file");
                     }
                 }
@@ -406,7 +408,7 @@ impl PythLazerHistoryClient {
     pub async fn state_stream(
         &self,
         params: GetStateParams,
-    ) -> anyhow::Result<impl Stream<Item = State> + Unpin> {
+    ) -> anyhow::Result<impl Stream<Item = State> + use<> + Unpin> {
         let stream = self
             .stream(self.state_cache_file_path(&params), move |client, url| {
                 Box::pin(client.request_state(url, params.clone()))

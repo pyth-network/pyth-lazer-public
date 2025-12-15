@@ -44,12 +44,12 @@
 use std::time::Duration;
 
 use crate::{
+    CHANNEL_CAPACITY,
     backoff::{PythLazerExponentialBackoff, PythLazerExponentialBackoffBuilder},
     resilient_ws_connection::PythLazerResilientWSConnection,
     ws_connection::AnyResponse,
-    CHANNEL_CAPACITY,
 };
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use backoff::ExponentialBackoff;
 use pyth_lazer_protocol::api::{SubscribeRequest, SubscriptionId};
 use tokio::sync::mpsc::{self, error::TrySendError};

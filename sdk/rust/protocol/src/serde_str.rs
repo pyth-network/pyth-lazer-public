@@ -1,7 +1,7 @@
 pub mod option_price {
     use {
         crate::price::Price,
-        serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer},
+        serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error},
         std::num::NonZeroI64,
     };
 
@@ -32,7 +32,7 @@ pub mod option_price {
 pub mod timestamp {
     use {
         crate::time::TimestampUs,
-        serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer},
+        serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error},
     };
 
     pub fn serialize<S>(value: &TimestampUs, serializer: S) -> Result<S::Ok, S::Error>

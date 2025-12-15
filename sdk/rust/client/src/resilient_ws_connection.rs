@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use backoff::{backoff::Backoff, ExponentialBackoff};
+use backoff::{ExponentialBackoff, backoff::Backoff};
 use futures_util::StreamExt;
 use pyth_lazer_protocol::api::{SubscribeRequest, SubscriptionId, UnsubscribeRequest, WsRequest};
 use tokio::{pin, select, sync::mpsc, time::Instant};
@@ -8,10 +8,10 @@ use tracing::{error, info, warn};
 use url::Url;
 
 use crate::{
-    ws_connection::{AnyResponse, PythLazerWSConnection},
     CHANNEL_CAPACITY,
+    ws_connection::{AnyResponse, PythLazerWSConnection},
 };
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 
 const BACKOFF_RESET_DURATION: Duration = Duration::from_secs(10);
 

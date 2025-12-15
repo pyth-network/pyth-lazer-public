@@ -1,14 +1,14 @@
 use std::collections::BTreeMap;
 
 use protobuf::{
-    well_known_types::{duration::Duration, timestamp::Timestamp},
     MessageField,
+    well_known_types::{duration::Duration, timestamp::Timestamp},
 };
 use pyth_lazer_protocol::DynamicValue;
 
 use crate::protobuf::dynamic_value::{
-    dynamic_value::{List, Map, MapItem, Value},
     DynamicValue as ProtobufDynamicValue,
+    dynamic_value::{List, Map, MapItem, Value},
 };
 
 #[test]

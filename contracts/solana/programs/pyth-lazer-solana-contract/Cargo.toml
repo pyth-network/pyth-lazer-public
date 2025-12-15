@@ -1,7 +1,7 @@
 [package]
 name = "pyth-lazer-solana-contract"
 version = "0.7.1"
-edition = "2021"
+edition = "2024"
 description = "Pyth Lazer Solana contract and SDK."
 license = "Apache-2.0"
 repository = "https://github.com/pyth-network/pyth-crosschain"
