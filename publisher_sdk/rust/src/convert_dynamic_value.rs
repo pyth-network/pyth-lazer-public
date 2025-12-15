@@ -3,12 +3,12 @@ mod tests;
 
 use std::collections::BTreeMap;
 
-use crate::protobuf::dynamic_value::{dynamic_value, DynamicValue as ProtobufDynamicValue};
+use crate::protobuf::dynamic_value::{DynamicValue as ProtobufDynamicValue, dynamic_value};
 use ::protobuf::MessageField;
-use anyhow::{ensure, Context};
+use anyhow::{Context, ensure};
 use pyth_lazer_protocol::{
-    time::{DurationUs, TimestampUs},
     DynamicValue,
+    time::{DurationUs, TimestampUs},
 };
 
 impl From<DynamicValue> for ProtobufDynamicValue {

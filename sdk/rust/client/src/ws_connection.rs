@@ -64,7 +64,9 @@ impl PythLazerWSConnection {
     ///
     /// # Returns
     /// Returns a stream of responses from the server
-    pub async fn start(&mut self) -> Result<impl futures_util::Stream<Item = Result<AnyResponse>>> {
+    pub async fn start(
+        &mut self,
+    ) -> Result<impl futures_util::Stream<Item = Result<AnyResponse>> + use<>> {
         let url = self.endpoint.clone();
         let mut request =
             tokio_tungstenite::tungstenite::client::IntoClientRequest::into_client_request(url)?;

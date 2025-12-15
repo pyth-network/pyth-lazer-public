@@ -308,8 +308,8 @@ fn time_serde() {
 #[test]
 #[mry::lock(TimestampUs::now)]
 fn now_tests() {
-    use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicU64, Ordering};
 
     let now = Arc::new(AtomicU64::new(42));
     let now2 = Arc::clone(&now);

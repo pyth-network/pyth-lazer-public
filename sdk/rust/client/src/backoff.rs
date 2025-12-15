@@ -6,8 +6,8 @@
 use std::time::Duration;
 
 use backoff::{
-    default::{INITIAL_INTERVAL_MILLIS, MAX_INTERVAL_MILLIS, MULTIPLIER, RANDOMIZATION_FACTOR},
     ExponentialBackoff, ExponentialBackoffBuilder,
+    default::{INITIAL_INTERVAL_MILLIS, MAX_INTERVAL_MILLIS, MULTIPLIER, RANDOMIZATION_FACTOR},
 };
 
 /// A wrapper around the backoff crate's exponential backoff configuration.

@@ -6,13 +6,13 @@ use std::{
 
 use derive_more::derive::From;
 use itertools::Itertools as _;
-use serde::{de::Error, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Error};
 use utoipa::ToSchema;
 
 use crate::{
+    ChannelId, Price, PriceFeedId, PriceFeedProperty, Rate,
     payload::AggregatedPriceFeedData,
     time::{DurationUs, FixedRate, TimestampUs},
-    ChannelId, Price, PriceFeedId, PriceFeedProperty, Rate,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
@@ -648,7 +648,7 @@ fn validate_optional_nonempty_vec_has_unique_elements<T>(
 where
     T: Eq + std::hash::Hash,
 {
-    if let Some(ref items) = vec {
+    if let Some(items) = vec {
         if items.is_empty() {
             return Err(empty_msg);
         }
