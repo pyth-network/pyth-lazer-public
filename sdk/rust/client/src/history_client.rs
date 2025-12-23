@@ -185,21 +185,21 @@ impl PythLazerHistoryClient {
         if self.config.channel_capacity == 0 {
             bail!("channel_capacity cannot be 0");
         }
-        let symbols = self
+        let value = self
             .fetch_from_all_urls_or_file(cache_file_path.clone(), |url| f(self, url))
             .await?;
         let (sender, receiver) = mpsc::channel(self.config.channel_capacity);
 
-        let previous_symbols = symbols.clone();
+        let previous_value = value.clone();
         sender
-            .send(symbols)
+            .send(value)
             .await
             .expect("send to new channel failed");
         let client = self.clone();
         tokio::spawn(
             async move {
                 client
-                    .keep_stream_updated(cache_file_path, sender, previous_symbols, |url| {
+                    .keep_stream_updated(cache_file_path, sender, previous_value, |url| {
                         f(&client, url)
                     })
                     .await;
