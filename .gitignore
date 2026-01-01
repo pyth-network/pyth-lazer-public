@@ -82,3 +82,6 @@ local.session.sql
 # Temporary files
 *.tmp
 *.temp
+
+# JS
+node_modules/
