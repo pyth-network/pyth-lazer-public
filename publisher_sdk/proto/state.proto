@@ -133,7 +133,7 @@ message Feed {
     // [required] Time after which the publisher update is discarded.
     optional google.protobuf.Duration expiry_time = 105;
     // [required] Market schedule in Pythnet format.
-    optional string market_schedule = 106;
+    optional string market_schedule = 106 [deprecated = true];
     // [required] Feed state.
     optional FeedState state = 107;
     // [required] Feed kind.
