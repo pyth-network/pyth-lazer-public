@@ -1,7 +1,7 @@
 use crate::publisher_update::feed_update::Update;
 use crate::publisher_update::{FeedUpdate, FundingRateUpdate, PriceUpdate};
 use crate::state::FeedState;
-use ::protobuf::MessageField;
+use ::protobuf::{EnumOrUnknown, MessageField};
 use pyth_lazer_protocol::FeedKind;
 use pyth_lazer_protocol::SymbolState;
 use pyth_lazer_protocol::jrpc::{FeedUpdateParams, UpdateParams};
@@ -55,10 +55,16 @@ impl From<UpdateParams> for Update {
                 price,
                 best_bid_price,
                 best_ask_price,
+                trading_status,
+                market_session,
             } => Update::PriceUpdate(PriceUpdate {
                 price: price.map(|p| p.mantissa_i64()),
                 best_bid_price: best_bid_price.map(|p| p.mantissa_i64()),
                 best_ask_price: best_ask_price.map(|p| p.mantissa_i64()),
+                trading_status: trading_status
+                    .map(|ts| EnumOrUnknown::from(state::TradingStatus::from(ts))),
+                market_session: market_session
+                    .map(|ms| EnumOrUnknown::from(state::MarketSession::from(ms))),
                 special_fields: Default::default(),
             }),
             UpdateParams::FundingRateUpdate {
@@ -172,6 +178,44 @@ impl From<state::MarketSession> for pyth_lazer_protocol::api::MarketSession {
             }
             state::MarketSession::OVER_NIGHT => pyth_lazer_protocol::api::MarketSession::OverNight,
             state::MarketSession::CLOSED => pyth_lazer_protocol::api::MarketSession::Closed,
+        }
+    }
+}
+
+impl From<pyth_lazer_protocol::api::TradingStatus> for state::TradingStatus {
+    fn from(value: pyth_lazer_protocol::api::TradingStatus) -> Self {
+        match value {
+            pyth_lazer_protocol::api::TradingStatus::Open => {
+                state::TradingStatus::TRADING_STATUS_OPEN
+            }
+            pyth_lazer_protocol::api::TradingStatus::Closed => {
+                state::TradingStatus::TRADING_STATUS_CLOSED
+            }
+            pyth_lazer_protocol::api::TradingStatus::Halted => {
+                state::TradingStatus::TRADING_STATUS_HALTED
+            }
+            pyth_lazer_protocol::api::TradingStatus::CorpAction => {
+                state::TradingStatus::TRADING_STATUS_CORP_ACTION
+            }
+        }
+    }
+}
+
+impl From<state::TradingStatus> for pyth_lazer_protocol::api::TradingStatus {
+    fn from(value: state::TradingStatus) -> Self {
+        match value {
+            state::TradingStatus::TRADING_STATUS_OPEN => {
+                pyth_lazer_protocol::api::TradingStatus::Open
+            }
+            state::TradingStatus::TRADING_STATUS_CLOSED => {
+                pyth_lazer_protocol::api::TradingStatus::Closed
+            }
+            state::TradingStatus::TRADING_STATUS_HALTED => {
+                pyth_lazer_protocol::api::TradingStatus::Halted
+            }
+            state::TradingStatus::TRADING_STATUS_CORP_ACTION => {
+                pyth_lazer_protocol::api::TradingStatus::CorpAction
+            }
         }
     }
 }

@@ -690,6 +690,19 @@ pub enum MarketSession {
     Closed,
 }
 
+#[derive(
+    Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, From, ToSchema, Default,
+)]
+#[serde(rename_all = "camelCase")]
+#[schema(example = "regular")]
+pub enum TradingStatus {
+    #[default]
+    Open,
+    Closed,
+    Halted,
+    CorpAction,
+}
+
 impl From<MarketSession> for i16 {
     fn from(s: MarketSession) -> i16 {
         match s {

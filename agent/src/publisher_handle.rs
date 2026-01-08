@@ -136,6 +136,8 @@ async fn try_handle_publisher(
                                 price: data.price.map(|p| p.mantissa_i64()),
                                 best_bid_price: data.best_bid_price.map(|p| p.mantissa_i64()),
                                 best_ask_price: data.best_ask_price.map(|p| p.mantissa_i64()),
+                                trading_status: None,
+                                market_session: None,
                                 special_fields: Default::default(),
                             }))
                         },

@@ -1,4 +1,5 @@
 use crate::PriceFeedId;
+use crate::api::{MarketSession, TradingStatus};
 use crate::rate::Rate;
 use crate::symbol_state::SymbolState;
 use crate::time::TimestampUs;
@@ -48,6 +49,8 @@ pub enum UpdateParams {
         price: Option<Price>,
         best_bid_price: Option<Price>,
         best_ask_price: Option<Price>,
+        trading_status: Option<TradingStatus>,
+        market_session: Option<MarketSession>,
     },
     #[serde(rename = "funding_rate")]
     FundingRateUpdate {
@@ -177,7 +180,9 @@ mod tests {
               "type": "price",
               "price": 1234567890,
               "best_bid_price": 1234567891,
-              "best_ask_price": 1234567892
+              "best_ask_price": 1234567892,
+              "trading_status": "halted",
+              "market_session": "postMarket"
             }
           },
           "id": 1
@@ -193,6 +198,8 @@ mod tests {
                     price: Some(Price::from_integer(1234567890, 0).unwrap()),
                     best_bid_price: Some(Price::from_integer(1234567891, 0).unwrap()),
                     best_ask_price: Some(Price::from_integer(1234567892, 0).unwrap()),
+                    trading_status: Some(TradingStatus::Halted),
+                    market_session: Some(MarketSession::PostMarket),
                 },
             }),
             id: JrpcId::Int(1),
@@ -234,6 +241,8 @@ mod tests {
                     price: Some(Price::from_integer(1234567890, 0).unwrap()),
                     best_bid_price: Some(Price::from_integer(1234567891, 0).unwrap()),
                     best_ask_price: Some(Price::from_integer(1234567892, 0).unwrap()),
+                    trading_status: None,
+                    market_session: None,
                 },
             }),
             id: JrpcId::String("b6bb54a0-ea8d-439d-97a7-3b06befa0e76".to_string()),
@@ -275,6 +284,8 @@ mod tests {
                     price: Some(Price::from_integer(1234567890, 0).unwrap()),
                     best_bid_price: Some(Price::from_integer(1234567891, 0).unwrap()),
                     best_ask_price: Some(Price::from_integer(1234567892, 0).unwrap()),
+                    trading_status: None,
+                    market_session: None,
                 },
             }),
             id: JrpcId::Null,
@@ -315,6 +326,8 @@ mod tests {
                     price: Some(Price::from_integer(5432, 0).unwrap()),
                     best_bid_price: Some(Price::from_integer(5432, 0).unwrap()),
                     best_ask_price: Some(Price::from_integer(5432, 0).unwrap()),
+                    trading_status: None,
+                    market_session: None,
                 },
             }),
             id: JrpcId::Null,
@@ -354,6 +367,8 @@ mod tests {
                     price: Some(Price::from_integer(1234567890, 0).unwrap()),
                     best_bid_price: None,
                     best_ask_price: None,
+                    trading_status: None,
+                    market_session: None,
                 },
             }),
             id: JrpcId::Int(1),

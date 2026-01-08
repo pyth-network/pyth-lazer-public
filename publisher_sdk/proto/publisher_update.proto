@@ -4,6 +4,10 @@ package pyth_lazer;
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
+
+import "state.proto";
+
+
 // if any fields marked as [required] are missing, feed/publisher update will be rejected
 
 // Publisher update included in transaction
@@ -51,6 +55,16 @@ message PriceUpdate {
     // should be produced with a matching exponent to the configured exponent value in pyth lazer
     // may be missing if no data is available
     optional int64 best_ask_price = 3;
+
+    // [optional] current market session for the price update
+    // can be null if market session is not supported for the given feed
+    // or if the publisher did not provide it
+    optional MarketSession market_session = 4;
+
+    // [optional] current trading status for the price update
+    // can be null if trading status is not supported for the given feed
+    // or if the publisher did not provide it
+    optional TradingStatus trading_status = 5;
 }
 
 // feed update containing data relating to funding rate
