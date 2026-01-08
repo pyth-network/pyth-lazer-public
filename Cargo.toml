@@ -1,6 +1,11 @@
 [workspace]
 resolver = "2"
-members = ["sdk/rust/protocol", "publisher_sdk/rust", "sdk/rust/client"]
+members = [
+  "sdk/rust/protocol",
+  "publisher_sdk/rust",
+  "sdk/rust/client",
+  "agent",
+]
 
 [workspace.dependencies]
 pyth-sdk = "0.8.0"
@@ -57,15 +62,15 @@ winnow = "0.7.6"
 
 [workspace.dependencies.pyth-lazer-publisher-sdk]
 path = "publisher_sdk/rust"
-version = "0.26.1"
+version = "0.27.0"
 
 [workspace.dependencies.pyth-lazer-protocol]
 path = "sdk/rust/protocol"
-version = "0.26.0"
+version = "0.27.0"
 
 [workspace.dependencies.pyth-lazer-client]
 path = "sdk/rust/client"
-version = "15.0.0"
+version = "16.0.0"
 
 [workspace.dependencies.axum-extra]
 version = "0.10.1"

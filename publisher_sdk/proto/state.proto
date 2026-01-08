@@ -96,6 +96,14 @@ enum MarketSession {
     CLOSED = 4;
 }
 
+// Trading status type
+enum TradingStatus {
+    TRADING_STATUS_OPEN = 0;
+    TRADING_STATUS_CLOSED = 1;
+    TRADING_STATUS_HALTED = 2;
+    TRADING_STATUS_CORP_ACTION = 3;
+}
+
 message FeedMarketSchedule {
     // [required] Which session this applies to
     optional MarketSession session = 1;
@@ -196,6 +204,10 @@ message FeedPublisherData {
     optional google.protobuf.Timestamp source_timestamp = 6;
     // [required] Timestamp of the publisher.
     optional google.protobuf.Timestamp publisher_timestamp = 7;
+    // [optional] Trading status. Can be absent if no data is available. Never present for funding rate feeds.
+    optional TradingStatus trading_status = 8;
+    // [optional] Market session. Can be absent if no data is available. Never present for funding rate feeds.
+    optional MarketSession market_session = 9;
 }
 
 // Aggregate data derived from all accepted publisher updates.

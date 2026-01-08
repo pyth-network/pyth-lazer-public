@@ -320,6 +320,7 @@ mod tests {
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         match relayer_receiver.try_recv() {
             Err(TryRecvError::Empty) => (),
+            #[allow(clippy::panic, reason = "Should not happen")]
             _ => panic!("channel should be empty"),
         }
 
@@ -335,6 +336,7 @@ mod tests {
         sender.send(feed_update.clone()).await.unwrap();
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
+        #[allow(clippy::panic, reason = "Ok in tests")]
         match relayer_receiver.try_recv() {
             Ok(transaction) => {
                 let lazer_transaction =
