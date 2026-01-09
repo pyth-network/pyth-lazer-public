@@ -140,8 +140,8 @@ message Feed {
     optional Channel min_channel = 104;
     // [required] Time after which the publisher update is discarded.
     optional google.protobuf.Duration expiry_time = 105;
-    // [required] Market schedule in Pythnet format.
-    optional string market_schedule = 106 [deprecated = true];
+    reserved 106;
+    reserved "market_schedule";
     // [required] Feed state.
     optional FeedState state = 107;
     // [required] Feed kind.
