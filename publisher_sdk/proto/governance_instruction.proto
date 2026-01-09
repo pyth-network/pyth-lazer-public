@@ -270,7 +270,8 @@ message AddFeed {
     // [required]
     optional google.protobuf.Duration expiry_time = 105;
     // [optional]
-    optional string market_schedule = 106 [deprecated = true];
+    reserved 106;
+    reserved "market_schedule";
     // [required]
     optional FeedState state = 107;
     // [required]
@@ -319,7 +320,8 @@ message UpdateFeedProperties {
     // [optional]
     optional google.protobuf.Duration expiry_time = 105;
     // [optional]
-    optional string market_schedule = 106 [deprecated = true];
+    reserved 106;
+    reserved "market_schedule";
     // [optional]
     optional FeedState state = 107;
     // [required]
