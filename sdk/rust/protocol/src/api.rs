@@ -694,7 +694,7 @@ pub enum MarketSession {
     Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, From, ToSchema, Default,
 )]
 #[serde(rename_all = "camelCase")]
-#[schema(example = "regular")]
+#[schema(example = "open")]
 pub enum TradingStatus {
     #[default]
     Open,
