@@ -1,17 +1,23 @@
 FROM rust:slim-bookworm AS builder
 
-RUN apt update && apt install -y curl libssl-dev pkg-config build-essential && apt clean all
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    pkg-config \
+    build-essential \
+    libssl-dev \
+    protobuf-compiler \
+  && rm -rf /var/lib/apt/lists/*
 
-ADD apps/pyth-lazer-agent /pyth-lazer-agent
-WORKDIR /pyth-lazer-agent
+ADD . /app
+WORKDIR /app
 
-RUN cargo build --release
+RUN cargo build -p pyth-lazer-agent --release --locked
 
 FROM debian:12-slim
 
 RUN apt update && apt install -y libssl-dev ca-certificates && apt clean all
 
-COPY --from=builder /pyth-lazer-agent/target/release/pyth-lazer-agent /pyth-lazer-agent/
-COPY --from=builder /pyth-lazer-agent/config/* /pyth-lazer-agent/config/
+COPY --from=builder /app/target/release/pyth-lazer-agent /pyth-lazer-agent/
+COPY --from=builder /app/agent/config/* /pyth-lazer-agent/config/
 
 ENTRYPOINT ["/pyth-lazer-agent/pyth-lazer-agent"]
