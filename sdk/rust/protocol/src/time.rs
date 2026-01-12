@@ -359,7 +359,7 @@ impl DurationUs {
     }
 
     #[inline]
-    pub fn from_days_u16(days: u16) -> Self {
+    pub const fn from_days_u16(days: u16) -> Self {
         // never overflows
         Self((days as u64) * 24 * 3600 * 1_000_000)
     }
