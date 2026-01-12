@@ -67,4 +67,6 @@ enum RejectReason {
     InactiveFeedId = 5;
     MarketClosed = 6;
     Unauthorized = 7;
+    TimestampInFuture = 8;
+    TimestampInPast = 9;
 }
