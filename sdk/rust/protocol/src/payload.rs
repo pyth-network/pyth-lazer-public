@@ -43,6 +43,8 @@ pub enum PayloadPropertyValue {
     FundingTimestamp(Option<TimestampUs>),
     FundingRateInterval(Option<DurationUs>),
     MarketSession(MarketSession),
+    EmaPrice(Option<Price>),
+    EmaConfidence(Option<Price>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -57,6 +59,8 @@ pub struct AggregatedPriceFeedData {
     pub funding_timestamp: Option<TimestampUs>,
     pub funding_rate_interval: Option<DurationUs>,
     pub market_session: MarketSession,
+    pub ema_price: Option<Price>,
+    pub ema_confidence: Option<Price>,
 }
 
 impl AggregatedPriceFeedData {
@@ -72,6 +76,8 @@ impl AggregatedPriceFeedData {
             funding_timestamp: None,
             funding_rate_interval: None,
             market_session,
+            ema_price: None,
+            ema_confidence: None,
         }
     }
 }
@@ -127,6 +133,12 @@ impl PayloadData {
                             PriceFeedProperty::MarketSession => {
                                 PayloadPropertyValue::MarketSession(feed.market_session)
                             }
+                            PriceFeedProperty::EmaPrice => {
+                                PayloadPropertyValue::EmaPrice(feed.ema_price)
+                            }
+                            PriceFeedProperty::EmaConfidence => {
+                                PayloadPropertyValue::EmaConfidence(feed.ema_confidence)
+                            }
                         })
                         .collect(),
                 })
@@ -176,13 +188,21 @@ impl PayloadData {
                         writer.write_u8(PriceFeedProperty::FundingTimestamp as u8)?;
                         write_option_timestamp::<BO>(&mut writer, *timestamp)?;
                     }
-                    &PayloadPropertyValue::FundingRateInterval(interval) => {
+                    PayloadPropertyValue::FundingRateInterval(interval) => {
                         writer.write_u8(PriceFeedProperty::FundingRateInterval as u8)?;
-                        write_option_duration::<BO>(&mut writer, interval)?;
+                        write_option_duration::<BO>(&mut writer, *interval)?;
                     }
                     PayloadPropertyValue::MarketSession(market_session) => {
                         writer.write_u8(PriceFeedProperty::MarketSession as u8)?;
                         writer.write_i16::<BO>((*market_session).into())?;
+                    }
+                    PayloadPropertyValue::EmaPrice(ema_price) => {
+                        writer.write_u8(PriceFeedProperty::EmaPrice as u8)?;
+                        write_option_price::<BO>(&mut writer, *ema_price)?;
+                    }
+                    PayloadPropertyValue::EmaConfidence(ema_confidence) => {
+                        writer.write_u8(PriceFeedProperty::EmaConfidence as u8)?;
+                        write_option_price::<BO>(&mut writer, *ema_confidence)?;
                     }
                 }
             }

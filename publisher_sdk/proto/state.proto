@@ -168,6 +168,20 @@ message Feed {
     // [optional] If present, the aggregator will disable the feed in the current shard
     // at the specified instant.
     optional google.protobuf.Timestamp disable_in_shard_timestamp = 203;
+    // [optional] Accumulated data for EMA (exponential moving average) price.
+    optional EmaStorage ema_price_storage = 204;
+    // [optional] Accumulated data for EMA confidence interval.
+    optional EmaStorage ema_confidence_storage = 205;
+}
+
+// [optional] Accumulated data for EMA (exponential moving average) price or confidence interval.
+message EmaStorage {
+    // [required] Numerator of the current EMA value.
+    optional int64 numerator = 1;
+    // [required] Denominator of the current EMA value.
+    optional int64 denominator = 2;
+    // [required] Last timestamp of EMA update.
+    optional google.protobuf.Timestamp previous_timestamp = 3;
 }
 
 // A part of the feed state related to a particular publisher.
@@ -212,7 +226,9 @@ message FeedPublisherData {
 
 // Aggregate data derived from all accepted publisher updates.
 message FeedAggregateData {
-    // [optional] Best executable price. Can be absent if no data is available. Never present for funding rate feeds.
+    // [optional] For price feeds: best executable price.
+    // For funding rates: funding price.
+    // Can be absent if no data is available.
     optional int64 price = 1;
     // [optional] Best bid price. Can be absent if no data is available. Never present for funding rate feeds.
     optional int64 best_bid_price = 2;
@@ -236,6 +252,12 @@ message FeedAggregateData {
     optional int32 exponent = 9;
     // [required] Market session for the feed.
     optional MarketSession market_session = 10;
+    // [optional] EMA (exponential moving average) price. Can be absent if no data is available.
+    // Never present for funding rate feeds.
+    optional int64 ema_price = 11;
+    // [optional] EMA confidence interval. Can be absent if no data is available.
+    // Never present for funding rate feeds.
+    optional int64 ema_confidence = 12;
 }
 
 // An item of the state describing an asset.

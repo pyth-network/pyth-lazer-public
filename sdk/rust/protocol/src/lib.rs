@@ -87,6 +87,8 @@ pub enum PriceFeedProperty {
     FundingTimestamp,
     FundingRateInterval,
     MarketSession,
+    EmaPrice,
+    EmaConfidence,
     // More fields may be added later.
 }
 

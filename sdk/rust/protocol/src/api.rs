@@ -449,6 +449,13 @@ pub struct ParsedFeedPayload {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub market_session: Option<MarketSession>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(with = "crate::serde_str::option_price")]
+    #[serde(default)]
+    pub ema_price: Option<Price>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub ema_confidence: Option<Price>,
 }
 
 impl ParsedFeedPayload {
@@ -469,6 +476,8 @@ impl ParsedFeedPayload {
             funding_timestamp: None,
             funding_rate_interval: None,
             market_session: None,
+            ema_price: None,
+            ema_confidence: None,
         };
         for &property in properties {
             match property {
@@ -502,6 +511,12 @@ impl ParsedFeedPayload {
                 PriceFeedProperty::MarketSession => {
                     output.market_session = Some(data.market_session);
                 }
+                PriceFeedProperty::EmaPrice => {
+                    output.ema_price = data.ema_price;
+                }
+                PriceFeedProperty::EmaConfidence => {
+                    output.ema_confidence = data.ema_confidence;
+                }
             }
         }
         output
@@ -524,6 +539,8 @@ impl ParsedFeedPayload {
             funding_timestamp: data.funding_timestamp,
             funding_rate_interval: data.funding_rate_interval,
             market_session: Some(data.market_session),
+            ema_price: data.ema_price,
+            ema_confidence: data.ema_confidence,
         }
     }
 }
