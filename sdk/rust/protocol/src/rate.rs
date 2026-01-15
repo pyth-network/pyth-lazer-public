@@ -3,7 +3,7 @@ mod tests;
 
 use {
     crate::ExponentFactor,
-    rust_decimal::{Decimal, prelude::FromPrimitive},
+    rust_decimal::{prelude::FromPrimitive, Decimal},
     serde::{Deserialize, Serialize},
     thiserror::Error,
     utoipa::ToSchema,

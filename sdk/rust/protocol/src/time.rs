@@ -4,10 +4,10 @@ mod tests;
 use {
     anyhow::Context,
     protobuf::{
-        MessageField,
         well_known_types::{
             duration::Duration as ProtobufDuration, timestamp::Timestamp as ProtobufTimestamp,
         },
+        MessageField,
     },
     serde::{Deserialize, Serialize},
     std::time::{Duration, SystemTime},
@@ -474,7 +474,7 @@ impl From<DurationUs> for ProtobufDuration {
 pub mod duration_us_serde_humantime {
     use std::time::Duration;
 
-    use serde::{Deserialize, Serialize, de::Error};
+    use serde::{de::Error, Deserialize, Serialize};
 
     use crate::time::DurationUs;
 

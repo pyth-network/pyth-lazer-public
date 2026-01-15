@@ -6,13 +6,13 @@ use std::{
 
 use derive_more::derive::From;
 use itertools::Itertools as _;
-use serde::{Deserialize, Serialize, de::Error};
+use serde::{de::Error, Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use crate::{
-    ChannelId, Price, PriceFeedId, PriceFeedProperty, Rate,
     payload::AggregatedPriceFeedData,
     time::{DurationUs, FixedRate, TimestampUs},
+    ChannelId, Price, PriceFeedId, PriceFeedProperty, Rate,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]

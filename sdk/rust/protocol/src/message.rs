@@ -1,8 +1,8 @@
 use {
     self::format_magics_le::{EVM_FORMAT_MAGIC, SOLANA_FORMAT_MAGIC},
     crate::api::ParsedPayload,
-    anyhow::{Context, bail},
-    byteorder::{BE, ByteOrder, LE, ReadBytesExt, WriteBytesExt},
+    anyhow::{bail, Context},
+    byteorder::{ByteOrder, ReadBytesExt, WriteBytesExt, BE, LE},
     derive_more::From,
     format_magics_le::{JSON_FORMAT_MAGIC, LE_ECDSA_FORMAT_MAGIC, LE_UNSIGNED_FORMAT_MAGIC},
     std::io::{Cursor, Read, Write},

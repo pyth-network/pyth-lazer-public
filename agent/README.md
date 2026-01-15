@@ -7,6 +7,7 @@ but will batch and sign transactions before publishing them to Lazer.
 ## Keypair
 
 You will need to generate an ed25519 keypair and provide the pubkey to the Lazer team. `solana-keygen` is the recommended utility.
+
 ```bash
 solana-keygen new -o /path/to/keypair.json
 solana-keygen pubkey /path/to/keypair.json
@@ -17,6 +18,7 @@ pyth-lazer-agent will need to configure access to this keypair file to sign tran
 ## Build and run
 
 ### From cargo
+
 ```
 # Download the cargo package
 cargo install pyth-lazer-agent
@@ -29,17 +31,21 @@ pyth-lazer-agent --help
 ```
 
 ### From source
+
 Please check [rust-toolchain](../rust-toolchain.toml) to see the version of Rust needed to build.
 You will also need SSL and CA certificates. `cargo build` should then work as usual.
 
 ### Docker
+
 See the included [Dockerfile](Dockerfile) to build an image yourself.
 
 ### Container
+
 We also publish images to the [GitHub Container Registry](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#pulling-container-images).
 The latest will be available at `ghcr.io/pyth-network/pyth-lazer-agent:latest`.
 
 ## Configure
+
 The agent takes a single `--config` CLI option, pointing at
 `config/config.toml` by default. Configuration is currently minimal:
 
