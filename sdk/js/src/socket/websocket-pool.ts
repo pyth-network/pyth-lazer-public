@@ -19,9 +19,7 @@ import {
 
 const DEFAULT_NUM_CONNECTIONS = 4;
 
-type WebSocketOnMessageCallback = (
-  data: WebSocket.Data,
-) => void | Promise<void>;
+type WebSocketOnMessageCallback = (data: WebSocket.Data) => Promise<void>;
 
 export type WebSocketPoolConfig = {
   urls?: string[];

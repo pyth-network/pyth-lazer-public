@@ -42,7 +42,7 @@ export function renderFeeds(
         : feed.confidence * Math.pow(10, feed.exponent);
     const timeAgo = Math.round(Date.now() - feed.lastUpdate.getTime());
 
-    const symbolName = symbolsMap.get(Number(feed.priceFeedId));
+    const symbolName = symbolsMap.get(feed.priceFeedId);
     const displayName = symbolName
       ? `Feed ID: ${feed.priceFeedId.toString()} (${symbolName})`
       : `Feed ID: ${feed.priceFeedId.toString()}`;

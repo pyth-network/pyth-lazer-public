@@ -1,7 +1,7 @@
 use {
     crate::{api::SubscriptionId, message::Message},
-    anyhow::{Context, bail},
-    byteorder::{BE, LE, WriteBytesExt},
+    anyhow::{bail, Context},
+    byteorder::{WriteBytesExt, BE, LE},
 };
 
 /// First bytes (LE) of a binary Websocket message. A binary message will

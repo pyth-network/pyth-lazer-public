@@ -1,13 +1,13 @@
 use crate::{
-    ChannelId, PriceFeedId, PriceFeedProperty,
     api::MarketSession,
     price::Price,
     rate::Rate,
     time::{DurationUs, TimestampUs},
+    ChannelId, PriceFeedId, PriceFeedProperty,
 };
 use {
     anyhow::bail,
-    byteorder::{BE, ByteOrder, LE, ReadBytesExt, WriteBytesExt},
+    byteorder::{ByteOrder, ReadBytesExt, WriteBytesExt, BE, LE},
     serde::{Deserialize, Serialize},
     std::{
         io::{Cursor, Read, Write},
