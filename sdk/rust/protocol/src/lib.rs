@@ -103,6 +103,8 @@ pub enum AssetClass {
     Nav,
     Commodity,
     FundingRate,
+    Eco,
+    Kalshi,
 }
 
 impl AssetClass {
@@ -116,6 +118,8 @@ impl AssetClass {
             AssetClass::Nav => "nav",
             AssetClass::Commodity => "commodity",
             AssetClass::FundingRate => "funding-rate",
+            AssetClass::Eco => "eco",
+            AssetClass::Kalshi => "kalshi",
         }
     }
 }
