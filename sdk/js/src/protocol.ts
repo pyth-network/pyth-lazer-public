@@ -110,7 +110,9 @@ export type AssetType =
   | "rates"
   | "nav"
   | "commodity"
-  | "funding-rate";
+  | "funding-rate"
+  | "eco"
+  | "kalshi";
 
 export type SymbolsQueryParams = {
   query?: string;
