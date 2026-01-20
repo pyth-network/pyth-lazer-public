@@ -258,6 +258,8 @@ message FeedAggregateData {
     // [optional] EMA confidence interval. Can be absent if no data is available.
     // Never present for funding rate feeds.
     optional int64 ema_confidence = 12;
+    // [optional] Timestamp of the latest feed update. Can be absent if no data is available.
+    optional google.protobuf.Timestamp feed_update_timestamp = 13;
 }
 
 // An item of the state describing an asset.

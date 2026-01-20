@@ -456,6 +456,9 @@ pub struct ParsedFeedPayload {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub ema_confidence: Option<Price>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub feed_update_timestamp: Option<TimestampUs>,
 }
 
 impl ParsedFeedPayload {
@@ -478,6 +481,7 @@ impl ParsedFeedPayload {
             market_session: None,
             ema_price: None,
             ema_confidence: None,
+            feed_update_timestamp: None,
         };
         for &property in properties {
             match property {
@@ -517,6 +521,9 @@ impl ParsedFeedPayload {
                 PriceFeedProperty::EmaConfidence => {
                     output.ema_confidence = data.ema_confidence;
                 }
+                PriceFeedProperty::FeedUpdateTimestamp => {
+                    output.feed_update_timestamp = data.feed_update_timestamp;
+                }
             }
         }
         output
@@ -541,6 +548,7 @@ impl ParsedFeedPayload {
             market_session: Some(data.market_session),
             ema_price: data.ema_price,
             ema_confidence: data.ema_confidence,
+            feed_update_timestamp: data.feed_update_timestamp,
         }
     }
 }

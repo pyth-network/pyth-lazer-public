@@ -89,6 +89,7 @@ pub enum PriceFeedProperty {
     MarketSession,
     EmaPrice,
     EmaConfidence,
+    FeedUpdateTimestamp,
     // More fields may be added later.
 }
 

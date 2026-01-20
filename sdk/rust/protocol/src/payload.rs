@@ -45,6 +45,7 @@ pub enum PayloadPropertyValue {
     MarketSession(MarketSession),
     EmaPrice(Option<Price>),
     EmaConfidence(Option<Price>),
+    FeedUpdateTimestamp(Option<TimestampUs>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -61,10 +62,11 @@ pub struct AggregatedPriceFeedData {
     pub market_session: MarketSession,
     pub ema_price: Option<Price>,
     pub ema_confidence: Option<Price>,
+    pub feed_update_timestamp: Option<TimestampUs>,
 }
 
 impl AggregatedPriceFeedData {
-    pub fn empty(exponent: i16, market_session: MarketSession) -> Self {
+    pub fn empty(exponent: i16, market_session: MarketSession, now: TimestampUs) -> Self {
         Self {
             price: None,
             best_bid_price: None,
@@ -78,6 +80,7 @@ impl AggregatedPriceFeedData {
             market_session,
             ema_price: None,
             ema_confidence: None,
+            feed_update_timestamp: Some(now),
         }
     }
 }
@@ -138,6 +141,11 @@ impl PayloadData {
                             }
                             PriceFeedProperty::EmaConfidence => {
                                 PayloadPropertyValue::EmaConfidence(feed.ema_confidence)
+                            }
+                            PriceFeedProperty::FeedUpdateTimestamp => {
+                                PayloadPropertyValue::FeedUpdateTimestamp(
+                                    feed.feed_update_timestamp,
+                                )
                             }
                         })
                         .collect(),
@@ -203,6 +211,10 @@ impl PayloadData {
                     PayloadPropertyValue::EmaConfidence(ema_confidence) => {
                         writer.write_u8(PriceFeedProperty::EmaConfidence as u8)?;
                         write_option_price::<BO>(&mut writer, *ema_confidence)?;
+                    }
+                    PayloadPropertyValue::FeedUpdateTimestamp(feed_update_timestamp) => {
+                        writer.write_u8(PriceFeedProperty::FeedUpdateTimestamp as u8)?;
+                        write_option_timestamp::<BO>(&mut writer, *feed_update_timestamp)?;
                     }
                 }
             }
