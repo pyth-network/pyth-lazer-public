@@ -34,8 +34,6 @@ pub struct LatestPriceRequestRepr {
     #[serde(default = "default_parsed")]
     pub parsed: bool,
     pub channel: Channel,
-    #[serde(default = "default_market_sessions")]
-    pub market_sessions: Vec<MarketSession>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, ToSchema)]
@@ -101,8 +99,6 @@ pub struct PriceRequestRepr {
     #[serde(default = "default_parsed")]
     pub parsed: bool,
     pub channel: Channel,
-    #[serde(default = "default_market_sessions")]
-    pub market_sessions: Vec<MarketSession>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, ToSchema)]
@@ -164,16 +160,6 @@ pub type PriceResponse = JsonUpdate;
 
 pub fn default_parsed() -> bool {
     true
-}
-
-pub fn default_market_sessions() -> Vec<MarketSession> {
-    vec![
-        MarketSession::Regular,
-        MarketSession::PreMarket,
-        MarketSession::PostMarket,
-        MarketSession::OverNight,
-        MarketSession::Closed,
-    ]
 }
 
 pub fn schema_default_symbols() -> Option<Vec<String>> {
@@ -325,9 +311,6 @@ pub struct SubscriptionParamsRepr {
     // "ignoreInvalidFeedIds" was renamed to "ignoreInvalidFeeds". "ignoreInvalidFeedIds" is still supported for compatibility.
     #[serde(default, alias = "ignoreInvalidFeedIds")]
     pub ignore_invalid_feeds: bool,
-    // Market sessions to filter price feeds by. Default to [Regular] for backward compatibility.
-    #[serde(default = "default_market_sessions")]
-    pub market_sessions: Vec<MarketSession>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, ToSchema)]
