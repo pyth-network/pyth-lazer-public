@@ -19,6 +19,7 @@ use {
     Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, ToSchema,
 )]
 #[repr(transparent)]
+#[schema(value_type = u64)]
 pub struct TimestampUs(u64);
 
 #[cfg_attr(feature = "mry", mry::mry)]
