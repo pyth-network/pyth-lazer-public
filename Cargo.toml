@@ -180,6 +180,21 @@ features = ["axum"]
 version = "1.18.1"
 features = ["serde", "v4"]
 
+[workspace.dependencies.async-stripe]
+version = "=1.0.0-rc.0"
+default-features = true
+
+[workspace.dependencies.async-stripe-core]
+version = "=1.0.0-rc.0"
+features = ["customer"]
+
+[workspace.dependencies.async-stripe-misc]
+version = "=1.0.0-rc.0"
+features = ["entitlements_active_entitlement", "entitlements_feature"]
+
+[workspace.dependencies.async-stripe-shared]
+version = "=1.0.0-rc.0"
+
 [workspace.lints.rust]
 unsafe_code = "deny"
 
