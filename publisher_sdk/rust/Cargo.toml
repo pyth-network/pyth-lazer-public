@@ -13,5 +13,5 @@ protobuf = { workspace = true }
 serde_json = { workspace = true }
 
 [build-dependencies]
-fs-err = "3.1.0"
+fs-err = { workspace = true }
 protobuf-codegen = "3.7.2"
