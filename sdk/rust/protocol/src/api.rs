@@ -1,7 +1,10 @@
-use std::{
-    cmp::Ordering,
-    fmt::Display,
-    ops::{Deref, DerefMut},
+use {
+    std::{
+        cmp::Ordering,
+        fmt::Display,
+        ops::{Deref, DerefMut},
+    },
+    utoipa::PartialSchema,
 };
 
 use derive_more::derive::From;
@@ -17,23 +20,42 @@ use crate::{
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
+#[schema(examples(LatestPriceRequestRepr::example1))]
 pub struct LatestPriceRequestRepr {
-    // Either price feed ids or symbols must be specified.
-    #[schema(example = json!([1]))]
+    /// List of feed IDs.
+    /// Either feed ids or symbols must be specified.
     pub price_feed_ids: Option<Vec<PriceFeedId>>,
-    #[schema(example = schema_default_symbols)]
+    /// List of feed symbols.
+    /// Either feed ids or symbols must be specified.
     pub symbols: Option<Vec<String>>,
+    /// List of feed properties the sender is interested in.
     pub properties: Vec<PriceFeedProperty>,
     // "chains" was renamed to "formats". "chains" is still supported for compatibility.
+    /// Requested formats of the payload.
     #[serde(alias = "chains")]
     pub formats: Vec<Format>,
     #[serde(default)]
     pub json_binary_encoding: JsonBinaryEncoding,
-    /// If `true`, the stream update will contain a JSON object containing
+    /// If `true`, the response will contain a JSON object containing
     /// all data of the update.
     #[serde(default = "default_parsed")]
     pub parsed: bool,
+    /// Channel determines frequency of updates.
     pub channel: Channel,
+}
+
+impl LatestPriceRequestRepr {
+    fn example1() -> Self {
+        Self {
+            price_feed_ids: None,
+            symbols: Some(vec!["Crypto.BTC/USD".into()]),
+            properties: vec![PriceFeedProperty::Price, PriceFeedProperty::Confidence],
+            formats: vec![Format::Evm],
+            json_binary_encoding: JsonBinaryEncoding::Hex,
+            parsed: true,
+            channel: Channel::RealTime,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, ToSchema)]
@@ -85,12 +107,18 @@ impl DerefMut for LatestPriceRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct PriceRequestRepr {
+    /// Requested timestamp of the update.
     pub timestamp: TimestampUs,
-    // Either price feed ids or symbols must be specified.
+    /// List of feed IDs.
+    /// Either feed ids or symbols must be specified.
     pub price_feed_ids: Option<Vec<PriceFeedId>>,
+    /// List of feed symbols.
+    /// Either feed ids or symbols must be specified.
     #[schema(default)]
     pub symbols: Option<Vec<String>>,
+    /// List of feed properties the sender is interested in.
     pub properties: Vec<PriceFeedProperty>,
+    /// Requested formats of the payload.
     pub formats: Vec<Format>,
     #[serde(default)]
     pub json_binary_encoding: JsonBinaryEncoding,
@@ -98,6 +126,7 @@ pub struct PriceRequestRepr {
     /// all data of the update.
     #[serde(default = "default_parsed")]
     pub parsed: bool,
+    /// Channel determines frequency of updates.
     pub channel: Channel,
 }
 
@@ -150,7 +179,10 @@ impl DerefMut for PriceRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ReducePriceRequest {
+    /// Feed update previously received from WebSocket or from "Fetch price"
+    /// or "Fetch latest price" endpoints.
     pub payload: JsonUpdate,
+    /// List of feeds that should be preserved in the output update.
     pub price_feed_ids: Vec<PriceFeedId>,
 }
 
@@ -196,12 +228,43 @@ pub enum JsonBinaryEncoding {
     Hex,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, From, ToSchema)]
-#[schema(example = "fixed_rate@200ms")]
+#[derive(Serialize, Deserialize, ToSchema)]
+pub enum ChannelSchemaRepr {
+    #[serde(rename = "real_time")]
+    RealTime,
+    #[serde(rename = "fixed_rate@50ms")]
+    FixedRate50ms,
+    #[serde(rename = "fixed_rate@200ms")]
+    FixedRate200ms,
+    #[serde(rename = "fixed_rate@1000ms")]
+    FixedRate1000ms,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, From)]
 pub enum Channel {
     FixedRate(FixedRate),
-    #[schema(rename = "real_time")]
     RealTime,
+}
+
+impl PartialSchema for Channel {
+    fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+        ChannelSchemaRepr::schema()
+    }
+}
+
+impl ToSchema for Channel {
+    fn name() -> std::borrow::Cow<'static, str> {
+        ChannelSchemaRepr::name()
+    }
+
+    fn schemas(
+        schemas: &mut Vec<(
+            String,
+            utoipa::openapi::RefOr<utoipa::openapi::schema::Schema>,
+        )>,
+    ) {
+        ChannelSchemaRepr::schemas(schemas)
+    }
 }
 
 impl PartialOrd for Channel {
@@ -291,24 +354,37 @@ impl<'de> Deserialize<'de> for Channel {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SubscriptionParamsRepr {
-    // Either price feed ids or symbols must be specified.
+    /// List of feed IDs.
+    /// Either feed ids or symbols must be specified.
     pub price_feed_ids: Option<Vec<PriceFeedId>>,
+    /// List of feed symbols.
+    /// Either feed ids or symbols must be specified.
     #[schema(default)]
     pub symbols: Option<Vec<String>>,
+    /// List of feed properties the sender is interested in.
     pub properties: Vec<PriceFeedProperty>,
-    // "chains" was renamed to "formats". "chains" is still supported for compatibility.
+    /// Requested formats of the payload.
+    /// As part of each feed update, the server will send on-chain payloads required
+    /// to validate these price updates on the specified chains.
     #[serde(alias = "chains")]
     pub formats: Vec<Format>,
+    /// If `json` is selected, the server will send price updates as JSON objects
+    /// (the on-chain payload will be encoded according to the `jsonBinaryEncoding` property).
+    /// If `binary` is selected, the server will send price updates as binary messages.
     #[serde(default)]
     pub delivery_format: DeliveryFormat,
+    /// For `deliveryFormat == "json"`, the on-chain payload will be encoded using the specified encoding.
+    /// This option has no effect for  `deliveryFormat == "binary"`.
     #[serde(default)]
     pub json_binary_encoding: JsonBinaryEncoding,
     /// If `true`, the stream update will contain a `parsed` JSON field containing
     /// all data of the update.
     #[serde(default = "default_parsed")]
     pub parsed: bool,
+    /// Channel determines frequency of updates.
     pub channel: Channel,
-    // "ignoreInvalidFeedIds" was renamed to "ignoreInvalidFeeds". "ignoreInvalidFeedIds" is still supported for compatibility.
+    /// If true, the subscription will ignore invalid feed IDs and subscribe to any valid feeds.
+    /// Otherwise, the entire subscription will fail if any feed is invalid.
     #[serde(default, alias = "ignoreInvalidFeedIds")]
     pub ignore_invalid_feeds: bool,
 }
@@ -362,26 +438,29 @@ impl DerefMut for SubscriptionParams {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct JsonBinaryData {
+    /// Encoding of the data. It will be the same as `jsonBinaryEncoding` specified in the `SubscriptionRequest`.
     pub encoding: JsonBinaryEncoding,
+    /// Binary data encoded in base64 or hex, depending on the requested encoding.
     pub data: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct JsonUpdate {
+    /// Parsed representation of the price update.
     /// Present unless `parsed = false` is specified in subscription params.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parsed: Option<ParsedPayload>,
-    /// Only present if `Evm` is present in `formats` in subscription params.
+    /// Signed on-chain payload for EVM. Only present if `Evm` is present in `formats` in subscription params.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub evm: Option<JsonBinaryData>,
-    /// Only present if `Solana` is present in `formats` in subscription params.
+    /// Signed on-chain payload for Solana. Only present if `Solana` is present in `formats` in subscription params.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub solana: Option<JsonBinaryData>,
-    /// Only present if `LeEcdsa` is present in `formats` in subscription params.
+    /// Signed binary payload for off-chain verification. Only present if `LeEcdsa` is present in `formats` in subscription params.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub le_ecdsa: Option<JsonBinaryData>,
-    /// Only present if `LeUnsigned` is present in `formats` in subscription params.
+    /// Unsigned binary payload. Only present if `LeUnsigned` is present in `formats` in subscription params.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub le_unsigned: Option<JsonBinaryData>,
 }
@@ -389,59 +468,109 @@ pub struct JsonUpdate {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ParsedPayload {
+    /// Unix timestamp associated with the update (with microsecond precision).
     #[serde(with = "crate::serde_str::timestamp")]
+    #[schema(value_type = String)]
     pub timestamp_us: TimestampUs,
+    /// Values of the update for each feed.
     pub price_feeds: Vec<ParsedFeedPayload>,
 }
 
+/// Parsed representation of a feed update.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ParsedFeedPayload {
+    /// Feed ID.
     pub price_feed_id: PriceFeedId,
+    /// For price feeds: main price. For funding rate feeds: funding price.
+    /// Only present if the `price` property was specified
+    /// in the `SubscriptionRequest` and the value is currently available for this price feed.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(with = "crate::serde_str::option_price")]
     #[serde(default)]
+    #[schema(value_type = Option<String>)]
     pub price: Option<Price>,
+    /// Best bid price for this price feed. Only present if the `bestBidPrice` property
+    /// was specified in the `SubscriptionRequest` and this is a price feed and
+    /// the value is currently available for this price feed.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(with = "crate::serde_str::option_price")]
     #[serde(default)]
+    #[schema(value_type = Option<String>)]
     pub best_bid_price: Option<Price>,
+    /// Best ask price for this price feed. Only present if the `bestAskPrice` property was
+    /// specified in the `SubscriptionRequest` and this is a price feed and
+    /// the value is currently available for this price feed.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(with = "crate::serde_str::option_price")]
     #[serde(default)]
+    #[schema(value_type = Option<String>)]
     pub best_ask_price: Option<Price>,
+    /// Number of publishers contributing to this feed update. Only present if the `publisherCount`
+    /// property was specified in the `SubscriptionRequest`.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub publisher_count: Option<u16>,
+    /// Exponent for this feed. Only present if the `exponent` property was specified
+    /// in the `SubscriptionRequest`. Each decimal field provided by the feed (price, fundingRate, etc)
+    /// returns the mantissa of the value. The actual value can be calculated as
+    /// `mantissa * 10^exponent`.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub exponent: Option<i16>,
+    /// Confidence for this price feed. Only present if the `confidence` property was
+    /// specified in the `SubscriptionRequest` and this is a price feed and
+    /// the value is currently available for this price feed.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
+    #[schema(value_type = Option<String>)]
     pub confidence: Option<Price>,
+    /// Perpetual future funding rate for this feed.
+    /// Only present if the `fundingRate` property was specified in the `SubscriptionRequest`
+    /// and this is a funding rate feed
+    /// and the value is currently available for this price feed.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub funding_rate: Option<Rate>,
+    /// Most recent perpetual future funding rate timestamp for this feed.
+    /// Only present if the `fundingTimestamp` property was specified in the `SubscriptionRequest`
+    /// and this is a funding rate feed
+    /// and the value is currently available for this price feed.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub funding_timestamp: Option<TimestampUs>,
-    // More fields may be added later.
+    /// Duration, in microseconds, between consecutive funding rate updates for this price feed.
+    /// Only present if the `fundingRateInterval` property was requested in the `SubscriptionRequest`
+    /// and this is a funding rate feed and the value is defined for that feed.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub funding_rate_interval: Option<DurationUs>,
+    /// Market session for this price feed. Only present if the `marketSession` property was specified
+    /// in the `SubscriptionRequest`.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub market_session: Option<MarketSession>,
+    /// Exponential moving average of the main price for this price feeds.
+    /// Only present if the `emaPrice` property was specified
+    /// in the `SubscriptionRequest`  and this is a price feed
+    /// and the value is currently available for this price feed.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(with = "crate::serde_str::option_price")]
     #[serde(default)]
+    #[schema(value_type = Option<String>)]
     pub ema_price: Option<Price>,
+    /// Exponential moving average of the confidence for this price feeds.
+    /// Only present if the `emaConfidence` property was specified
+    /// in the `SubscriptionRequest`  and this is a price feed
+    /// and the value is currently available for this price feed.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
+    #[schema(value_type = Option<String>)]
     pub ema_confidence: Option<Price>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub feed_update_timestamp: Option<TimestampUs>,
+    // More fields may be added later.
 }
 
 impl ParsedFeedPayload {
@@ -536,7 +665,7 @@ impl ParsedFeedPayload {
     }
 }
 
-/// A request sent from the client to the server.
+/// A WebSocket JSON message sent from the client to the server.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
@@ -550,21 +679,38 @@ pub enum WsRequest {
 )]
 pub struct SubscriptionId(pub u64);
 
+/// A subscription request.
+///
+/// After a successful subscription, the server will respond with a `SubscribedResponse`
+/// or `SubscribedWithInvalidFeedIdsIgnoredResponse` message,
+/// followed by `StreamUpdatedResponse` messages.
+/// If a subscription cannot be made, the server will respond with a `SubscriptionError`
+/// message containing the error message.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SubscribeRequest {
+    /// A number chosen by the client to identify the new subscription.
+    /// This identifier will be sent back in any responses related to this subscription.
     pub subscription_id: SubscriptionId,
+    /// Properties of the new subscription.
     #[serde(flatten)]
     pub params: SubscriptionParams,
 }
 
+/// An unsubscription request.
+///
+/// After a successful unsubscription, the server will respond with a `UnsubscribedResponse` message
+/// and stop sending `SubscriptionErrorResponse` messages for that subscription.
+/// If the unsubscription cannot be made, the server will respond with a `SubscriptionError` message
+/// containing the error text.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct UnsubscribeRequest {
+    /// ID of the subscription that should be canceled.
     pub subscription_id: SubscriptionId,
 }
 
-/// A JSON response sent from the server to the client.
+/// A WebSocket JSON message sent from the server to the client.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, From, ToSchema)]
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
@@ -577,7 +723,7 @@ pub enum WsResponse {
     StreamUpdated(StreamUpdatedResponse),
 }
 
-/// Sent from the server after a successul subscription.
+/// Sent from the server when a subscription succeeded and all specified feeds were valid.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SubscribedResponse {
@@ -587,23 +733,34 @@ pub struct SubscribedResponse {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct InvalidFeedSubscriptionDetails {
+    /// List of price feed IDs that could not be found.
     pub unknown_ids: Vec<PriceFeedId>,
+    /// List of price feed symbols that could not be found.
     pub unknown_symbols: Vec<String>,
+    /// List of price feed IDs that do not support the requested channel.
     pub unsupported_channels: Vec<PriceFeedId>,
+    /// List of unstable price feed IDs. Unstable feeds are not available for subscription.
     pub unstable: Vec<PriceFeedId>,
 }
 
+/// Sent from the server when a subscription succeeded, but
+/// some of the  specified feeds were invalid.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SubscribedWithInvalidFeedIdsIgnoredResponse {
+    /// The value specified in the corresponding `SubscribeRequest`.
     pub subscription_id: SubscriptionId,
+    /// IDs of valid feeds included in the established subscription.
     pub subscribed_feed_ids: Vec<PriceFeedId>,
+    /// Map of failed feed IDs categorized by failure reason.
     pub ignored_invalid_feed_ids: InvalidFeedSubscriptionDetails,
 }
 
+/// Notification of a successful unsubscription.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct UnsubscribedResponse {
+    /// The value specified in the corresponding `SubscribeRequest`.
     pub subscription_id: SubscriptionId,
 }
 
@@ -612,7 +769,9 @@ pub struct UnsubscribedResponse {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SubscriptionErrorResponse {
+    /// The value specified in the corresponding `SubscribeRequest`.
     pub subscription_id: SubscriptionId,
+    /// Text of the error.
     pub error: String,
 }
 
@@ -621,6 +780,7 @@ pub struct SubscriptionErrorResponse {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ErrorResponse {
+    /// Text of the error.
     pub error: String,
 }
 
@@ -629,7 +789,9 @@ pub struct ErrorResponse {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct StreamUpdatedResponse {
+    /// The value specified in the corresponding `SubscribeRequest`.
     pub subscription_id: SubscriptionId,
+    /// Content of the update.
     #[serde(flatten)]
     pub payload: JsonUpdate,
 }
