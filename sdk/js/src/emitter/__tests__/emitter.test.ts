@@ -1,3 +1,5 @@
+import { describe, expect, it, vi } from "vitest";
+
 import { IsomorphicEventEmitter } from "../index.js";
 
 const FOOD_TYPES = ["pasta", "pizza", "rice", "tacos"] as const;
@@ -27,7 +29,7 @@ describe("IsomorphicEventEmitter tests", () => {
   it("should emit an event and ensure the args were passed correctly", () => {
     const emitter = new TestEmitter();
 
-    const fnc = jest.fn();
+    const fnc = vi.fn();
     emitter.on("emitterTest", fnc);
 
     const reason = "this is just a test";
@@ -41,8 +43,8 @@ describe("IsomorphicEventEmitter tests", () => {
   it("should ensure multiple emissions are captured", () => {
     const emitter = new TestEmitter();
 
-    const errorFnc = jest.fn();
-    const multipleFnc = jest.fn();
+    const errorFnc = vi.fn();
+    const multipleFnc = vi.fn();
 
     const reasons: string[] = [];
     const awesomes: boolean[] = [];
@@ -87,7 +89,7 @@ describe("IsomorphicEventEmitter tests", () => {
     const reason = "asdomasoidmoasmoda";
     const awesome = false;
 
-    const fn = jest.fn();
+    const fn = vi.fn();
 
     emitter.on("emitterTest", fn);
 
@@ -106,7 +108,7 @@ describe("IsomorphicEventEmitter tests", () => {
     const food: FoodType = "tacos";
     const food2: FoodType = "rice";
 
-    const fn = jest.fn();
+    const fn = vi.fn();
 
     emitter.once("multiple", fn);
 
@@ -118,8 +120,8 @@ describe("IsomorphicEventEmitter tests", () => {
   it("should ensure all event handlers are unbound when no callback is provided to .off()", () => {
     const emitter = new TestEmitter();
 
-    const fn1 = jest.fn();
-    const fn2 = jest.fn();
+    const fn1 = vi.fn();
+    const fn2 = vi.fn();
 
     const food1: FoodType = "pizza";
     const food2: FoodType = "pasta";

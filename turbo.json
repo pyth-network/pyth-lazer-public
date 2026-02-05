@@ -57,7 +57,7 @@
         "$TURBO_DEFAULT$",
         "!README.md",
         "!**/*.test.*",
-        "!jest.config.js",
+        "!vite.config.js",
         "!eslint.config.js",
         "!prettier.config.js",
         "!vercel.json"
@@ -70,7 +70,7 @@
         "$TURBO_DEFAULT$",
         "!README.md",
         "!**/*.test.*",
-        "!jest.config.js",
+        "!vite.config.js",
         "!eslint.config.js",
         "!prettier.config.js",
         "!vercel.json"
