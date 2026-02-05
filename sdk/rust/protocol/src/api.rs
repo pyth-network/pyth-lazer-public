@@ -523,7 +523,6 @@ pub struct ParsedFeedPayload {
     /// the value is currently available for this price feed.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    #[schema(value_type = Option<String>)]
     pub confidence: Option<Price>,
     /// Perpetual future funding rate for this feed.
     /// Only present if the `fundingRate` property was specified in the `SubscriptionRequest`
@@ -565,7 +564,6 @@ pub struct ParsedFeedPayload {
     /// and the value is currently available for this price feed.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    #[schema(value_type = Option<String>)]
     pub ema_confidence: Option<Price>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
