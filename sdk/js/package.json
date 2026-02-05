@@ -129,6 +129,7 @@
   "scripts": {
     "build": "ts-duality --clean",
     "fix:lint": "eslint --fix . --max-warnings 0",
+    "test:unit": "vitest run",
     "test:lint": "eslint . --max-warnings 0",
     "test:types": "tsc",
     "test:format": "prettier --check .",
@@ -142,13 +143,14 @@
   "devDependencies": {
     "@cprussin/eslint-config": "catalog:",
     "@cprussin/tsconfig": "catalog:",
-    "@types/jest": "catalog:",
     "@types/node": "^18.19.54",
     "@types/ws": "^8.5.12",
     "eslint": "catalog:",
     "prettier": "catalog:",
     "ts-node": "catalog:",
-    "typedoc": "catalog:"
+    "typedoc": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
   },
   "bugs": {
     "url": "https://github.com/pyth-network/pyth-crosschain/issues"
