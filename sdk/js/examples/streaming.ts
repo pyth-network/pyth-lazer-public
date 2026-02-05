@@ -16,6 +16,8 @@ const feedData = new Map<
     priceFeedId: number;
     price: number;
     confidence: number | undefined;
+    emaPrice: number;
+    emaConfidence: number | undefined;
     exponent: number;
     lastUpdate: Date;
   }
@@ -95,7 +97,14 @@ client.subscribe({
   type: "subscribe",
   subscriptionId: 2,
   priceFeedIds: [1, 2, 3, 4, 5],
-  properties: ["price", "exponent", "publisherCount", "confidence"],
+  properties: [
+    "price",
+    "exponent",
+    "publisherCount",
+    "confidence",
+    "emaPrice",
+    "emaConfidence",
+  ],
   formats: ["evm"],
   deliveryFormat: "json",
   channel: "fixed_rate@50ms",

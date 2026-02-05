@@ -10,6 +10,8 @@ export function renderFeeds(
       priceFeedId: number;
       price: number;
       confidence: number | undefined;
+      emaPrice: number;
+      emaConfidence: number | undefined;
       exponent: number;
       lastUpdate: Date;
     }
@@ -40,6 +42,13 @@ export function renderFeeds(
       feed.confidence === undefined
         ? undefined
         : feed.confidence * Math.pow(10, feed.exponent);
+
+    const readableEmaPrice = feed.emaPrice * Math.pow(10, feed.exponent);
+    const readableEmaConfidence =
+      feed.emaConfidence === undefined
+        ? undefined
+        : feed.emaConfidence * Math.pow(10, feed.exponent);
+
     const timeAgo = Math.round(Date.now() - feed.lastUpdate.getTime());
 
     const symbolName = symbolsMap.get(feed.priceFeedId);
@@ -55,6 +64,15 @@ export function renderFeeds(
     if (readableConfidence !== undefined) {
       console.log(
         `   📊 Confidence: \u001B[33m±$${readableConfidence.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 8 })}\u001B[0m`,
+      );
+    }
+
+    console.log(
+      `   💰 EMA price: \u001B[32m$${readableEmaPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 8 })}\u001B[0m`,
+    );
+    if (readableEmaConfidence !== undefined) {
+      console.log(
+        `   📊 EMA confidence: \u001B[33m±$${readableEmaConfidence.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 8 })}\u001B[0m`,
       );
     }
 
@@ -79,6 +97,8 @@ export function refreshFeedDisplay(
       priceFeedId: number;
       price: number;
       confidence: number | undefined;
+      emaPrice: number;
+      emaConfidence: number | undefined;
       exponent: number;
       lastUpdate: Date;
     }
@@ -88,14 +108,12 @@ export function refreshFeedDisplay(
   if (response.parsed?.priceFeeds) {
     for (const feed of response.parsed.priceFeeds) {
       if (feed.price && feed.exponent !== undefined) {
-        const readableConfidence = feed.confidence
-          ? Number(feed.confidence)
-          : undefined;
-
         feedData.set(feed.priceFeedId.toString(), {
           priceFeedId: feed.priceFeedId,
           price: Number(feed.price),
-          confidence: readableConfidence,
+          confidence: feed.confidence,
+          emaPrice: Number(feed.emaPrice),
+          emaConfidence: feed.emaConfidence,
           exponent: feed.exponent,
           lastUpdate: new Date(),
         });
@@ -113,7 +131,7 @@ export function displayParsedPrices(response: JsonUpdate) {
       if (feed.price && feed.exponent !== undefined) {
         const readablePrice = Number(feed.price) * Math.pow(10, feed.exponent);
         const readableConfidence = feed.confidence
-          ? Number(feed.confidence) * Math.pow(10, feed.exponent)
+          ? feed.confidence * Math.pow(10, feed.exponent)
           : undefined;
 
         console.log(`Feed ${(index + 1).toString()}:`);

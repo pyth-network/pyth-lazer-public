@@ -10,20 +10,25 @@ export type PriceFeedProperty =
   | "confidence"
   | "fundingRate"
   | "fundingTimestamp"
-  | "fundingRateInterval";
+  | "fundingRateInterval"
+  | "marketSession"
+  | "emaPrice"
+  | "emaConfidence"
+  | "feedUpdateTimestamp";
 export type Channel = "real_time" | "fixed_rate@50ms" | "fixed_rate@200ms";
 
 export type Request =
   | {
       type: "subscribe";
       subscriptionId: number;
-      priceFeedIds: number[];
+      priceFeedIds?: number[] | undefined;
+      symbols?: string[] | undefined;
       properties: PriceFeedProperty[];
       formats: Format[];
-      deliveryFormat?: DeliveryFormat;
-      jsonBinaryEncoding?: JsonBinaryEncoding;
-      parsed?: boolean;
-      ignoreInvalidFeedIds?: boolean;
+      deliveryFormat?: DeliveryFormat | undefined;
+      jsonBinaryEncoding?: JsonBinaryEncoding | undefined;
+      parsed?: boolean | undefined;
+      ignoreInvalidFeedIds?: boolean | undefined;
       channel: Channel;
     }
   | {
@@ -38,7 +43,14 @@ export type ParsedFeedPayload = {
   bestAskPrice?: string | undefined;
   publisherCount?: number | undefined;
   exponent?: number | undefined;
-  confidence?: string | undefined;
+  confidence?: number | undefined;
+  fundingRate?: number | undefined;
+  fundingTimestamp?: number | undefined;
+  fundingRateInterval?: number | undefined;
+  marketSession?: string | undefined;
+  emaPrice?: string | undefined;
+  emaConfidence?: number | undefined;
+  feedUpdateTimestamp?: number | undefined;
 };
 
 export type ParsedPayload = {
