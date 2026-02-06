@@ -82,7 +82,13 @@ local.session.sql
 # Temporary files
 *.tmp
 *.temp
+tmp/
 
 # JS
 node_modules/
 .turbo/
+next-env.d.ts
+tsconfig.tsbuildinfo
+
+# Ralph config (may contain API key)
+.cursor/ralph-config.json
