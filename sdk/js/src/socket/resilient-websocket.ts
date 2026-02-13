@@ -66,6 +66,7 @@ export class ResilientWebSocket {
   onError: (error: ErrorEvent) => void;
   onMessage: (data: WebSocket.Data) => void;
   onReconnect: () => void;
+  onTimeout: () => void;
 
   constructor(config: ResilientWebSocketConfig) {
     this.endpoint = config.endpoint;
@@ -86,6 +87,9 @@ export class ResilientWebSocket {
       void data;
     };
     this.onReconnect = (): void => {
+      // Empty function, can be set by the user.
+    };
+    this.onTimeout = (): void => {
       // Empty function, can be set by the user.
     };
   }
@@ -180,6 +184,7 @@ export class ResilientWebSocket {
     this.heartbeatTimeout = setTimeout(() => {
       const warnMsg = "Connection timed out. Reconnecting...";
       this.logger.warn(warnMsg);
+      this.onTimeout();
       if (this.wsClient) {
         if (typeof this.wsClient.terminate === "function") {
           this.wsClient.terminate();

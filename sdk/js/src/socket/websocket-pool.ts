@@ -71,6 +71,15 @@ export class WebSocketPool extends IsomorphicEventEmitter<WebSocketPoolEvents> {
   private subscriptions: Map<number, Request>; // id -> subscription Request
   private messageListeners: WebSocketOnMessageCallback[];
   private allConnectionsDownListeners: (() => void)[];
+  private connectionRestoredListeners: (() => void)[];
+  private connectionTimeoutListeners: ((
+    connectionIndex: number,
+    endpoint: string,
+  ) => void)[];
+  private connectionReconnectListeners: ((
+    connectionIndex: number,
+    endpoint: string,
+  ) => void)[];
   private wasAllDown = true;
   private checkConnectionStatesInterval: NodeJS.Timeout;
 
@@ -81,6 +90,9 @@ export class WebSocketPool extends IsomorphicEventEmitter<WebSocketPoolEvents> {
     this.subscriptions = new Map();
     this.messageListeners = [];
     this.allConnectionsDownListeners = [];
+    this.connectionRestoredListeners = [];
+    this.connectionTimeoutListeners = [];
+    this.connectionReconnectListeners = [];
 
     // Start monitoring connection states
     this.checkConnectionStatesInterval = setInterval(() => {
@@ -140,11 +152,17 @@ export class WebSocketPool extends IsomorphicEventEmitter<WebSocketPoolEvents> {
         logger: log,
       });
 
+      const connectionIndex = i;
+      const connectionEndpoint = url;
+
       // If a websocket client unexpectedly disconnects, ResilientWebSocket will reestablish
       // the connection and call the onReconnect callback.
       rws.onReconnect = () => {
         if (rws.wsUserClosed) {
           return;
+        }
+        for (const listener of pool.connectionReconnectListeners) {
+          listener(connectionIndex, connectionEndpoint);
         }
         for (const [, request] of pool.subscriptions) {
           try {
@@ -155,6 +173,12 @@ export class WebSocketPool extends IsomorphicEventEmitter<WebSocketPoolEvents> {
               error,
             );
           }
+        }
+      };
+
+      rws.onTimeout = () => {
+        for (const listener of pool.connectionTimeoutListeners) {
+          listener(connectionIndex, connectionEndpoint);
         }
       };
 
@@ -293,6 +317,33 @@ export class WebSocketPool extends IsomorphicEventEmitter<WebSocketPoolEvents> {
     this.allConnectionsDownListeners.push(handler);
   }
 
+  /**
+   * Calls the handler when at least one connection is restored after all connections were down.
+   */
+  addConnectionRestoredListener(handler: () => void): void {
+    this.connectionRestoredListeners.push(handler);
+  }
+
+  /**
+   * Calls the handler when an individual connection times out (heartbeat timeout).
+   * @param handler - Callback with connection index and endpoint URL
+   */
+  addConnectionTimeoutListener(
+    handler: (connectionIndex: number, endpoint: string) => void,
+  ): void {
+    this.connectionTimeoutListeners.push(handler);
+  }
+
+  /**
+   * Calls the handler when an individual connection reconnects after being down.
+   * @param handler - Callback with connection index and endpoint URL
+   */
+  addConnectionReconnectListener(
+    handler: (connectionIndex: number, endpoint: string) => void,
+  ): void {
+    this.connectionReconnectListeners.push(handler);
+  }
+
   private areAllConnectionsDown(): boolean {
     return this.rwsPool.every((ws) => !ws.isConnected() || ws.isReconnecting());
   }
@@ -317,9 +368,17 @@ export class WebSocketPool extends IsomorphicEventEmitter<WebSocketPoolEvents> {
         }
       }
     }
-    // If at least one connection was restored
+    // If at least one connection was restored after all were down
     if (!allDown && this.wasAllDown) {
       this.wasAllDown = false;
+      this.logger.info("At least one WebSocket connection restored");
+      for (const listener of this.connectionRestoredListeners) {
+        try {
+          listener();
+        } catch (error) {
+          this.emitPoolError(error, "Connection-restored listener threw");
+        }
+      }
     }
   }
 
@@ -331,6 +390,9 @@ export class WebSocketPool extends IsomorphicEventEmitter<WebSocketPoolEvents> {
     this.subscriptions.clear();
     this.messageListeners = [];
     this.allConnectionsDownListeners = [];
+    this.connectionRestoredListeners = [];
+    this.connectionTimeoutListeners = [];
+    this.connectionReconnectListeners = [];
     clearInterval(this.checkConnectionStatesInterval);
 
     // execute all bound shutdown handlers

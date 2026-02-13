@@ -79,6 +79,25 @@ client.addAllConnectionsDownListener(() => {
   console.error("All connections are down!");
 });
 
+// Monitor for when connectivity is restored after all connections were down
+client.addConnectionRestoredListener(() => {
+  console.log("Connection restored after all connections were down.");
+});
+
+// Monitor individual connection timeouts (heartbeat timeout)
+client.addConnectionTimeoutListener((connectionIndex, endpoint) => {
+  console.warn(
+    `Connection ${connectionIndex.toString()} to ${endpoint} timed out.`,
+  );
+});
+
+// Monitor individual connection reconnections
+client.addConnectionReconnectListener((connectionIndex, endpoint) => {
+  console.log(
+    `Connection ${connectionIndex.toString()} to ${endpoint} reconnected.`,
+  );
+});
+
 renderFeeds(feedData, symbolsMap);
 
 // Create and remove one or more subscriptions on the fly
