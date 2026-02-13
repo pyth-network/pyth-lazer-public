@@ -194,6 +194,37 @@ export class PythLazerClient {
     wsp.addAllConnectionsDownListener(handler);
   }
 
+  /**
+   * Registers a handler function that will be called when at least one connection is restored after all were down.
+   * @param handler - Function to be called when connection is restored
+   */
+  addConnectionRestoredListener(handler: () => void): void {
+    const wsp = this.getWebSocketPool();
+    wsp.addConnectionRestoredListener(handler);
+  }
+
+  /**
+   * Registers a handler function that will be called when an individual connection times out (heartbeat timeout).
+   * @param handler - Function to be called with connection index and endpoint URL
+   */
+  addConnectionTimeoutListener(
+    handler: (connectionIndex: number, endpoint: string) => void,
+  ): void {
+    const wsp = this.getWebSocketPool();
+    wsp.addConnectionTimeoutListener(handler);
+  }
+
+  /**
+   * Registers a handler function that will be called when an individual connection reconnects.
+   * @param handler - Function to be called with connection index and endpoint URL
+   */
+  addConnectionReconnectListener(
+    handler: (connectionIndex: number, endpoint: string) => void,
+  ): void {
+    const wsp = this.getWebSocketPool();
+    wsp.addConnectionReconnectListener(handler);
+  }
+
   shutdown(): void {
     const wsp = this.getWebSocketPool();
     wsp.shutdown();
