@@ -1,9 +1,12 @@
-use crate::{
-    api::MarketSession,
-    price::Price,
-    rate::Rate,
-    time::{DurationUs, TimestampUs},
-    ChannelId, PriceFeedId, PriceFeedProperty,
+use {
+    crate::{
+        api::MarketSession,
+        price::Price,
+        rate::Rate,
+        time::{DurationUs, TimestampUs},
+        ChannelId, PriceFeedId, PriceFeedProperty,
+    },
+    anyhow::Context,
 };
 use {
     anyhow::bail,
@@ -248,32 +251,52 @@ impl PayloadData {
             };
             for _ in 0..num_properties {
                 let property = reader.read_u8()?;
-                let value = if property == PriceFeedProperty::Price as u8 {
-                    PayloadPropertyValue::Price(read_option_price::<BO>(&mut reader)?)
-                } else if property == PriceFeedProperty::BestBidPrice as u8 {
-                    PayloadPropertyValue::BestBidPrice(read_option_price::<BO>(&mut reader)?)
-                } else if property == PriceFeedProperty::BestAskPrice as u8 {
-                    PayloadPropertyValue::BestAskPrice(read_option_price::<BO>(&mut reader)?)
-                } else if property == PriceFeedProperty::PublisherCount as u8 {
-                    PayloadPropertyValue::PublisherCount(reader.read_u16::<BO>()?)
-                } else if property == PriceFeedProperty::Exponent as u8 {
-                    PayloadPropertyValue::Exponent(reader.read_i16::<BO>()?)
-                } else if property == PriceFeedProperty::Confidence as u8 {
-                    PayloadPropertyValue::Confidence(read_option_price::<BO>(&mut reader)?)
-                } else if property == PriceFeedProperty::FundingRate as u8 {
-                    PayloadPropertyValue::FundingRate(read_option_rate::<BO>(&mut reader)?)
-                } else if property == PriceFeedProperty::FundingTimestamp as u8 {
-                    PayloadPropertyValue::FundingTimestamp(read_option_timestamp::<BO>(
-                        &mut reader,
-                    )?)
-                } else if property == PriceFeedProperty::FundingRateInterval as u8 {
-                    PayloadPropertyValue::FundingRateInterval(read_option_interval::<BO>(
-                        &mut reader,
-                    )?)
-                } else if property == PriceFeedProperty::MarketSession as u8 {
-                    PayloadPropertyValue::MarketSession(reader.read_i16::<BO>()?.try_into()?)
-                } else {
-                    bail!("unknown property");
+                let property =
+                    PriceFeedProperty::from_repr(property).context("unknown property")?;
+                let value = match property {
+                    PriceFeedProperty::Price => {
+                        PayloadPropertyValue::Price(read_option_price::<BO>(&mut reader)?)
+                    }
+                    PriceFeedProperty::BestBidPrice => {
+                        PayloadPropertyValue::BestBidPrice(read_option_price::<BO>(&mut reader)?)
+                    }
+                    PriceFeedProperty::BestAskPrice => {
+                        PayloadPropertyValue::BestAskPrice(read_option_price::<BO>(&mut reader)?)
+                    }
+                    PriceFeedProperty::PublisherCount => {
+                        PayloadPropertyValue::PublisherCount(reader.read_u16::<BO>()?)
+                    }
+                    PriceFeedProperty::Exponent => {
+                        PayloadPropertyValue::Exponent(reader.read_i16::<BO>()?)
+                    }
+                    PriceFeedProperty::Confidence => {
+                        PayloadPropertyValue::Confidence(read_option_price::<BO>(&mut reader)?)
+                    }
+                    PriceFeedProperty::FundingRate => {
+                        PayloadPropertyValue::FundingRate(read_option_rate::<BO>(&mut reader)?)
+                    }
+                    PriceFeedProperty::FundingTimestamp => PayloadPropertyValue::FundingTimestamp(
+                        read_option_timestamp::<BO>(&mut reader)?,
+                    ),
+                    PriceFeedProperty::FundingRateInterval => {
+                        PayloadPropertyValue::FundingRateInterval(read_option_interval::<BO>(
+                            &mut reader,
+                        )?)
+                    }
+                    PriceFeedProperty::MarketSession => {
+                        PayloadPropertyValue::MarketSession(reader.read_i16::<BO>()?.try_into()?)
+                    }
+                    PriceFeedProperty::EmaPrice => {
+                        PayloadPropertyValue::EmaPrice(read_option_price::<BO>(&mut reader)?)
+                    }
+                    PriceFeedProperty::EmaConfidence => {
+                        PayloadPropertyValue::EmaConfidence(read_option_price::<BO>(&mut reader)?)
+                    }
+                    PriceFeedProperty::FeedUpdateTimestamp => {
+                        PayloadPropertyValue::FeedUpdateTimestamp(read_option_timestamp::<BO>(
+                            &mut reader,
+                        )?)
+                    }
                 };
                 feed.properties.push(value);
             }
@@ -375,5 +398,82 @@ fn read_option_interval<BO: ByteOrder>(
         Ok(Some(DurationUs::from_micros(reader.read_u64::<BO>()?)))
     } else {
         Ok(None)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        api::MarketSession,
+        message::SolanaMessage,
+        payload::{PayloadData, PayloadPropertyValue},
+        time::TimestampUs,
+        ChannelId, Price, PriceFeedId,
+    };
+
+    #[test]
+    fn parse_payload() {
+        let payload =
+            "b9011a82c7887f3aaa5845b20d6bf5ca6609953b57650fa4579a4b4d34a4980ba608a9f76a825a446\
+            f3d6c1fd9daca1c5e3fc46980f14ef89c1a886c6e9e5c510872d30f80efc1f480c5615af3fb673d422\
+            87e993da9fbc3506b6e41dfa32950820c2e6c620075d3c7934077d115064b06000301010000000d009\
+            032fc171b060000014e3a0cff1a06000002bcda8a211b06000003120004f8ff05fc0b7159000000000\
+            600070008000900000aa06616362e0600000b804f93312e0600000c014077d115064b0600";
+        let message = SolanaMessage::deserialize_slice(&hex::decode(payload).unwrap()).unwrap();
+        let payload = PayloadData::deserialize_slice_le(&message.payload).unwrap();
+        assert_eq!(
+            payload.timestamp_us,
+            TimestampUs::from_micros(1771339368200000)
+        );
+        assert_eq!(payload.channel_id, ChannelId::FIXED_RATE_200);
+        assert_eq!(payload.feeds.len(), 1);
+        let feed = &payload.feeds[0];
+        assert_eq!(feed.feed_id, PriceFeedId(1));
+        assert_eq!(feed.properties.len(), 13);
+        assert_eq!(
+            feed.properties[0],
+            PayloadPropertyValue::Price(Some(Price::from_mantissa(6713436287632).unwrap()))
+        );
+        assert_eq!(
+            feed.properties[1],
+            PayloadPropertyValue::BestBidPrice(Some(Price::from_mantissa(6713017907790).unwrap()))
+        );
+        assert_eq!(
+            feed.properties[2],
+            PayloadPropertyValue::BestAskPrice(Some(Price::from_mantissa(6713596631740).unwrap()))
+        );
+        assert_eq!(feed.properties[3], PayloadPropertyValue::PublisherCount(18));
+        assert_eq!(feed.properties[4], PayloadPropertyValue::Exponent(-8));
+        assert_eq!(
+            feed.properties[5],
+            PayloadPropertyValue::Confidence(Some(Price::from_mantissa(1500580860).unwrap()))
+        );
+        assert_eq!(feed.properties[6], PayloadPropertyValue::FundingRate(None));
+        assert_eq!(
+            feed.properties[7],
+            PayloadPropertyValue::FundingTimestamp(None)
+        );
+        assert_eq!(
+            feed.properties[8],
+            PayloadPropertyValue::FundingRateInterval(None)
+        );
+        assert_eq!(
+            feed.properties[9],
+            PayloadPropertyValue::MarketSession(MarketSession::Regular)
+        );
+        assert_eq!(
+            feed.properties[10],
+            PayloadPropertyValue::EmaPrice(Some(Price::from_mantissa(6795545700000).unwrap()))
+        );
+        assert_eq!(
+            feed.properties[11],
+            PayloadPropertyValue::EmaConfidence(Some(Price::from_mantissa(6795470000000).unwrap()))
+        );
+        assert_eq!(
+            feed.properties[12],
+            PayloadPropertyValue::FeedUpdateTimestamp(Some(TimestampUs::from_micros(
+                1771339368200000
+            )))
+        );
     }
 }

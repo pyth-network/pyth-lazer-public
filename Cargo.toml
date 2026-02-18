@@ -145,6 +145,10 @@ features = ["base64"]
 version = "0.8.1"
 features = ["http"]
 
+[workspace.dependencies.strum]
+version = "0.27.2"
+features = ["derive"]
+
 [workspace.dependencies.tokio]
 version = "1.44.1"
 features = ["full"]
