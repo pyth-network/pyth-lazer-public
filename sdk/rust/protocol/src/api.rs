@@ -10,6 +10,7 @@ use {
 use derive_more::derive::From;
 use itertools::Itertools as _;
 use serde::{de::Error, Deserialize, Serialize};
+use serde_with::{hex::Hex, serde_as};
 use utoipa::ToSchema;
 
 use crate::{
@@ -895,5 +896,53 @@ impl TryFrom<i16> for MarketSession {
             4 => Ok(MarketSession::Closed),
             _ => Err(anyhow::anyhow!("invalid MarketSession value: {}", value)),
         }
+    }
+}
+
+#[serde_as]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
+pub struct SignedMerkleRoot {
+    /// Hex-encoded 20-byte Keccak160 merkle root
+    #[serde_as(as = "Hex")]
+    #[schema(value_type = String, example = "0x1a2b3c...")]
+    pub root: Vec<u8>,
+
+    pub slot: u64,
+
+    pub timestamp: u32,
+
+    /// Hex-encoded 65-byte ECDSA signature (r || s || v)
+    #[serde_as(as = "Hex")]
+    #[schema(value_type = String, example = "0x1a2b3c...")]
+    pub signature: Vec<u8>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn signed_merkle_root_json_serialization() {
+        let root = SignedMerkleRoot {
+            root: vec![
+                0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e,
+                0x0f, 0x10, 0x11, 0x12, 0x13, 0x14,
+            ],
+            slot: 34567890123,
+            timestamp: 1700000000,
+            signature: vec![0xaa; 65],
+        };
+
+        let json = serde_json::to_value(&root).unwrap();
+
+        // root and signature are hex-encoded strings (no 0x prefix, lowercase)
+        assert_eq!(json["root"], "0102030405060708090a0b0c0d0e0f1011121314");
+        assert_eq!(json["slot"], 34567890123u64);
+        assert_eq!(json["timestamp"], 1700000000u32);
+        assert_eq!(json["signature"], "aa".repeat(65));
+
+        // round-trip
+        let deserialized: SignedMerkleRoot = serde_json::from_value(json).unwrap();
+        assert_eq!(deserialized, root);
     }
 }
