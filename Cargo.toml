@@ -43,20 +43,22 @@ lazy_static = "1.5.0"
 mry = "0.13.0"
 opentelemetry = "0.28.0"
 opentelemetry-prometheus = "0.28.0"
-pin-project = "1"
 option-inspect-none = "1"
-psl = "2"
+pin-project = "1"
 prometheus = "0.13.4"
 prometheus_exporter = "0.8.5"
 protobuf = "3.7.2"
 protobuf-json-mapping = "3.7.2"
+psl = "2"
 pyth-hermes-client-rust = "0.0.1"
+pythnet-sdk = "2.3.1"
 rand = "0.9.0"
 replace_with = "0.1.8"
 scopeguard = "1.2.0"
 serde_bytes = "0.11.17"
 serde_json = "1.0.140"
 serde_repr = "0.1.20"
+sha3 = "0.10.8"
 tempfile = "3.23.0"
 tokio-stream = "0.1.17"
 tracing = "0.1.41"
@@ -76,6 +78,21 @@ version = "0.30.1"
 [workspace.dependencies.pyth-lazer-client]
 path = "sdk/rust/client"
 version = "19.0.1"
+
+[workspace.dependencies.async-stripe]
+version = "=1.0.0-rc.0"
+default-features = true
+
+[workspace.dependencies.async-stripe-core]
+version = "=1.0.0-rc.0"
+features = ["customer"]
+
+[workspace.dependencies.async-stripe-misc]
+version = "=1.0.0-rc.0"
+features = ["entitlements_active_entitlement", "entitlements_feature"]
+
+[workspace.dependencies.async-stripe-shared]
+version = "=1.0.0-rc.0"
 
 [workspace.dependencies.axum-extra]
 version = "0.10.1"
@@ -120,6 +137,10 @@ features = ["http1", "server"]
 [workspace.dependencies.hyper-util]
 version = "0.1.10"
 features = ["tokio"]
+
+[workspace.dependencies.k256]
+version = "0.13.4"
+features = ["ecdsa"]
 
 [workspace.dependencies.opentelemetry_sdk]
 version = "0.28.0"
@@ -187,21 +208,6 @@ features = ["axum"]
 [workspace.dependencies.uuid]
 version = "1.18.1"
 features = ["serde", "v4"]
-
-[workspace.dependencies.async-stripe]
-version = "=1.0.0-rc.0"
-default-features = true
-
-[workspace.dependencies.async-stripe-core]
-version = "=1.0.0-rc.0"
-features = ["customer"]
-
-[workspace.dependencies.async-stripe-misc]
-version = "=1.0.0-rc.0"
-features = ["entitlements_active_entitlement", "entitlements_feature"]
-
-[workspace.dependencies.async-stripe-shared]
-version = "=1.0.0-rc.0"
 
 [workspace.lints.rust]
 unsafe_code = "deny"
