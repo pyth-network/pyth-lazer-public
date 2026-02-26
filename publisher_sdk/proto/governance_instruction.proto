@@ -184,6 +184,10 @@ message AddPublisher {
     optional bool is_active = 4;
     // IDs of the feeds for which the publisher's price will be included in the aggregate.
     repeated uint32 allowed_feed_ids = 5;
+    // Publisher access token configuration. Will become required in the future.
+    optional PublisherAccessToken access_token = 6;
+    // Publisher key type. Will become required in the future.
+    optional PublisherKeyType key_type = 7;
 }
 
 message UpdatePublisher {
@@ -200,6 +204,8 @@ message UpdatePublisher {
         AddPublisherAllowedFeedIds add_publisher_allowed_feed_ids = 106;
         RemovePublisherAllowedFeedIds remove_publisher_allowed_feed_ids = 107;
         SetPublisherAllowedFeedIds set_publisher_allowed_feed_ids = 108;
+        SetPublisherAccessToken set_publisher_access_token = 109;
+        SetPublisherKeyType set_publisher_key_type = 110;
     }
 }
 
@@ -251,6 +257,17 @@ message SetPublisherAllowedFeedIds {
 message SetPublisherActive {
     // [required]
     optional bool is_active = 1;
+}
+
+// Set the publisher's access token configuration.
+message SetPublisherAccessToken {
+    // New access token configuration.
+    optional PublisherAccessToken access_token = 1;
+}
+
+// Set the publisher's key type.
+message SetPublisherKeyType {
+    optional PublisherKeyType key_type = 1;
 }
 
 // Add a new feed. Refer to `Feed` message fields documentation.

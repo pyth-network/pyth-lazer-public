@@ -64,6 +64,18 @@ message Publisher {
     optional bool is_active = 4;
     // IDs of the feeds for which the publisher's price will be included in the aggregate.
     repeated uint32 allowed_feed_ids = 5;
+    // Publisher access token configuration. Will become required in the future.
+    optional PublisherAccessToken access_token = 6;
+    // Publisher key type. Will become required in the future.
+    optional PublisherKeyType key_type = 7;
+}
+
+// Access token authentication configuration for a publisher.
+message PublisherAccessToken {
+    oneof token {
+        // SHA-256 hash of the plaintext access token (32 bytes).
+        bytes sha256_hash = 1;
+    }
 }
 
 enum FeedState {
@@ -102,6 +114,13 @@ enum TradingStatus {
     TRADING_STATUS_CLOSED = 1;
     TRADING_STATUS_HALTED = 2;
     TRADING_STATUS_CORP_ACTION = 3;
+}
+
+// Publisher key type.
+enum PublisherKeyType {
+    INTERNAL = 0;
+    TEST = 1;
+    PRODUCTION = 2;
 }
 
 message FeedMarketSchedule {
@@ -332,6 +351,8 @@ message Permissions {
         ADD_PUBLISHER_ALLOWED_FEED_IDS = 106;
         REMOVE_PUBLISHER_ALLOWED_FEED_IDS = 107;
         SET_PUBLISHER_ALLOWED_FEED_IDS = 108;
+        SET_PUBLISHER_ACCESS_TOKEN = 109;
+        SET_PUBLISHER_KEY_TYPE = 110;
     }
 
     enum UpdateFeedAction {
