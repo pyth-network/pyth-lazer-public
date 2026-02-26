@@ -1,4 +1,5 @@
 use crate::jrpc_handle::{JrpcConnectionContext, handle_jrpc};
+use crate::legacy_handle::handle_legacy;
 use crate::publisher_handle::handle_publisher;
 use crate::{
     config::Config, lazer_publisher::LazerPublisher, publisher_handle::PublisherConnectionContext,
@@ -27,6 +28,7 @@ pub enum PublisherRequest {
 pub enum Request {
     PublisherRequest(PublisherRequest),
     JrpcV1,
+    LegacyV1,
 }
 
 pub struct RelayerRequest(pub http::Request<Incoming>);
@@ -34,6 +36,7 @@ pub struct RelayerRequest(pub http::Request<Incoming>);
 const PUBLISHER_WS_URI_V1: &str = "/v1/publisher";
 const PUBLISHER_WS_URI_V2: &str = "/v2/publisher";
 const JRPC_WS_URI_V1: &str = "/v1/jrpc";
+const LEGACY_WS_URI_V1: &str = "/v1/legacy";
 
 const READINESS_PROBE_PATH: &str = "/ready";
 const LIVENESS_PROBE_PATH: &str = "/live";
@@ -95,6 +98,7 @@ async fn request_handler(
         PUBLISHER_WS_URI_V1 => Request::PublisherRequest(PublisherRequest::PublisherV1),
         PUBLISHER_WS_URI_V2 => Request::PublisherRequest(PublisherRequest::PublisherV2),
         JRPC_WS_URI_V1 => Request::JrpcV1,
+        LEGACY_WS_URI_V1 => Request::LegacyV1,
         LIVENESS_PROBE_PATH => {
             let response = Response::builder().status(StatusCode::OK);
             return Ok(response.body(FullBody::default())?);
@@ -151,6 +155,15 @@ async fn request_handler(
                         server,
                         request.0,
                         publisher_connection_context,
+                        lazer_publisher,
+                    ));
+                    Ok(response.map(|()| FullBody::default()))
+                }
+                Request::LegacyV1 => {
+                    tokio::spawn(handle_legacy(
+                        config.clone(),
+                        server,
+                        request.0,
                         lazer_publisher,
                     ));
                     Ok(response.map(|()| FullBody::default()))

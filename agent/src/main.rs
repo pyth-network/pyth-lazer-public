@@ -1,19 +1,11 @@
-use serde::Deserialize;
+use pyth_lazer_agent::{config, http_server, lazer_publisher::LazerPublisher};
 use {
-    crate::lazer_publisher::LazerPublisher,
     anyhow::Context,
     clap::Parser,
+    serde::Deserialize,
     tracing::{info, level_filters::LevelFilter},
     tracing_subscriber::{EnvFilter, fmt::format::FmtSpan},
 };
-
-mod config;
-mod http_server;
-mod jrpc_handle;
-mod lazer_publisher;
-mod publisher_handle;
-pub mod relayer_session;
-mod websocket_utils;
 
 #[derive(Parser, Deserialize)]
 #[command(version)]

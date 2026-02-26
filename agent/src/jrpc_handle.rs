@@ -1,7 +1,7 @@
 use crate::config::Config;
 use crate::lazer_publisher::LazerPublisher;
+use crate::metadata::fetch_metadata;
 use crate::websocket_utils::{handle_websocket_error, send_json, send_text};
-use anyhow::Error;
 use futures::{AsyncRead, AsyncWrite};
 use futures_util::io::{BufReader, BufWriter};
 use hyper_util::rt::TokioIo;
@@ -11,14 +11,9 @@ use pyth_lazer_protocol::jrpc::{
 };
 use soketto::Sender;
 use soketto::handshake::http::Server;
-use std::str::FromStr;
 use tokio::{pin, select};
 use tokio_util::compat::TokioAsyncReadCompatExt;
 use tracing::{debug, error, instrument};
-use url::Url;
-
-const DEFAULT_HISTORY_SERVICE_URL: &str =
-    "https://history.pyth-lazer.dourolabs.app/history/v1/symbols";
 
 pub struct JrpcConnectionContext {}
 
@@ -167,27 +162,6 @@ async fn handle_jrpc_inner<T: AsyncRead + AsyncWrite + Unpin>(
     }
 }
 
-async fn get_metadata(config: Config) -> Result<Vec<SymbolMetadata>, Error> {
-    let result = reqwest::get(
-        config
-            .history_service_url
-            .unwrap_or(Url::from_str(DEFAULT_HISTORY_SERVICE_URL)?),
-    )
-    .await?;
-
-    if result.status().is_success() {
-        Ok(serde_json::from_str::<Vec<SymbolMetadata>>(
-            &result.text().await?,
-        )?)
-    } else {
-        Err(anyhow::anyhow!(
-            "Error getting metadata (status_code={}, body={})",
-            result.status(),
-            result.text().await.unwrap_or("none".to_string())
-        ))
-    }
-}
-
 fn filter_symbols(
     symbols: Vec<SymbolMetadata>,
     get_metadata_params: GetMetadataParams,
@@ -241,7 +215,7 @@ async fn send_update_failure_response<T: AsyncRead + AsyncWrite + Unpin>(
     sender: &mut Sender<T>,
     request_params: FeedUpdateParams,
     request_id: JrpcId,
-    err: Error,
+    err: anyhow::Error,
 ) -> anyhow::Result<()> {
     debug!("error while sending updates: {:?}", err);
     send_json(
@@ -261,7 +235,7 @@ async fn handle_get_metadata<T: AsyncRead + AsyncWrite + Unpin>(
     request_params: GetMetadataParams,
     request_id: JrpcId,
 ) -> anyhow::Result<()> {
-    match get_metadata(config.clone()).await {
+    match fetch_metadata(&config.history_service_url).await {
         Ok(symbols) => {
             let symbols = filter_symbols(symbols.clone(), request_params);
 
@@ -295,7 +269,6 @@ pub mod tests {
     use pyth_lazer_protocol::{PriceFeedId, SymbolState, api::Channel, time::FixedRate};
 
     use super::*;
-    use std::net::SocketAddr;
 
     fn gen_test_symbol(name: String, asset_type: String) -> SymbolMetadata {
         SymbolMetadata {
@@ -314,24 +287,6 @@ pub mod tests {
             quote_currency: None,
             nasdaq_symbol: None,
         }
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_try_get_metadata() {
-        let config = Config {
-            listen_address: SocketAddr::from(([127, 0, 0, 1], 0)),
-            relayer_urls: vec![],
-            authorization_token: None,
-            publish_keypair_path: Default::default(),
-            publish_interval_duration: Default::default(),
-            history_service_url: None,
-            enable_update_deduplication: false,
-            update_deduplication_ttl: Default::default(),
-            proxy_url: None,
-        };
-
-        println!("{:?}", get_metadata(config).await.unwrap());
     }
 
     #[test]

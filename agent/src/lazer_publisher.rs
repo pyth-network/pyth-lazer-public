@@ -299,10 +299,13 @@ mod tests {
             authorization_token: None,
             publish_keypair_path: PathBuf::from(signing_key_file.path()),
             publish_interval_duration: Duration::from_millis(25),
-            history_service_url: None,
+            history_service_url: "https://history.pyth-lazer.dourolabs.app/history/v1/symbols"
+                .parse()
+                .expect("should never fail on valid hardcoded URL"),
             enable_update_deduplication: false,
             update_deduplication_ttl: Default::default(),
             proxy_url: None,
+            legacy_sched_interval_duration: Duration::from_millis(500),
         };
 
         let (relayer_sender, mut relayer_receiver) = broadcast::channel(CHANNEL_CAPACITY);
@@ -320,7 +323,6 @@ mod tests {
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         match relayer_receiver.try_recv() {
             Err(TryRecvError::Empty) => (),
-            #[allow(clippy::panic, reason = "Should not happen")]
             _ => panic!("channel should be empty"),
         }
 
@@ -336,7 +338,6 @@ mod tests {
         sender.send(feed_update.clone()).await.unwrap();
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
-        #[allow(clippy::panic, reason = "Ok in tests")]
         match relayer_receiver.try_recv() {
             Ok(transaction) => {
                 let lazer_transaction =
