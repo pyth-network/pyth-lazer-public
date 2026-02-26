@@ -363,7 +363,6 @@ mod tests {
     ) {
         let listener = TcpListener::bind(addr).await.unwrap();
 
-        #[allow(clippy::panic, reason = "Ok in tests")]
         tokio::spawn(async move {
             let Ok((stream, _)) = listener.accept().await else {
                 panic!("failed to accept mock relayer websocket connection");

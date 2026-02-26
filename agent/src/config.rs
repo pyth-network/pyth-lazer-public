@@ -18,12 +18,15 @@ pub struct Config {
     pub publish_keypair_path: PathBuf,
     #[serde(with = "humantime_serde", default = "default_publish_interval")]
     pub publish_interval_duration: Duration,
-    pub history_service_url: Option<Url>,
+    #[serde(default = "default_history_service_url")]
+    pub history_service_url: Url,
     #[serde(default)]
     pub enable_update_deduplication: bool,
     #[serde(with = "humantime_serde", default = "default_update_deduplication_ttl")]
     pub update_deduplication_ttl: Duration,
     pub proxy_url: Option<Url>,
+    #[serde(with = "humantime_serde", default = "default_legacy_sched_interval")]
+    pub legacy_sched_interval_duration: Duration,
 }
 
 #[derive(Deserialize, Derivative, Clone, PartialEq)]
@@ -44,6 +47,17 @@ fn default_publish_interval() -> Duration {
 
 fn default_update_deduplication_ttl() -> Duration {
     Duration::from_millis(500)
+}
+
+fn default_legacy_sched_interval() -> Duration {
+    Duration::from_millis(500)
+}
+
+fn default_history_service_url() -> Url {
+    #[allow(clippy::expect_used, reason = "hardcoded URL is always valid")]
+    "https://history.pyth-lazer.dourolabs.app/history/v1/symbols"
+        .parse()
+        .expect("hardcoded URL is valid")
 }
 
 pub fn load_config(config_path: String) -> anyhow::Result<Config> {

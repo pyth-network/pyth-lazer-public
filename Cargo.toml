@@ -57,6 +57,7 @@ replace_with = "0.1.8"
 scopeguard = "1.2.0"
 serde_bytes = "0.11.17"
 serde_json = "1.0.140"
+serde-this-or-that = "0.5.0"
 serde_repr = "0.1.20"
 sha3 = "0.10.8"
 tempfile = "3.23.0"
@@ -113,6 +114,10 @@ features = ["serde"]
 [workspace.dependencies.bip39]
 version = "2.1.0"
 features = ["rand"]
+
+[workspace.dependencies.cached]
+version = "0.56.0"
+features = ["async"]
 
 [workspace.dependencies.clap]
 version = "4.5.32"
