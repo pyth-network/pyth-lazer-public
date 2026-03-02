@@ -16,13 +16,11 @@ async-stream = "0.3.6"
 async-trait = "0.1.88"
 aws-config = "1.8.14"
 aws-sdk-s3 = "1.124.0"
-axum = "0.8.1"
 axum-otel-metrics = "0.10.0"
 base64 = "0.22.1"
 bip32 = "0.5.2"
 bs58 = "0.5.1"
 byteorder = "1.5.0"
-bytes = "1.10.1"
 cadd = "0.2.0"
 chrono = "0.4.41"
 chrono-tz = "0.10.3"
@@ -98,6 +96,10 @@ features = ["entitlements_active_entitlement", "entitlements_feature"]
 [workspace.dependencies.async-stripe-shared]
 version = "=1.0.0-rc.0"
 
+[workspace.dependencies.axum]
+version = "0.8.1"
+features = ["ws"]
+
 [workspace.dependencies.axum-extra]
 version = "0.10.1"
 features = ["query", "multipart"]
@@ -117,6 +119,10 @@ features = ["serde"]
 [workspace.dependencies.bip39]
 version = "2.1.0"
 features = ["rand"]
+
+[workspace.dependencies.bytes]
+version = "1.10.1"
+features = ["serde"]
 
 [workspace.dependencies.cached]
 version = "0.56.0"
