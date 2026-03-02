@@ -322,11 +322,94 @@ impl Channel {
     }
 }
 
+impl TryFrom<ChannelId> for Channel {
+    type Error = ChannelId;
+
+    fn try_from(id: ChannelId) -> Result<Self, Self::Error> {
+        match id {
+            ChannelId::REAL_TIME => Ok(Channel::RealTime),
+            ChannelId::FIXED_RATE_50 => Ok(Channel::FixedRate(FixedRate::RATE_50_MS)),
+            ChannelId::FIXED_RATE_200 => Ok(Channel::FixedRate(FixedRate::RATE_200_MS)),
+            ChannelId::FIXED_RATE_1000 => Ok(Channel::FixedRate(FixedRate::RATE_1000_MS)),
+            _ => Err(id),
+        }
+    }
+}
+
 #[test]
 fn id_supports_all_fixed_rates() {
     for rate in FixedRate::ALL {
         Channel::FixedRate(rate).id();
     }
+}
+
+#[test]
+fn from_id_round_trips_with_id() {
+    let all_channels = [
+        Channel::RealTime,
+        Channel::FixedRate(FixedRate::RATE_50_MS),
+        Channel::FixedRate(FixedRate::RATE_200_MS),
+        Channel::FixedRate(FixedRate::RATE_1000_MS),
+    ];
+    for channel in all_channels {
+        assert_eq!(Channel::try_from(channel.id()), Ok(channel));
+    }
+}
+
+#[test]
+fn from_id_returns_none_for_unknown_ids() {
+    assert!(Channel::try_from(ChannelId(0)).is_err());
+    assert!(Channel::try_from(ChannelId(5)).is_err());
+    assert!(Channel::try_from(ChannelId(255)).is_err());
+}
+
+#[test]
+fn parse_channel_accepts_numeric_ids() {
+    assert_eq!(parse_channel("1"), Some(Channel::RealTime));
+    assert_eq!(
+        parse_channel("2"),
+        Some(Channel::FixedRate(FixedRate::RATE_50_MS))
+    );
+    assert_eq!(
+        parse_channel("3"),
+        Some(Channel::FixedRate(FixedRate::RATE_200_MS))
+    );
+    assert_eq!(
+        parse_channel("4"),
+        Some(Channel::FixedRate(FixedRate::RATE_1000_MS))
+    );
+}
+
+#[test]
+fn parse_channel_rejects_invalid_numeric_ids() {
+    assert_eq!(parse_channel("0"), None);
+    assert_eq!(parse_channel("5"), None); // Unsupported channel ID for now. Remove this test when we add support for it.
+    assert_eq!(parse_channel("99"), None);
+}
+
+#[test]
+fn channel_deserializes_from_json_string() {
+    let channel: Channel = serde_json::from_str(r#""3""#).unwrap();
+    assert_eq!(channel, Channel::FixedRate(FixedRate::RATE_200_MS));
+
+    let channel: Channel = serde_json::from_str(r#""fixed_rate@200ms""#).unwrap();
+    assert_eq!(channel, Channel::FixedRate(FixedRate::RATE_200_MS));
+}
+
+#[test]
+fn channel_deserializes_from_json_number() {
+    let channel: Channel = serde_json::from_str("3").unwrap();
+    assert_eq!(channel, Channel::FixedRate(FixedRate::RATE_200_MS));
+
+    let channel: Channel = serde_json::from_str("1").unwrap();
+    assert_eq!(channel, Channel::RealTime);
+}
+
+#[test]
+fn channel_rejects_invalid_json_number() {
+    assert!(serde_json::from_str::<Channel>("0").is_err());
+    assert!(serde_json::from_str::<Channel>("5").is_err());
+    assert!(serde_json::from_str::<Channel>("999").is_err());
 }
 
 fn parse_channel(value: &str) -> Option<Channel> {
@@ -337,6 +420,8 @@ fn parse_channel(value: &str) -> Option<Channel> {
         Some(Channel::FixedRate(FixedRate::from_millis(
             ms_value.parse().ok()?,
         )?))
+    } else if let Ok(id) = value.parse::<u8>() {
+        Channel::try_from(ChannelId(id)).ok()
     } else {
         None
     }
@@ -347,8 +432,26 @@ impl<'de> Deserialize<'de> for Channel {
     where
         D: serde::Deserializer<'de>,
     {
-        let value = <String>::deserialize(deserializer)?;
-        parse_channel(&value).ok_or_else(|| Error::custom("unknown channel"))
+        struct ChannelVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for ChannelVisitor {
+            type Value = Channel;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a channel name string or numeric channel ID")
+            }
+
+            fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Channel, E> {
+                parse_channel(value).ok_or_else(|| E::custom("unknown channel"))
+            }
+
+            fn visit_u64<E: serde::de::Error>(self, value: u64) -> Result<Channel, E> {
+                let id = u8::try_from(value).map_err(|_| E::custom("channel ID out of range"))?;
+                Channel::try_from(ChannelId(id)).map_err(|_| E::custom("unknown channel ID"))
+            }
+        }
+
+        deserializer.deserialize_any(ChannelVisitor)
     }
 }
 
