@@ -1,7 +1,12 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "globalEnv": ["NODE_ENV"],
-  "globalPassThroughEnv": ["COREPACK_HOME"],
+  "globalPassThroughEnv": [
+    "AUTH_TOKENS",
+    "CLICKHOUSE_USERNAME",
+    "CLICKHOUSE_PASSWORD",
+    "CLICKHOUSE_HOST"
+  ],
   "ui": "tui",
   "tasks": {
     "//#fix": {
