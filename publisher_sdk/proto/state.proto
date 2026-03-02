@@ -50,6 +50,8 @@ message State {
     repeated string feature_flags = 10;
     // List of assets.
     repeated Asset assets = 11;
+    // Wormhole guardian sets (current + optional next during upgrade).
+    optional WormholeGuardianSets wormhole_guardian_sets = 12;
 }
 
 // An item of the state describing a publisher.
@@ -377,6 +379,25 @@ message Permissions {
     repeated UpdateAssetAction update_asset_actions = 5;
 }
 
+
+// A single Wormhole Guardian Set.
+message WormholeGuardianSet {
+    // [required] Guardian set index. Monotonically increasing, incremented by 1 on each upgrade.
+    optional uint32 guardian_set_index = 1;
+    // Guardian keys. Each key is a 20-byte Ethereum-style address
+    // (last 20 bytes of keccak256 of the ECDSA secp256k1 public key).
+    repeated bytes keys = 2;
+}
+
+// Container for the current and (optionally) next Wormhole Guardian Set.
+// At most two guardian sets are valid at any time: the current one, and
+// the next one if a guardian set upgrade is in progress.
+message WormholeGuardianSets {
+    // [required] The currently active guardian set.
+    optional WormholeGuardianSet current = 1;
+    // [optional] The next guardian set, present only during a guardian set upgrade.
+    optional WormholeGuardianSet next = 2;
+}
 
 // Specifies the way governance transactions are signed and verified.
 // Note that once added, a governance source cannot be removed.
