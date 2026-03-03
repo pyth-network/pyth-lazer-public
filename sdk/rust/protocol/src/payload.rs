@@ -4,7 +4,7 @@ use {
         price::Price,
         rate::Rate,
         time::{DurationUs, TimestampUs},
-        ChannelId, PriceFeedId, PriceFeedProperty,
+        ChannelId, PriceFeedId, PriceFeedProperty, PublisherDatapoint, PublisherId,
     },
     anyhow::Context,
 };
@@ -66,6 +66,8 @@ pub struct AggregatedPriceFeedData {
     pub ema_price: Option<Price>,
     pub ema_confidence: Option<Price>,
     pub feed_update_timestamp: Option<TimestampUs>,
+    pub publisher_ids: Vec<PublisherId>,
+    pub publisher_data: Vec<PublisherDatapoint>,
 }
 
 impl AggregatedPriceFeedData {
@@ -84,6 +86,8 @@ impl AggregatedPriceFeedData {
             ema_price: None,
             ema_confidence: None,
             feed_update_timestamp: Some(now),
+            publisher_ids: Vec::new(),
+            publisher_data: Vec::new(),
         }
     }
 }

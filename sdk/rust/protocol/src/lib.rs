@@ -70,6 +70,25 @@ pub struct PriceFeedId(pub u32);
 )]
 pub struct ChannelId(pub u8);
 
+/// Per-publisher datapoint in an aggregate. Represents a price mantissa for
+/// price feeds or a rate mantissa for funding rate feeds.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, From, Into,
+)]
+pub struct PublisherDatapoint(pub i64);
+
+impl From<Price> for PublisherDatapoint {
+    fn from(price: Price) -> Self {
+        Self(price.mantissa_i64())
+    }
+}
+
+impl From<Rate> for PublisherDatapoint {
+    fn from(rate: Rate) -> Self {
+        Self(rate.mantissa())
+    }
+}
+
 impl ChannelId {
     pub const REAL_TIME: ChannelId = ChannelId(1);
     pub const FIXED_RATE_50: ChannelId = ChannelId(2);
