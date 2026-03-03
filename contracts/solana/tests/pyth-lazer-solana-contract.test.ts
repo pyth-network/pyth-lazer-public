@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, it } from "bun:test";
 import type { Program } from "@coral-xyz/anchor";
 import * as anchor from "@coral-xyz/anchor";
 import { BN } from "bn.js";
@@ -16,7 +16,8 @@ describe("pyth-lazer-solana-contract", () => {
 
     const tx = await program.methods
       .initialize(topAuthorityKeypair.publicKey, anchor.web3.PublicKey.unique())
-      .rpc();
+      .rpc({ skipPreflight: true });
+    // biome-ignore lint/suspicious/noConsole: test output
     console.log("Your transaction signature", tx);
 
     const trustedSigner1 = anchor.web3.PublicKey.unique();
@@ -24,7 +25,8 @@ describe("pyth-lazer-solana-contract", () => {
       .update(trustedSigner1, new BN(42))
       .accounts({ topAuthority: topAuthorityKeypair.publicKey })
       .signers([topAuthorityKeypair])
-      .rpc();
+      .rpc({ skipPreflight: true });
+    // biome-ignore lint/suspicious/noConsole: test output
     console.log("Your transaction signature", tx2);
   });
 });
