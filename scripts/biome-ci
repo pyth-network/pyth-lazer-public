@@ -1,0 +1,16 @@
+#!/bin/sh
+
+set -e
+
+if [ "$CI" = "true" ] || [ "$CI" = "1" ]; then
+  # CI: always check changed files
+  # TODO: After we merge this PR, uncomment this command.
+  # We currently have it disabled to prevent making a mega-large PR with 200+ files changed
+  # due to linting issues, and we will lint as we go in this repository,
+  # until everything is caught up.
+  # biome ci --changed --no-errors-on-unmatched --max-diagnostics=none "$@"
+  echo 'TODO: Uncomment the biome check when we are ready'
+else
+  biome check --staged --no-errors-on-unmatched --max-diagnostics=none "$@"
+  biome check --changed --no-errors-on-unmatched --max-diagnostics=none "$@"
+fi

@@ -1,7 +1,16 @@
 {
-  "extends": "@cprussin/tsconfig/base.json",
-  "exclude": ["node_modules", "dist"],
   "compilerOptions": {
-    "lib": ["DOM", "DOM.Iterable", "WebWorker"]
-  }
+    "lib": [
+      "ESNext",
+      "DOM",
+      "DOM.Iterable",
+      "WebWorker"
+    ]
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "examples"
+  ],
+  "extends": "@cprussin/tsconfig/base.json"
 }

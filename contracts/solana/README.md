@@ -24,5 +24,5 @@ Once deployed, run the following Anchor script to setup the program. This script
 if it is uninitialized and updates one trusted signer of the program.
 
 ```bash
-pnpm run setup --url <RPC_URL> --keypair-path <PATH/TO/KEYPAIR> --trusted-signer <Pubkey> --expiry-time-seconds <UNIX_TIMESTAMP>
+bun run setup --url <RPC_URL> --keypair-path <PATH/TO/KEYPAIR> --trusted-signer <Pubkey> --expiry-time-seconds <UNIX_TIMESTAMP>
 ```
