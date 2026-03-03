@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, it, expect, mock } from "bun:test";
 
 import { IsomorphicEventEmitter } from "../index.js";
 
@@ -29,7 +29,7 @@ describe("IsomorphicEventEmitter tests", () => {
   it("should emit an event and ensure the args were passed correctly", () => {
     const emitter = new TestEmitter();
 
-    const fnc = vi.fn();
+    const fnc = mock();
     emitter.on("emitterTest", fnc);
 
     const reason = "this is just a test";
@@ -43,8 +43,8 @@ describe("IsomorphicEventEmitter tests", () => {
   it("should ensure multiple emissions are captured", () => {
     const emitter = new TestEmitter();
 
-    const errorFnc = vi.fn();
-    const multipleFnc = vi.fn();
+    const errorFnc = mock();
+    const multipleFnc = mock();
 
     const reasons: string[] = [];
     const awesomes: boolean[] = [];
@@ -89,7 +89,7 @@ describe("IsomorphicEventEmitter tests", () => {
     const reason = "asdomasoidmoasmoda";
     const awesome = false;
 
-    const fn = vi.fn();
+    const fn = mock();
 
     emitter.on("emitterTest", fn);
 
@@ -108,7 +108,7 @@ describe("IsomorphicEventEmitter tests", () => {
     const food: FoodType = "tacos";
     const food2: FoodType = "rice";
 
-    const fn = vi.fn();
+    const fn = mock();
 
     emitter.once("multiple", fn);
 
@@ -120,8 +120,8 @@ describe("IsomorphicEventEmitter tests", () => {
   it("should ensure all event handlers are unbound when no callback is provided to .off()", () => {
     const emitter = new TestEmitter();
 
-    const fn1 = vi.fn();
-    const fn2 = vi.fn();
+    const fn1 = mock();
+    const fn2 = mock();
 
     const food1: FoodType = "pizza";
     const food2: FoodType = "pasta";

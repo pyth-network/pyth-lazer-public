@@ -1,33 +1,25 @@
 {
-  "name": "@pythnetwork/pyth-lazer-solana-contract",
-  "private": true,
-  "license": "ISC",
-  "scripts": {
-    "fix:format": "prettier --write **/*.*",
-    "test:format": "prettier --check **/*.*",
-    "test:anchor": "CARGO_TARGET_DIR=\"$PWD/target\" anchor test",
-    "setup": "pnpm ts-node scripts/setup.ts",
-    "check-trusted-signer": "pnpm ts-node scripts/check_trusted_signer.ts"
-  },
   "dependencies": {
-    "@coral-xyz/anchor": "^0.31.1",
-    "@pythnetwork/pyth-lazer-sdk": "workspace:*",
-    "@solana/web3.js": "^1.98.0",
-    "@solana/buffer-layout": "^4.0.1"
+    "@coral-xyz/anchor": "catalog:",
+    "@pythnetwork/pyth-lazer-sdk": "workspace:",
+    "@solana/buffer-layout": "catalog:",
+    "@solana/web3.js": "catalog:",
+    "bn.js": "catalog:"
   },
   "devDependencies": {
-    "@types/bn.js": "^5.1.0",
-    "@types/chai": "^4.3.0",
-    "@types/mocha": "^9.0.0",
-    "@types/yargs": "^17.0.33",
-    "chai": "^4.3.4",
-    "mocha": "^9.0.3",
-    "prettier": "catalog:",
-    "ts-mocha": "^10.0.0",
-    "ts-node": "catalog:",
-    "yargs": "^17.7.2"
+    "@types/bn.js": "catalog:",
+    "@types/yargs": "catalog:",
+    "yargs": "catalog:"
   },
   "engines": {
     "node": "^24.0.0"
+  },
+  "license": "ISC",
+  "name": "@pythnetwork/pyth-lazer-solana-contract",
+  "private": true,
+  "scripts": {
+    "check-trusted-signer": "bun scripts/check_trusted_signer.ts",
+    "setup": "bun scripts/setup.ts",
+    "test:anchor": "anchor test"
   }
 }

@@ -44,7 +44,6 @@ poetry.lock
 config.env
 
 # IDE
-.vscode/
 .idea/
 *.swp
 *.swo
@@ -93,3 +92,6 @@ tsconfig.tsbuildinfo
 
 # Ralph config (may contain API key)
 .cursor/ralph-config.json
+
+# TSC-specific build files
+*.tsbuildinfo

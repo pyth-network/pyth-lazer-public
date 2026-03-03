@@ -1,36 +1,41 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalEnv": ["NODE_ENV"],
+  "globalEnv": [
+    "NODE_ENV"
+  ],
   "globalPassThroughEnv": [
     "AUTH_TOKENS",
     "CLICKHOUSE_USERNAME",
     "CLICKHOUSE_PASSWORD",
     "CLICKHOUSE_HOST"
   ],
-  "ui": "tui",
   "tasks": {
-    "//#fix": {
-      "dependsOn": ["//#fix:lint", "//#fix:format"],
-      "cache": false
-    },
     "//#fix:format": {
-      "dependsOn": ["//#install:modules", "//#fix:lint"],
-      "cache": false
+      "cache": false,
+      "dependsOn": [
+        "//#install:modules",
+        "//#fix:lint"
+      ]
     },
     "//#fix:lint": {
-      "dependsOn": ["//#install:modules", "^build"],
-      "cache": false
+      "cache": false,
+      "dependsOn": [
+        "//#install:modules",
+        "^build"
+      ]
     },
     "//#install:modules": {
       "inputs": [
         "**/package.json",
         ".npmrc",
         ".npmignore",
-        "pnpm-workspace.yaml",
+        "bunfig.toml",
         "!**/.next/**",
         "!**/dist/**"
       ],
-      "outputs": ["pnpm-lock.yaml"]
+      "outputs": [
+        "bun.lock"
+      ]
     },
     "//#test": {
       "dependsOn": [
@@ -42,100 +47,234 @@
       ]
     },
     "//#test:format": {
-      "dependsOn": ["//#install:modules"]
-    },
-    "//#test:lint": {
-      "dependsOn": ["//#install:modules", "^build"]
-    },
-    "//#test:types": {
-      "dependsOn": ["//#install:modules", "^build"]
-    },
-    "//#test:unit": {
-      "dependsOn": ["//#install:modules", "^build"]
+      "dependsOn": [
+        "//#install:modules"
+      ]
     },
     "//#test:integration": {
-      "dependsOn": ["//#install:modules", "^build"]
+      "dependsOn": [
+        "//#install:modules",
+        "^build"
+      ]
+    },
+    "//#test:lint": {
+      "dependsOn": [
+        "//#install:modules",
+        "^build"
+      ]
+    },
+    "//#test:lint:changed": {
+      "dependsOn": [
+        "//#install:modules",
+        "^build"
+      ]
+    },
+    "//#test:lint:staged": {
+      "dependsOn": [
+        "//#install:modules",
+        "^build"
+      ]
+    },
+    "//#test:types": {
+      "dependsOn": [
+        "//#install:modules",
+        "^build"
+      ]
+    },
+    "//#test:unit": {
+      "dependsOn": [
+        "//#install:modules",
+        "^build"
+      ]
+    },
+    "auth:db:migrate": {
+      "cache": false,
+      "dependsOn": [
+        "setup:neon-branch"
+      ]
     },
     "build": {
-      "dependsOn": ["//#install:modules", "pull:env", "clean", "^build"],
+      "dependsOn": [
+        "//#install:modules",
+        "pull:env",
+        "clean",
+        "^build",
+        "test:types"
+      ],
       "inputs": [
         "$TURBO_DEFAULT$",
         "!README.md",
         "!**/*.test.*",
-        "!vite.config.js",
+        "!jest.config.js",
         "!eslint.config.js",
-        "!prettier.config.js",
+        "!biome.json",
         "!vercel.json"
       ],
-      "outputs": ["lib/**", "dist/**", ".next/**", "!.next/cache/**"]
+      "outputs": [
+        "lib/**",
+        "dist/**",
+        ".next/**",
+        "!.next/cache/**"
+      ]
+    },
+    "build:storybook": {
+      "inputs": [
+        "src/**",
+        ".storybook/**",
+        "package.json",
+        "bun.lock"
+      ],
+      "outputs": [
+        "storybook-static/**"
+      ]
     },
     "build:vercel": {
-      "dependsOn": ["//#install:modules", "pull:env", "^build"],
+      "dependsOn": [
+        "//#install:modules",
+        "auth:db:migrate",
+        "^build",
+        "test:types"
+      ],
       "inputs": [
         "$TURBO_DEFAULT$",
         "!README.md",
         "!**/*.test.*",
-        "!vite.config.js",
+        "!jest.config.js",
         "!eslint.config.js",
-        "!prettier.config.js",
         "!vercel.json"
       ],
-      "outputs": ["lib/**", "dist/**", ".next/**", "!.next/cache/**"]
+      "outputs": [
+        "lib/**",
+        "dist/**",
+        ".next/**",
+        "!.next/cache/**"
+      ]
     },
     "clean": {
       "cache": false,
       "outputs": []
     },
-    "fix": {
-      "dependsOn": ["fix:lint", "fix:format"],
-      "cache": false
-    },
-    "fix:format": {
-      "dependsOn": ["//#install:modules", "fix:lint"],
-      "cache": false
-    },
     "fix:lint": {
-      "dependsOn": ["//#install:modules", "^build"],
-      "cache": false
+      "cache": false,
+      "dependsOn": [
+        "//#install:modules",
+        "^build"
+      ]
+    },
+    "fix:lint:changed": {
+      "cache": false,
+      "dependsOn": [
+        "^build",
+        "^fix:lint:staged"
+      ]
+    },
+    "fix:lint:staged": {
+      "cache": false,
+      "dependsOn": [
+        "^build",
+        "^fix:lint:staged"
+      ]
     },
     "pull:env": {
-      "dependsOn": ["//#install:modules"],
-      "outputs": [".env.local"],
-      "cache": false
+      "cache": false,
+      "dependsOn": [
+        "//#install:modules"
+      ],
+      "outputs": [
+        ".env.local"
+      ]
+    },
+    "setup:neon-branch": {
+      "cache": false,
+      "dependsOn": [
+        "pull:env"
+      ],
+      "outputs": [
+        ".env.local"
+      ]
     },
     "start:dev": {
-      "dependsOn": ["//#install:modules", "pull:env", "^build"],
-      "persistent": true,
-      "cache": false
+      "cache": false,
+      "dependsOn": [
+        "//#install:modules",
+        "auth:db:migrate",
+        "^build"
+      ],
+      "persistent": true
     },
     "start:prod": {
-      "dependsOn": ["//#install:modules", "build"],
-      "persistent": true,
-      "cache": false
+      "cache": false,
+      "dependsOn": [
+        "//#install:modules",
+        "build"
+      ],
+      "persistent": true
+    },
+    "storybook": {
+      "cache": false,
+      "persistent": true
     },
     "test": {
+      "with": [
+        "test:types",
+        "test:unit",
+        "test:integration",
+        "test:format",
+        "//#test:lint"
+      ]
+    },
+    "test:changed": {
+      "dependsOn": [
+        "^build",
+        "//#test:lint:changed",
+        "test:types"
+      ]
+    },
+    "test:ci": {
       "dependsOn": [
         "test:types",
         "test:unit",
         "test:integration",
         "test:format",
-        "test:lint"
+        "//#test:lint:changed"
       ]
     },
     "test:format": {
-      "dependsOn": ["//#install:modules"]
-    },
-    "test:lint": {
-      "dependsOn": ["//#install:modules", "^build"]
-    },
-    "test:types": {
-      "dependsOn": ["//#install:modules", "^build"]
-    },
-    "test:unit": {
-      "dependsOn": ["//#install:modules", "^build"]
+      "dependsOn": [
+        "//#install:modules"
+      ]
     },
     "test:integration": {
-      "dependsOn": ["//#install:modules", "^build"]
+      "dependsOn": [
+        "//#install:modules",
+        "^build"
+      ]
+    },
+    "test:lint": {
+      "dependsOn": [
+        "//#install:modules",
+        "^build"
+      ]
+    },
+    "test:staged": {
+      "dependsOn": [
+        "^build",
+        "//#test:lint:staged",
+        "test:types"
+      ]
+    },
+    "test:types": {
+      "dependsOn": [
+        "//#install:modules",
+        "^build"
+      ]
+    },
+    "test:unit": {
+      "dependsOn": [
+        "//#install:modules",
+        "^build"
+      ]
     }
-  }
+  },
+  "ui": "tui"
 }
