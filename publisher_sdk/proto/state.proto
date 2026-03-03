@@ -281,6 +281,10 @@ message FeedAggregateData {
     optional int64 ema_confidence = 12;
     // [optional] Timestamp of the latest feed update. Can be absent if no data is available.
     optional google.protobuf.Timestamp feed_update_timestamp = 13;
+    // Publisher IDs that contributed to this aggregate. Same order as publisher_data.
+    repeated uint32 publisher_ids = 14;
+    // Per-publisher data: price mantissas for price feeds, rate mantissas for funding rate feeds (same order as publisher_ids).
+    repeated int64 publisher_data = 15;
 }
 
 // An item of the state describing an asset.
