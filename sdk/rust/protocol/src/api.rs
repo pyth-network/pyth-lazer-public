@@ -1002,6 +1002,12 @@ impl TryFrom<i16> for MarketSession {
     }
 }
 
+pub type GuardianIndex = u8;
+pub type Slot = u64;
+pub type MerkleTimestamp = u32;
+pub type RawMerkleRoot = [u8; 20];
+pub type RawMerkleSignature = [u8; 65];
+
 #[serde_as]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 pub struct SignedMerkleRoot {
@@ -1010,7 +1016,7 @@ pub struct SignedMerkleRoot {
     #[schema(value_type = String, example = "0x1a2b3c...")]
     pub root: Vec<u8>,
 
-    pub slot: u64,
+    pub slot: Slot,
 
     pub timestamp: u32,
 

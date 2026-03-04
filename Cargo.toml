@@ -179,6 +179,10 @@ features = ["derive"]
 version = "3.12.0"
 features = ["base64"]
 
+[workspace.dependencies.serde_wormhole]
+git = "https://github.com/wormhole-foundation/wormhole"
+tag = "v2.17.1"
+
 [workspace.dependencies.soketto]
 version = "0.8.1"
 features = ["http"]
@@ -222,6 +226,10 @@ features = ["axum"]
 [workspace.dependencies.uuid]
 version = "1.18.1"
 features = ["serde", "v4"]
+
+[workspace.dependencies.wormhole-sdk]
+git = "https://github.com/wormhole-foundation/wormhole"
+tag = "v2.17.1"
 
 [workspace.lints.rust]
 unsafe_code = "deny"
