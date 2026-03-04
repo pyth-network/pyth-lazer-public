@@ -89,6 +89,8 @@ enum FeedState {
     // Inactive feeds are not available to consumers.
     // `INACTIVE` feeds are not expected to become stable again.
     INACTIVE = 2;
+    // `BETA` feed is only available to permissioned consumers.
+    BETA = 3;
 }
 
 // Feed kind determines the set of data fields available in the feed.

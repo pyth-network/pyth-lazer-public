@@ -71,15 +71,15 @@ winnow = "0.7.6"
 
 [workspace.dependencies.pyth-lazer-publisher-sdk]
 path = "publisher_sdk/rust"
-version = "0.31.0"
+version = "0.32.0"
 
 [workspace.dependencies.pyth-lazer-protocol]
 path = "sdk/rust/protocol"
-version = "0.30.1"
+version = "0.32.0"
 
 [workspace.dependencies.pyth-lazer-client]
 path = "sdk/rust/client"
-version = "19.1.0"
+version = "20.0.0"
 
 [workspace.dependencies.async-stripe]
 version = "=1.0.0-rc.0"

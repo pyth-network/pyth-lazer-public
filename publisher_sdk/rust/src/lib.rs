@@ -89,6 +89,7 @@ impl From<FeedState> for SymbolState {
             FeedState::COMING_SOON => SymbolState::ComingSoon,
             FeedState::STABLE => SymbolState::Stable,
             FeedState::INACTIVE => SymbolState::Inactive,
+            FeedState::BETA => SymbolState::Beta,
         }
     }
 }
@@ -99,6 +100,7 @@ impl From<SymbolState> for FeedState {
             SymbolState::ComingSoon => FeedState::COMING_SOON,
             SymbolState::Stable => FeedState::STABLE,
             SymbolState::Inactive => FeedState::INACTIVE,
+            SymbolState::Beta => FeedState::BETA,
         }
     }
 }
