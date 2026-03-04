@@ -9,6 +9,7 @@ pub enum SymbolState {
     ComingSoon,
     Stable,
     Inactive,
+    Beta,
 }
 
 impl Display for SymbolState {
@@ -17,6 +18,7 @@ impl Display for SymbolState {
             SymbolState::ComingSoon => write!(f, "coming_soon"),
             SymbolState::Stable => write!(f, "stable"),
             SymbolState::Inactive => write!(f, "inactive"),
+            SymbolState::Beta => write!(f, "beta"),
         }
     }
 }
