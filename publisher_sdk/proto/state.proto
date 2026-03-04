@@ -338,6 +338,7 @@ message Permissions {
         // including operations added in the future.
         UPDATE_ASSET = 117;
         REMOVE_ASSET = 118;
+        SET_WORMHOLE_GUARDIAN_SET = 119;
     }
 
     enum UpdateGovernanceSourceAction {
