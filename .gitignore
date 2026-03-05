@@ -14,8 +14,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -97,4 +97,25 @@ tsconfig.tsbuildinfo
 
 # TSC-specific build files
 *.tsbuildinfo
-package.json
+
+# Non-bun JS package manager lockfiles/config
+
+# npm
+package-lock.json
+npm-shrinkwrap.json
+.npmrc
+
+# pnpm
+pnpm-lock.yaml
+pnpm-lock.yml
+pnpm-workspace.yaml
+pnpm-workspace.yml
+.pnpmrc
+.pnpmfile.cjs
+.pnpmfile.js
+
+# yarn
+yarn.lock
+.yarnrc
+.yarnrc.yml
+.yarn/
