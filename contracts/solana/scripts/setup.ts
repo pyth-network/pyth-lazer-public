@@ -1,10 +1,10 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { PythLazerSolanaContract } from "../target/types/pyth_lazer_solana_contract";
-import * as pythLazerSolanaContractIdl from "../target/idl/pyth_lazer_solana_contract.json";
-import yargs from "yargs/yargs";
-import { readFileSync } from "fs";
 import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
+import { readFileSync } from "fs";
+import yargs from "yargs/yargs";
+import * as pythLazerSolanaContractIdl from "../target/idl/pyth_lazer_solana_contract.json";
+import { PythLazerSolanaContract } from "../target/types/pyth_lazer_solana_contract";
 
 // This script initializes the program. It should be run once after the program is deployed. Additionally, if the
 // top authority be the same as the given keypair and the trusted signer and expiry time are provided, the trusted
@@ -14,12 +14,12 @@ import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
 async function main() {
   let argv = await yargs(process.argv.slice(2))
     .options({
-      url: { type: "string", demandOption: true },
-      "keypair-path": { type: "string", demandOption: true },
-      "top-authority": { type: "string", demandOption: true },
-      treasury: { type: "string", demandOption: true },
-      "trusted-signer": { type: "string", demandOption: false },
-      "expiry-time-seconds": { type: "number", demandOption: false },
+      "expiry-time-seconds": { demandOption: false, type: "number" },
+      "keypair-path": { demandOption: true, type: "string" },
+      "top-authority": { demandOption: true, type: "string" },
+      treasury: { demandOption: true, type: "string" },
+      "trusted-signer": { demandOption: false, type: "string" },
+      url: { demandOption: true, type: "string" },
     })
     .parse();
 

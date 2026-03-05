@@ -7,14 +7,14 @@ import {
   DEFAULT_PRICE_SERVICE_URL,
 } from "./constants.js";
 import type {
+  JsonUpdate,
+  LatestPriceRequest,
   ParsedPayload,
+  PriceRequest,
   Request,
   Response,
   SymbolResponse,
   SymbolsQueryParams,
-  LatestPriceRequest,
-  PriceRequest,
-  JsonUpdate,
 } from "./protocol.js";
 import { BINARY_UPDATE_FORMAT_MAGIC_LE, FORMAT_MAGICS_LE } from "./protocol.js";
 import type { WebSocketPoolConfig } from "./socket/websocket-pool.js";
@@ -291,13 +291,13 @@ export class PythLazerClient {
 
     try {
       const body = JSON.stringify(params);
-      this.logger.debug("getLatestPrice", { url, body });
+      this.logger.debug("getLatestPrice", { body, url });
       const response = await this.authenticatedFetch(url, {
-        method: "POST",
+        body: body,
         headers: {
           "Content-Type": "application/json",
         },
-        body: body,
+        method: "POST",
       });
       if (!response.ok) {
         throw new Error(
@@ -322,13 +322,13 @@ export class PythLazerClient {
 
     try {
       const body = JSON.stringify(params);
-      this.logger.debug("getPrice", { url, body });
+      this.logger.debug("getPrice", { body, url });
       const response = await this.authenticatedFetch(url, {
-        method: "POST",
+        body: body,
         headers: {
           "Content-Type": "application/json",
         },
-        body: body,
+        method: "POST",
       });
       if (!response.ok) {
         throw new Error(
