@@ -98,17 +98,17 @@ message GovernanceInstructionItem {
         AddAsset add_asset = 116;
         UpdateAsset update_asset = 117;
         RemoveAsset remove_asset = 118;
-        SetWormholeGuardianSet set_wormhole_guardian_set = 119;
+        SetMultisigKeys set_multisig_keys = 119;
     }
 }
 
-// Set or update the Wormhole guardian sets.
-// This action explicitly sets both the current and next guardian set fields.
-message SetWormholeGuardianSet {
-    // The current guardian set. If not provided, current is set to None.
-    optional WormholeGuardianSet current = 1;
-    // The next guardian set (for upgrades in progress). If not provided, next is set to None.
-    optional WormholeGuardianSet next = 2;
+// Set or update the multisig key sets.
+// This action explicitly sets both the current and next key set fields.
+message SetMultisigKeys {
+    // The current key set. If not provided, current is set to None.
+    optional MultisigKeys current = 1;
+    // The next key set (for upgrades in progress). If not provided, next is set to None.
+    optional MultisigKeys next = 2;
 }
 
 // Create a new shard. A shard is a partially isolated part of Lazer that has its own state and
