@@ -90,8 +90,11 @@ node_modules/
 next-env.d.ts
 tsconfig.tsbuildinfo
 
+.next
+
 # Ralph config (may contain API key)
 .cursor/ralph-config.json
 
 # TSC-specific build files
 *.tsbuildinfo
+package.json

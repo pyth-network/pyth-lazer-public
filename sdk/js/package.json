@@ -20,117 +20,117 @@
     "node": "^24.0.0"
   },
   "exports": {
-    ".": {
-      "import": {
-        "default": "./dist/esm/index.mjs",
-        "types": "./dist/esm/index.d.ts"
-      },
-      "require": {
-        "default": "./dist/cjs/index.cjs",
-        "types": "./dist/cjs/index.d.ts"
-      }
-    },
     "./client": {
-      "import": {
-        "default": "./dist/esm/client.mjs",
-        "types": "./dist/esm/client.d.ts"
-      },
       "require": {
-        "default": "./dist/cjs/client.cjs",
-        "types": "./dist/cjs/client.d.ts"
+        "types": "./dist/cjs/client.d.ts",
+        "default": "./dist/cjs/client.cjs"
+      },
+      "import": {
+        "types": "./dist/esm/client.d.ts",
+        "default": "./dist/esm/client.mjs"
       }
     },
     "./constants": {
-      "import": {
-        "default": "./dist/esm/constants.mjs",
-        "types": "./dist/esm/constants.d.ts"
-      },
       "require": {
-        "default": "./dist/cjs/constants.cjs",
-        "types": "./dist/cjs/constants.d.ts"
+        "types": "./dist/cjs/constants.d.ts",
+        "default": "./dist/cjs/constants.cjs"
+      },
+      "import": {
+        "types": "./dist/esm/constants.d.ts",
+        "default": "./dist/esm/constants.mjs"
       }
     },
     "./emitter": {
-      "import": {
-        "default": "./dist/esm/emitter/index.mjs",
-        "types": "./dist/esm/emitter/index.d.ts"
-      },
       "require": {
-        "default": "./dist/cjs/emitter/index.cjs",
-        "types": "./dist/cjs/emitter/index.d.ts"
+        "types": "./dist/cjs/emitter/index.d.ts",
+        "default": "./dist/cjs/emitter/index.cjs"
+      },
+      "import": {
+        "types": "./dist/esm/emitter/index.d.ts",
+        "default": "./dist/esm/emitter/index.mjs"
       }
     },
-    "./package.json": "./package.json",
-    "./protocol": {
-      "import": {
-        "default": "./dist/esm/protocol.mjs",
-        "types": "./dist/esm/protocol.d.ts"
-      },
+    ".": {
       "require": {
-        "default": "./dist/cjs/protocol.cjs",
-        "types": "./dist/cjs/protocol.d.ts"
+        "types": "./dist/cjs/index.d.ts",
+        "default": "./dist/cjs/index.cjs"
+      },
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.mjs"
+      }
+    },
+    "./protocol": {
+      "require": {
+        "types": "./dist/cjs/protocol.d.ts",
+        "default": "./dist/cjs/protocol.cjs"
+      },
+      "import": {
+        "types": "./dist/esm/protocol.d.ts",
+        "default": "./dist/esm/protocol.mjs"
       }
     },
     "./socket/resilient-websocket": {
-      "import": {
-        "default": "./dist/esm/socket/resilient-websocket.mjs",
-        "types": "./dist/esm/socket/resilient-websocket.d.ts"
-      },
       "require": {
-        "default": "./dist/cjs/socket/resilient-websocket.cjs",
-        "types": "./dist/cjs/socket/resilient-websocket.d.ts"
+        "types": "./dist/cjs/socket/resilient-websocket.d.ts",
+        "default": "./dist/cjs/socket/resilient-websocket.cjs"
+      },
+      "import": {
+        "types": "./dist/esm/socket/resilient-websocket.d.ts",
+        "default": "./dist/esm/socket/resilient-websocket.mjs"
       }
     },
     "./socket/websocket-pool": {
-      "import": {
-        "default": "./dist/esm/socket/websocket-pool.mjs",
-        "types": "./dist/esm/socket/websocket-pool.d.ts"
-      },
       "require": {
-        "default": "./dist/cjs/socket/websocket-pool.cjs",
-        "types": "./dist/cjs/socket/websocket-pool.d.ts"
-      }
-    },
-    "./util": {
-      "import": {
-        "default": "./dist/esm/util/index.mjs",
-        "types": "./dist/esm/util/index.d.ts"
+        "types": "./dist/cjs/socket/websocket-pool.d.ts",
+        "default": "./dist/cjs/socket/websocket-pool.cjs"
       },
-      "require": {
-        "default": "./dist/cjs/util/index.cjs",
-        "types": "./dist/cjs/util/index.d.ts"
+      "import": {
+        "types": "./dist/esm/socket/websocket-pool.d.ts",
+        "default": "./dist/esm/socket/websocket-pool.mjs"
       }
     },
     "./util/buffer-util": {
-      "import": {
-        "default": "./dist/esm/util/buffer-util.mjs",
-        "types": "./dist/esm/util/buffer-util.d.ts"
-      },
       "require": {
-        "default": "./dist/cjs/util/buffer-util.cjs",
-        "types": "./dist/cjs/util/buffer-util.d.ts"
+        "types": "./dist/cjs/util/buffer-util.d.ts",
+        "default": "./dist/cjs/util/buffer-util.cjs"
+      },
+      "import": {
+        "types": "./dist/esm/util/buffer-util.d.ts",
+        "default": "./dist/esm/util/buffer-util.mjs"
       }
     },
     "./util/env-util": {
-      "import": {
-        "default": "./dist/esm/util/env-util.mjs",
-        "types": "./dist/esm/util/env-util.d.ts"
-      },
       "require": {
-        "default": "./dist/cjs/util/env-util.cjs",
-        "types": "./dist/cjs/util/env-util.d.ts"
+        "types": "./dist/cjs/util/env-util.d.ts",
+        "default": "./dist/cjs/util/env-util.cjs"
+      },
+      "import": {
+        "types": "./dist/esm/util/env-util.d.ts",
+        "default": "./dist/esm/util/env-util.mjs"
+      }
+    },
+    "./util": {
+      "require": {
+        "types": "./dist/cjs/util/index.d.ts",
+        "default": "./dist/cjs/util/index.cjs"
+      },
+      "import": {
+        "types": "./dist/esm/util/index.d.ts",
+        "default": "./dist/esm/util/index.mjs"
       }
     },
     "./util/url-util": {
-      "import": {
-        "default": "./dist/esm/util/url-util.mjs",
-        "types": "./dist/esm/util/url-util.d.ts"
-      },
       "require": {
-        "default": "./dist/cjs/util/url-util.cjs",
-        "types": "./dist/cjs/util/url-util.d.ts"
+        "types": "./dist/cjs/util/url-util.d.ts",
+        "default": "./dist/cjs/util/url-util.cjs"
+      },
+      "import": {
+        "types": "./dist/esm/util/url-util.d.ts",
+        "default": "./dist/esm/util/url-util.mjs"
       }
-    }
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist/**/*"
