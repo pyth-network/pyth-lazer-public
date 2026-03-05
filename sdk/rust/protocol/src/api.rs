@@ -1026,6 +1026,26 @@ pub struct SignedMerkleRoot {
     pub signature: Vec<u8>,
 }
 
+#[serde_as]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct SignedGuardianSetUpgrade {
+    /// Current guardian set index (the signing set)
+    pub current_guardian_set_index: u32,
+    /// New guardian set index
+    pub new_guardian_set_index: u32,
+    /// Hex-encoded new guardian keys (20 bytes each)
+    #[serde_as(as = "Vec<Hex>")]
+    pub new_guardian_keys: Vec<Vec<u8>>,
+    /// Hex-encoded serialized VAA body bytes (for downstream VAA assembly)
+    #[serde_as(as = "Hex")]
+    #[schema(value_type = String, example = "0x1a2b3c...")]
+    pub body: Vec<u8>,
+    /// Hex-encoded 65-byte ECDSA signature (r || s || v) over the body digest
+    #[serde_as(as = "Hex")]
+    #[schema(value_type = String, example = "0x1a2b3c...")]
+    pub signature: Vec<u8>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1053,5 +1073,31 @@ mod tests {
         // round-trip
         let deserialized: SignedMerkleRoot = serde_json::from_value(json).unwrap();
         assert_eq!(deserialized, root);
+    }
+
+    #[test]
+    fn signed_guardian_set_upgrade_json_serialization() {
+        let upgrade = SignedGuardianSetUpgrade {
+            current_guardian_set_index: 4,
+            new_guardian_set_index: 5,
+            new_guardian_keys: vec![vec![0x11; 20], vec![0x22; 20]],
+            body: vec![0xde, 0xad, 0xbe, 0xef],
+            signature: vec![0xaa; 65],
+        };
+
+        let json = serde_json::to_value(&upgrade).unwrap();
+
+        assert_eq!(json["current_guardian_set_index"], 4);
+        assert_eq!(json["new_guardian_set_index"], 5);
+        let keys = json["new_guardian_keys"].as_array().unwrap();
+        assert_eq!(keys.len(), 2);
+        assert_eq!(keys[0], "11".repeat(20));
+        assert_eq!(keys[1], "22".repeat(20));
+        assert_eq!(json["body"], "deadbeef");
+        assert_eq!(json["signature"], "aa".repeat(65));
+
+        // round-trip
+        let deserialized: SignedGuardianSetUpgrade = serde_json::from_value(json).unwrap();
+        assert_eq!(deserialized, upgrade);
     }
 }
