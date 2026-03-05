@@ -1,17 +1,17 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { PythLazerSolanaContract } from "../target/types/pyth_lazer_solana_contract";
-import * as pythLazerSolanaContractIdl from "../target/idl/pyth_lazer_solana_contract.json";
-import yargs from "yargs/yargs";
-import { readFileSync } from "fs";
 import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
+import { readFileSync } from "fs";
+import yargs from "yargs/yargs";
+import * as pythLazerSolanaContractIdl from "../target/idl/pyth_lazer_solana_contract.json";
+import { PythLazerSolanaContract } from "../target/types/pyth_lazer_solana_contract";
 
 async function main() {
   let argv = await yargs(process.argv.slice(2))
     .options({
-      url: { type: "string", demandOption: true },
-      "keypair-path": { type: "string", demandOption: true },
-      message: { type: "string", demandOption: true },
+      "keypair-path": { demandOption: true, type: "string" },
+      message: { demandOption: true, type: "string" },
+      url: { demandOption: true, type: "string" },
     })
     .parse();
 

@@ -49,22 +49,22 @@ export const createEd25519Instruction = (
 
   ED25519_INSTRUCTION_LAYOUT.encode(
     {
-      numSignatures: 1,
-      padding: 0,
-      signatureOffset,
-      signatureInstructionIndex: instructionIndex,
-      publicKeyOffset,
-      publicKeyInstructionIndex: instructionIndex,
       messageDataOffset,
       messageDataSize: messageDataSize,
       messageInstructionIndex: instructionIndex,
+      numSignatures: 1,
+      padding: 0,
+      publicKeyInstructionIndex: instructionIndex,
+      publicKeyOffset,
+      signatureInstructionIndex: instructionIndex,
+      signatureOffset,
     },
     instructionData,
   );
 
   return new TransactionInstruction({
+    data: instructionData,
     keys: [],
     programId: Ed25519Program.programId,
-    data: instructionData,
   });
 };

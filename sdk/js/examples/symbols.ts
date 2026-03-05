@@ -3,8 +3,8 @@
 import { PythLazerClient } from "../src/index.js";
 
 const client = await PythLazerClient.create({
-  token: "your-token-here",
   logger: console,
+  token: "your-token-here",
 });
 
 // Example 1: Get latest price for BTC using feed IDs

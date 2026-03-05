@@ -2,9 +2,9 @@
 /* eslint-disable @typescript-eslint/no-empty-function */
 /* eslint-disable unicorn/prefer-top-level-await */
 
-import { renderFeeds, refreshFeedDisplay } from "./util.js";
 import type { JsonUpdate } from "../src/index.js";
 import { PythLazerClient } from "../src/index.js";
+import { refreshFeedDisplay, renderFeeds } from "./util.js";
 
 // Ignore debug messages
 console.debug = () => {};
@@ -25,8 +25,8 @@ const feedData = new Map<
 const symbolsMap = new Map<number, string>();
 
 const client = await PythLazerClient.create({
-  token: "your-token-here", // Replace with your actual access token
   logger: console, // Optionally log operations (to the console in this case.)
+  token: "your-token-here", // Replace with your actual access token
   webSocketPoolConfig: {
     numConnections: 4, // Optionally specify number of parallel redundant connections to reduce the chance of dropped messages. The connections will round-robin across the provided URLs. Default is 4.
     onWebSocketError: (errorEvent) => {
@@ -38,8 +38,8 @@ const client = await PythLazerClient.create({
     // Optional configuration for resilient WebSocket connections
     rwsConfig: {
       heartbeatTimeoutDurationMs: 5000, // Optional heartbeat timeout duration in milliseconds
-      maxRetryDelayMs: 1000, // Optional maximum retry delay in milliseconds
       logAfterRetryCount: 10, // Optional log after how many retries
+      maxRetryDelayMs: 1000, // Optional maximum retry delay in milliseconds
     },
   },
 });
@@ -102,19 +102,22 @@ renderFeeds(feedData, symbolsMap);
 
 // Create and remove one or more subscriptions on the fly
 client.subscribe({
-  type: "subscribe",
-  subscriptionId: 1,
+  channel: "fixed_rate@200ms",
+  deliveryFormat: "binary",
+  formats: ["solana"],
+  jsonBinaryEncoding: "base64",
+  parsed: false,
   priceFeedIds: [1, 2],
   properties: ["price"],
-  formats: ["solana"],
-  deliveryFormat: "binary",
-  channel: "fixed_rate@200ms",
-  parsed: false,
-  jsonBinaryEncoding: "base64",
+  subscriptionId: 1,
+  type: "subscribe",
 });
 client.subscribe({
-  type: "subscribe",
-  subscriptionId: 2,
+  channel: "fixed_rate@50ms",
+  deliveryFormat: "json",
+  formats: ["evm"],
+  jsonBinaryEncoding: "hex",
+  parsed: true,
   priceFeedIds: [1, 2, 3, 4, 5],
   properties: [
     "price",
@@ -124,22 +127,19 @@ client.subscribe({
     "emaPrice",
     "emaConfidence",
   ],
-  formats: ["evm"],
-  deliveryFormat: "json",
-  channel: "fixed_rate@50ms",
-  parsed: true,
-  jsonBinaryEncoding: "hex",
+  subscriptionId: 2,
+  type: "subscribe",
 });
 client.subscribe({
-  type: "subscribe",
-  subscriptionId: 3,
+  channel: "real_time",
+  deliveryFormat: "json",
+  formats: ["solana"],
+  jsonBinaryEncoding: "hex",
+  parsed: true,
   priceFeedIds: [1],
   properties: ["price", "confidence"],
-  formats: ["solana"],
-  deliveryFormat: "json",
-  channel: "real_time",
-  parsed: true,
-  jsonBinaryEncoding: "hex",
+  subscriptionId: 3,
+  type: "subscribe",
 });
 
 await new Promise((resolve) => setTimeout(resolve, 30_000));

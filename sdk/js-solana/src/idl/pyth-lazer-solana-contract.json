@@ -1,25 +1,21 @@
 {
+  "accounts": [
+    {
+      "discriminator": [209, 117, 255, 185, 196, 175, 68, 9],
+      "name": "Storage"
+    }
+  ],
   "address": "pytd2yyk641x7ak7mkaasSJVXh6YYZnC7wTmtgAyxPt",
-  "metadata": {
-    "name": "pyth_lazer_solana_contract",
-    "version": "0.4.2",
-    "spec": "0.1.0",
-    "description": "Pyth Lazer Solana contract and SDK.",
-    "repository": "https://github.com/pyth-network/pyth-crosschain"
-  },
   "instructions": [
     {
-      "name": "initialize",
-      "discriminator": [175, 175, 109, 31, 13, 152, 155, 237],
       "accounts": [
         {
           "name": "payer",
-          "writable": true,
-          "signer": true
+          "signer": true,
+          "writable": true
         },
         {
           "name": "storage",
-          "writable": true,
           "pda": {
             "seeds": [
               {
@@ -27,11 +23,12 @@
                 "value": [115, 116, 111, 114, 97, 103, 101]
               }
             ]
-          }
+          },
+          "writable": true
         },
         {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
+          "address": "11111111111111111111111111111111",
+          "name": "system_program"
         }
       ],
       "args": [
@@ -43,20 +40,19 @@
           "name": "treasury",
           "type": "pubkey"
         }
-      ]
+      ],
+      "discriminator": [175, 175, 109, 31, 13, 152, 155, 237],
+      "name": "initialize"
     },
     {
-      "name": "update",
-      "discriminator": [219, 200, 88, 176, 158, 63, 253, 127],
       "accounts": [
         {
           "name": "top_authority",
-          "signer": true,
-          "relations": ["storage"]
+          "relations": ["storage"],
+          "signer": true
         },
         {
           "name": "storage",
-          "writable": true,
           "pda": {
             "seeds": [
               {
@@ -64,7 +60,8 @@
                 "value": [115, 116, 111, 114, 97, 103, 101]
               }
             ]
-          }
+          },
+          "writable": true
         }
       ],
       "args": [
@@ -76,20 +73,19 @@
           "name": "expires_at",
           "type": "i64"
         }
-      ]
+      ],
+      "discriminator": [219, 200, 88, 176, 158, 63, 253, 127],
+      "name": "update"
     },
     {
-      "name": "update_ecdsa_signer",
-      "discriminator": [22, 110, 222, 141, 112, 219, 27, 200],
       "accounts": [
         {
           "name": "top_authority",
-          "signer": true,
-          "relations": ["storage"]
+          "relations": ["storage"],
+          "signer": true
         },
         {
           "name": "storage",
-          "writable": true,
           "pda": {
             "seeds": [
               {
@@ -97,7 +93,8 @@
                 "value": [115, 116, 111, 114, 97, 103, 101]
               }
             ]
-          }
+          },
+          "writable": true
         }
       ],
       "args": [
@@ -111,16 +108,16 @@
           "name": "expires_at",
           "type": "i64"
         }
-      ]
+      ],
+      "discriminator": [22, 110, 222, 141, 112, 219, 27, 200],
+      "name": "update_ecdsa_signer"
     },
     {
-      "name": "verify_ecdsa_message",
-      "discriminator": [207, 170, 89, 179, 216, 67, 129, 146],
       "accounts": [
         {
           "name": "payer",
-          "writable": true,
-          "signer": true
+          "signer": true,
+          "writable": true
         },
         {
           "name": "storage",
@@ -135,12 +132,12 @@
         },
         {
           "name": "treasury",
-          "writable": true,
-          "relations": ["storage"]
+          "relations": ["storage"],
+          "writable": true
         },
         {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
+          "address": "11111111111111111111111111111111",
+          "name": "system_program"
         }
       ],
       "args": [
@@ -148,27 +145,16 @@
           "name": "message_data",
           "type": "bytes"
         }
-      ]
+      ],
+      "discriminator": [207, 170, 89, 179, 216, 67, 129, 146],
+      "name": "verify_ecdsa_message"
     },
     {
-      "name": "verify_message",
-      "docs": [
-        "Verifies a ed25519 signature on Solana by checking that the transaction contains",
-        "a correct call to the built-in `ed25519_program`.",
-        "",
-        "- `message_data` is the signed message that is being verified.",
-        "- `ed25519_instruction_index` is the index of the `ed25519_program` instruction",
-        "within the transaction. This instruction must precede the current instruction.",
-        "- `signature_index` is the index of the signature within the inputs to the `ed25519_program`.",
-        "- `message_offset` is the offset of the signed message within the",
-        "input data for the current instruction."
-      ],
-      "discriminator": [180, 193, 120, 55, 189, 135, 203, 83],
       "accounts": [
         {
           "name": "payer",
-          "writable": true,
-          "signer": true
+          "signer": true,
+          "writable": true
         },
         {
           "name": "storage",
@@ -183,19 +169,19 @@
         },
         {
           "name": "treasury",
-          "writable": true,
-          "relations": ["storage"]
+          "relations": ["storage"],
+          "writable": true
         },
         {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
+          "address": "11111111111111111111111111111111",
+          "name": "system_program"
         },
         {
-          "name": "instructions_sysvar",
           "docs": [
             "(e.g. in `sysvar::instructions::load_instruction_at_checked`).",
             "This account is not usable with anchor's `Program` account type because it's not executable."
-          ]
+          ],
+          "name": "instructions_sysvar"
         }
       ],
       "args": [
@@ -212,6 +198,19 @@
           "type": "u8"
         }
       ],
+      "discriminator": [180, 193, 120, 55, 189, 135, 203, 83],
+      "docs": [
+        "Verifies a ed25519 signature on Solana by checking that the transaction contains",
+        "a correct call to the built-in `ed25519_program`.",
+        "",
+        "- `message_data` is the signed message that is being verified.",
+        "- `ed25519_instruction_index` is the index of the `ed25519_program` instruction",
+        "within the transaction. This instruction must precede the current instruction.",
+        "- `signature_index` is the index of the signature within the inputs to the `ed25519_program`.",
+        "- `message_offset` is the offset of the signed message within the",
+        "input data for the current instruction."
+      ],
+      "name": "verify_message",
       "returns": {
         "defined": {
           "name": "VerifiedMessage"
@@ -219,17 +218,17 @@
       }
     }
   ],
-  "accounts": [
-    {
-      "name": "Storage",
-      "discriminator": [209, 117, 255, 185, 196, 175, 68, 9]
-    }
-  ],
+  "metadata": {
+    "description": "Pyth Lazer Solana contract and SDK.",
+    "name": "pyth_lazer_solana_contract",
+    "repository": "https://github.com/pyth-network/pyth-crosschain",
+    "spec": "0.1.0",
+    "version": "0.4.2"
+  },
   "types": [
     {
       "name": "Storage",
       "type": {
-        "kind": "struct",
         "fields": [
           {
             "name": "top_authority",
@@ -253,13 +252,13 @@
               "array": [
                 {
                   "defined": {
-                    "name": "TrustedSignerInfo",
                     "generics": [
                       {
                         "kind": "type",
                         "type": "pubkey"
                       }
-                    ]
+                    ],
+                    "name": "TrustedSignerInfo"
                   }
                 },
                 5
@@ -276,7 +275,6 @@
               "array": [
                 {
                   "defined": {
-                    "name": "TrustedSignerInfo",
                     "generics": [
                       {
                         "kind": "type",
@@ -284,7 +282,8 @@
                           "array": ["u8", 20]
                         }
                       }
-                    ]
+                    ],
+                    "name": "TrustedSignerInfo"
                   }
                 },
                 2
@@ -297,19 +296,19 @@
               "array": ["u8", 43]
             }
           }
-        ]
+        ],
+        "kind": "struct"
       }
     },
     {
-      "name": "TrustedSignerInfo",
       "generics": [
         {
           "kind": "type",
           "name": "T"
         }
       ],
+      "name": "TrustedSignerInfo",
       "type": {
-        "kind": "struct",
         "fields": [
           {
             "name": "pubkey",
@@ -321,26 +320,27 @@
             "name": "expires_at",
             "type": "i64"
           }
-        ]
+        ],
+        "kind": "struct"
       }
     },
     {
-      "name": "VerifiedMessage",
       "docs": ["A message with a verified ed25519 signature."],
+      "name": "VerifiedMessage",
       "type": {
-        "kind": "struct",
         "fields": [
           {
-            "name": "public_key",
             "docs": ["Public key that signed the message."],
+            "name": "public_key",
             "type": "pubkey"
           },
           {
-            "name": "payload",
             "docs": ["Signed message payload."],
+            "name": "payload",
             "type": "bytes"
           }
-        ]
+        ],
+        "kind": "struct"
       }
     }
   ]

@@ -107,11 +107,11 @@ export type Response =
 export const BINARY_UPDATE_FORMAT_MAGIC_LE = 461_928_307;
 
 export const FORMAT_MAGICS_LE = {
-  JSON: 3_302_625_434,
   EVM: 2_593_727_018,
-  SOLANA: 2_182_742_457,
+  JSON: 3_302_625_434,
   LE_ECDSA: 1_296_547_300,
   LE_UNSIGNED: 1_499_680_012,
+  SOLANA: 2_182_742_457,
 };
 
 export type AssetType =

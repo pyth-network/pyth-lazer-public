@@ -58,21 +58,21 @@ export function renderFeeds(
 
     console.log(`\u001B[36m${(index + 1).toString()}. ${displayName}\u001B[0m`);
     console.log(
-      `   💰 Price: \u001B[32m$${readablePrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 8 })}\u001B[0m`,
+      `   💰 Price: \u001B[32m$${readablePrice.toLocaleString("en-US", { maximumFractionDigits: 8, minimumFractionDigits: 2 })}\u001B[0m`,
     );
 
     if (readableConfidence !== undefined) {
       console.log(
-        `   📊 Confidence: \u001B[33m±$${readableConfidence.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 8 })}\u001B[0m`,
+        `   📊 Confidence: \u001B[33m±$${readableConfidence.toLocaleString("en-US", { maximumFractionDigits: 8, minimumFractionDigits: 2 })}\u001B[0m`,
       );
     }
 
     console.log(
-      `   💰 EMA price: \u001B[32m$${readableEmaPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 8 })}\u001B[0m`,
+      `   💰 EMA price: \u001B[32m$${readableEmaPrice.toLocaleString("en-US", { maximumFractionDigits: 8, minimumFractionDigits: 2 })}\u001B[0m`,
     );
     if (readableEmaConfidence !== undefined) {
       console.log(
-        `   📊 EMA confidence: \u001B[33m±$${readableEmaConfidence.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 8 })}\u001B[0m`,
+        `   📊 EMA confidence: \u001B[33m±$${readableEmaConfidence.toLocaleString("en-US", { maximumFractionDigits: 8, minimumFractionDigits: 2 })}\u001B[0m`,
       );
     }
 
@@ -109,13 +109,13 @@ export function refreshFeedDisplay(
     for (const feed of response.parsed.priceFeeds) {
       if (feed.price && feed.exponent !== undefined) {
         feedData.set(feed.priceFeedId.toString(), {
-          priceFeedId: feed.priceFeedId,
-          price: Number(feed.price),
           confidence: feed.confidence,
-          emaPrice: Number(feed.emaPrice),
           emaConfidence: feed.emaConfidence,
+          emaPrice: Number(feed.emaPrice),
           exponent: feed.exponent,
           lastUpdate: new Date(),
+          price: Number(feed.price),
+          priceFeedId: feed.priceFeedId,
         });
       }
     }
@@ -136,11 +136,11 @@ export function displayParsedPrices(response: JsonUpdate) {
 
         console.log(`Feed ${(index + 1).toString()}:`);
         console.log(
-          `\tPrice: $${readablePrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 8 })}`,
+          `\tPrice: $${readablePrice.toLocaleString("en-US", { maximumFractionDigits: 8, minimumFractionDigits: 2 })}`,
         );
         if (readableConfidence !== undefined) {
           console.log(
-            `\tConfidence: ±$${readableConfidence.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 8 })}`,
+            `\tConfidence: ±$${readableConfidence.toLocaleString("en-US", { maximumFractionDigits: 8, minimumFractionDigits: 2 })}`,
           );
         }
       }
