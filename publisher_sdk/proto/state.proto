@@ -50,8 +50,8 @@ message State {
     repeated string feature_flags = 10;
     // List of assets.
     repeated Asset assets = 11;
-    // Wormhole guardian sets (current + optional next during upgrade).
-    optional WormholeGuardianSets wormhole_guardian_sets = 12;
+    // Multisig key sets (current + optional next during upgrade).
+    optional MultisigKeySets multisig_key_sets = 12;
 }
 
 // An item of the state describing a publisher.
@@ -340,7 +340,7 @@ message Permissions {
         // including operations added in the future.
         UPDATE_ASSET = 117;
         REMOVE_ASSET = 118;
-        SET_WORMHOLE_GUARDIAN_SET = 119;
+        SET_MULTISIG_KEYS = 119;
     }
 
     enum UpdateGovernanceSourceAction {
@@ -387,23 +387,23 @@ message Permissions {
 }
 
 
-// A single Wormhole Guardian Set.
-message WormholeGuardianSet {
-    // [required] Guardian set index. Monotonically increasing, incremented by 1 on each upgrade.
+// A single set of multisig keys.
+message MultisigKeys {
+    // [required] Key set index. Monotonically increasing, incremented by 1 on each upgrade.
     optional uint32 guardian_set_index = 1;
-    // Guardian keys. Each key is a 20-byte Ethereum-style address
+    // Multisig keys. Each key is a 20-byte Ethereum-style address
     // (last 20 bytes of keccak256 of the ECDSA secp256k1 public key).
     repeated bytes keys = 2;
 }
 
-// Container for the current and (optionally) next Wormhole Guardian Set.
-// At most two guardian sets are valid at any time: the current one, and
-// the next one if a guardian set upgrade is in progress.
-message WormholeGuardianSets {
-    // [required] The currently active guardian set.
-    optional WormholeGuardianSet current = 1;
-    // [optional] The next guardian set, present only during a guardian set upgrade.
-    optional WormholeGuardianSet next = 2;
+// Container for the current and (optionally) next multisig key set.
+// At most two key sets are valid at any time: the current one, and
+// the next one if a key set upgrade is in progress.
+message MultisigKeySets {
+    // [required] The currently active key set.
+    optional MultisigKeys current = 1;
+    // [optional] The next key set, present only during a key set upgrade.
+    optional MultisigKeys next = 2;
 }
 
 // Specifies the way governance transactions are signed and verified.
