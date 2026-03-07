@@ -843,6 +843,9 @@ pub struct InvalidFeedSubscriptionDetails {
     pub unsupported_channels: Vec<PriceFeedId>,
     /// List of unstable price feed IDs. Unstable feeds are not available for subscription.
     pub unstable: Vec<PriceFeedId>,
+    /// List of price feed IDs that the API key is not entitled to access.
+    #[serde(default)]
+    pub not_entitled: Vec<PriceFeedId>,
 }
 
 /// Sent from the server when a subscription succeeded, but
