@@ -8,7 +8,7 @@
         "@better-builds/ts-duality": "catalog:",
         "@biomejs/biome": "catalog:",
         "@cprussin/tsconfig": "catalog:",
-        "@dotenvx/dotenvx": "^1.52.0",
+        "@dotenvx/dotenvx": "catalog:",
         "@happy-dom/global-registrator": "catalog:",
         "@testing-library/react": "catalog:",
         "@types/bun": "catalog:",
@@ -16,6 +16,7 @@
         "happy-dom": "catalog:",
         "neonctl": "catalog:",
         "turbo": "catalog:",
+        "turbo-ignore": "catalog:",
         "typescript": "catalog:",
         "vercel": "catalog:",
       },
@@ -241,6 +242,7 @@
     "ts-log": "^2.2.7",
     "tsconfig-paths": "^4.2.0",
     "turbo": "^2.8.12",
+    "turbo-ignore": "^2.8.14",
     "tw-animate-css": "^1.4.0",
     "type-fest": "^5.4.4",
     "typedoc": "^0.28.17",
@@ -1098,6 +1100,8 @@
 
     "json-stringify-safe": ["json-stringify-safe@5.0.1", "", {}, "sha512-ZClg6AaYvamvYEE82d3Iyd3vSSIjQ+odgjaTzRuO3s7toCdFKczob2i0zCh7JE8kWn17yvAWhUVxvqGwUalsRA=="],
 
+    "json5": ["json5@2.2.3", "", { "bin": { "json5": "lib/cli.js" } }, "sha512-XmOWe7eyHYH14cLdVPoyg+GOH3rYX++KpzrylJwSW98t3Nk+U8XOl8FWKOgwtzdb8lXGf6zYwDUzeHMWfxasyg=="],
+
     "jsonfile": ["jsonfile@6.2.0", "", { "dependencies": { "universalify": "^2.0.0" }, "optionalDependencies": { "graceful-fs": "^4.1.6" } }, "sha512-FGuPw30AdOIUTRMC2OMRtQV+jkVj2cfPqSeWXv1NEAJ1qZ5zb1X6z1mFhbfOB/iy3ssJCD+3KuZ8r8C3uVFlAg=="],
 
     "kleur": ["kleur@3.0.3", "", {}, "sha512-eTIzlVOSUR+JxdDFepEYcBMtZ9Qqdef+rnzWdRZuMbOywu5tO2w2N7rqjoANZ5k9vywhL6Br1VRjUIgTQx4E8w=="],
@@ -1403,6 +1407,8 @@
     "turbo-darwin-64": ["turbo-darwin-64@2.8.13", "", { "os": "darwin", "cpu": "x64" }, "sha512-PmOvodQNiOj77+Zwoqku70vwVjKzL34RTNxxoARjp5RU5FOj/CGiC6vcDQhNtFPUOWSAaogHF5qIka9TBhX4XA=="],
 
     "turbo-darwin-arm64": ["turbo-darwin-arm64@2.8.13", "", { "os": "darwin", "cpu": "arm64" }, "sha512-kI+anKcLIM4L8h+NsM7mtAUpElkCOxv5LgiQVQR8BASyDFfc8Efj5kCk3cqxuxOvIqx0sLfCX7atrHQ2kwuNJQ=="],
+
+    "turbo-ignore": ["turbo-ignore@2.8.14", "", { "dependencies": { "json5": "2.2.3" }, "bin": { "turbo-ignore": "dist/cli.js" } }, "sha512-N0GJBmEbsVlCzSp28+3dops2VFHBYfwxhKyME8K/9mVkiIuuJEHgoLt2AfejEjO2099Upc8k7c+pXWsvMkW7BA=="],
 
     "turbo-linux-64": ["turbo-linux-64@2.8.13", "", { "os": "linux", "cpu": "x64" }, "sha512-j29KnQhHyzdzgCykBFeBqUPS4Wj7lWMnZ8CHqytlYDap4Jy70l4RNG46pOL9+lGu6DepK2s1rE86zQfo0IOdPw=="],
 
