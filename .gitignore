@@ -39,6 +39,7 @@ poetry.lock
 
 # Environment variables
 .envrc
+.direnv/
 .env
 .tilt.env
 config.env
