@@ -37,6 +37,7 @@
     "SOCIAL_PROVIDERS",
     "VERCEL_ENV",
     "VERCEL_URL",
+    "VERCEL_ENV_OVERRIDE",
     "WORDMARK_URL"
   ],
   "globalPassThroughEnv": [
