@@ -1,0 +1,50 @@
+name: "Rust Test Suite"
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  rust-test-suite:
+    name: Rust Test Suite
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          rustflags: ""
+      - name: Install sccache
+        uses: mozilla-actions/sccache-action@v0.0.8
+      - name: Configure sccache
+        run: |
+          echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
+          echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: "30.2"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Cache taplo
+        uses: actions/cache@v4
+        id: cache-taplo
+        with:
+          path: ~/.cargo/bin/taplo
+          key: ${{ runner.os }}-taplo-0.9.3
+      - name: install taplo
+        if: steps.cache-taplo.outputs.cache-hit != 'true'
+        run: cargo install --locked taplo-cli@0.9.3
+      - name: check Cargo.toml formatting
+        run: find . -name Cargo.toml -exec taplo fmt --check --diff {} \;
+      - name: rustfmt
+        run: cargo fmt --all -- --check
+      - name: clippy
+        run: cargo clippy --all-targets -- --deny warnings
+      - name: clippy with mry
+        run: cargo clippy -F mry -p pyth-lazer-protocol --all-targets -- --deny warnings
+      - name: test
+        run: cargo test
+      - name: test with mry
+        run: cargo test -F mry -p pyth-lazer-protocol
+      - name: sccache stats
+        run: sccache --show-stats
