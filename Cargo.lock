@@ -5926,12 +5926,16 @@ dependencies = [
  "axum 0.8.3",
  "axum-extra",
  "axum-otel-metrics",
+ "byteorder",
  "clap",
  "config",
  "derivative",
  "futures",
+ "futures-util",
  "headers",
+ "hex",
  "humantime-serde",
+ "k256",
  "lazy_static",
  "opentelemetry",
  "pin-project",
@@ -5943,8 +5947,12 @@ dependencies = [
  "pyth-lazer-protocol",
  "pyth-lazer-publisher-sdk",
  "pyth-lazer-utils",
+ "pythnet-sdk",
+ "reqwest",
  "serde",
  "serde_json",
+ "serde_wormhole 0.1.0 (git+https://github.com/wormhole-foundation/wormhole?tag=v2.17.1)",
+ "sha3",
  "tokio",
  "tokio-stream",
  "tower-http 0.6.6",
@@ -5954,6 +5962,7 @@ dependencies = [
  "utoipa",
  "utoipa-axum",
  "utoipa-swagger-ui",
+ "wormhole-sdk",
 ]
 
 [[package]]
@@ -6156,38 +6165,6 @@ dependencies = [
  "serde",
  "tokio",
  "tracing",
-]
-
-[[package]]
-name = "pyth-lazer-hermes"
-version = "0.0.1"
-dependencies = [
- "anyhow",
- "axum 0.8.3",
- "byteorder",
- "clap",
- "config",
- "derivative",
- "futures-util",
- "headers",
- "hex",
- "k256",
- "pyth-lazer-client",
- "pyth-lazer-protocol",
- "pyth-lazer-utils",
- "pythnet-sdk",
- "reqwest",
- "serde",
- "serde_json",
- "serde_wormhole 0.1.0 (git+https://github.com/wormhole-foundation/wormhole?tag=v2.17.1)",
- "sha3",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "url",
- "utoipa",
- "utoipa-swagger-ui",
- "wormhole-sdk",
 ]
 
 [[package]]
