@@ -1,0 +1,19 @@
+[package]
+name = "pyth-lazer-example-publisher"
+version = "1.0.0"
+edition = "2024"
+
+[dependencies]
+pyth-lazer-protocol = { workspace = true }
+pyth-lazer-utils = { path = "../../utils" }
+
+anyhow = { workspace = true }
+bincode = { workspace = true }
+futures-util = { workspace = true }
+tokio = { workspace = true }
+tokio-tungstenite = { workspace = true }
+url = { workspace = true }
+tracing = { workspace = true }
+
+[lints]
+workspace = true

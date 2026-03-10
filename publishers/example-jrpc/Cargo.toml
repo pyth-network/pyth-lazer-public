@@ -1,0 +1,18 @@
+[package]
+name = "pyth-lazer-example-publisher-jrpc"
+version = "1.0.0"
+edition = "2024"
+
+[dependencies]
+pyth-lazer-protocol = { workspace = true }
+pyth-lazer-utils = { path = "../../utils" }
+
+anyhow = { workspace = true }
+soketto = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+serde_json = { workspace = true }
+
+[lints]
+workspace = true

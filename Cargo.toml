@@ -4,6 +4,8 @@ members = [
   "sdk/rust/protocol",
   "publisher_sdk/rust",
   "sdk/rust/client",
+  "publishers/example",
+  "publishers/example-jrpc",
   "agent",
 ]
 
