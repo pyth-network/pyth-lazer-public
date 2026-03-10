@@ -28,7 +28,9 @@
       "!out/**/*",
       "!coverage/**/*",
       "!node_modules/**/*",
-      "!*.tsbuildinfo"
+      "!*.tsbuildinfo",
+      "!ansible/**/*",
+      "!scripts/**/*"
     ]
   },
   "formatter": {

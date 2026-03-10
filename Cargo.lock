@@ -6436,7 +6436,6 @@ dependencies = [
  "opentelemetry_sdk",
  "prometheus",
  "prometheus_exporter",
- "pyth-lazer-client",
  "pyth-lazer-protocol",
  "pyth-lazer-utils",
  "rand 0.9.0",
