@@ -1027,6 +1027,10 @@ pub struct SignedMerkleRoot {
     #[serde_as(as = "Hex")]
     #[schema(value_type = String, example = "0x1a2b3c...")]
     pub signature: Vec<u8>,
+
+    #[serde_as(as = "Vec<Hex>")]
+    #[schema(value_type = Vec<String>, example = json!(["00abcdef...", "00123456..."]))]
+    pub messages: Vec<Vec<u8>>,
 }
 
 #[serde_as]
@@ -1052,6 +1056,7 @@ pub struct SignedGuardianSetUpgrade {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
     fn signed_merkle_root_json_serialization() {
@@ -1063,6 +1068,7 @@ mod tests {
             slot: 34567890123,
             timestamp: 1700000000,
             signature: vec![0xaa; 65],
+            messages: vec![vec![0x00, 0xab, 0xcd, 0xef], vec![0x00, 0x12, 0x34, 0x56]],
         };
 
         let json = serde_json::to_value(&root).unwrap();
@@ -1072,6 +1078,7 @@ mod tests {
         assert_eq!(json["slot"], 34567890123u64);
         assert_eq!(json["timestamp"], 1700000000u32);
         assert_eq!(json["signature"], "aa".repeat(65));
+        assert_eq!(json["messages"], json!(["00abcdef", "00123456"]));
 
         // round-trip
         let deserialized: SignedMerkleRoot = serde_json::from_value(json).unwrap();
