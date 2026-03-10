@@ -1,6 +1,7 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "globalEnv": [
+    "API_KEY_HUBSPOT",
     "API_KEY_RESEND",
     "API_KEY_STRIPE",
     "AUTH_BASE_URL",
