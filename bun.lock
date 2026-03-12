@@ -167,7 +167,6 @@
     "countries-list": "^3.3.0",
     "css-loader": "^7.1.4",
     "csv-stringify": "^6.6.0",
-    "date-fns": "^4.1.0",
     "dayjs": "^1.11.19",
     "dnum": "^2.17.0",
     "dotenv": "^17.3.1",
