@@ -1010,6 +1010,8 @@ pub type Slot = u64;
 pub type MerkleTimestamp = u32;
 pub type RawMerkleRoot = [u8; 20];
 pub type RawMerkleSignature = [u8; 65];
+pub type MerklePriceFeedId = [u8; 32];
+pub type RawMerkleMessage = Vec<u8>;
 
 #[serde_as]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
@@ -1030,7 +1032,7 @@ pub struct SignedMerkleRoot {
 
     #[serde_as(as = "Vec<Hex>")]
     #[schema(value_type = Vec<String>, example = json!(["00abcdef...", "00123456..."]))]
-    pub messages: Vec<Vec<u8>>,
+    pub messages: Vec<RawMerkleMessage>,
 }
 
 #[serde_as]
