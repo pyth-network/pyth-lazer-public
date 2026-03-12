@@ -14,7 +14,8 @@ use {
         MaybeTlsStream, WebSocketStream, connect_async,
         tungstenite::{client::IntoClientRequest, http::header::HeaderValue, protocol::Message},
     },
-    tracing::{error, info},
+    tracing::{error, info, level_filters::LevelFilter},
+    tracing_subscriber::EnvFilter,
     url::Url,
 };
 
@@ -82,7 +83,15 @@ fn parse_env_u32(var_name: &str, default_value: u32) -> Result<u32> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    pyth_lazer_utils::tracing::init_tracing_subscriber()?;
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::builder()
+                .with_default_directive(LevelFilter::INFO.into())
+                .from_env()
+                .context("invalid RUST_LOG env var")?,
+        )
+        .json()
+        .init();
 
     let relayer_addr = match env::var("RELAYER_ADDR") {
         Ok(v) => v,

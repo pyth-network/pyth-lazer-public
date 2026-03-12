@@ -1,5 +1,5 @@
 use {
-    anyhow::{Result, bail},
+    anyhow::{Context, Result, bail},
     pyth_lazer_protocol::{
         Price, PriceFeedId,
         jrpc::{FeedUpdateParams, JrpcId, JsonRpcVersion, PythLazerAgentJrpcV1},
@@ -16,7 +16,8 @@ use {
     },
     tokio::{net::TcpStream, time::sleep},
     tokio_util::compat::{Compat, TokioAsyncReadCompatExt},
-    tracing::{debug, error, info},
+    tracing::{debug, error, info, level_filters::LevelFilter},
+    tracing_subscriber::EnvFilter,
 };
 
 async fn try_connect(
@@ -63,7 +64,15 @@ async fn try_connect_with_retry(
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    pyth_lazer_utils::tracing::init_tracing_subscriber()?;
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::builder()
+                .with_default_directive(LevelFilter::INFO.into())
+                .from_env()
+                .context("invalid RUST_LOG env var")?,
+        )
+        .json()
+        .init();
 
     let relayer_addr = match env::var("RELAYER_ADDR") {
         Ok(v) => v,
