@@ -1,7 +1,6 @@
 use {
     anyhow::bail,
     pyth_lazer_protocol::api::SignedGuardianSetUpgrade,
-    reqwest::StatusCode,
     serde::{Deserialize, Serialize},
     std::{sync::Arc, time::Duration},
     tracing::warn,
@@ -46,7 +45,7 @@ impl PythLazerRouterClient {
 
     /// Fetch the current guardian set upgrade from a router, if one is in progress.
     ///
-    /// Returns `Ok(None)` if no upgrade is currently in progress (404 response).
+    /// Returns `Ok(None)` if no upgrade is currently in progress (null response).
     ///
     /// Tries each configured URL in order, falling back to subsequent ones on failure.
     pub async fn guardian_set_upgrade(&self) -> anyhow::Result<Option<SignedGuardianSetUpgrade>> {
@@ -77,13 +76,9 @@ impl PythLazerRouterClient {
             .send()
             .await?;
 
-        if response.status() == StatusCode::NOT_FOUND {
-            return Ok(None);
-        }
-
         let response = response.error_for_status()?;
-        let upgrade = response.json::<SignedGuardianSetUpgrade>().await?;
-        Ok(Some(upgrade))
+        let upgrade = response.json::<Option<SignedGuardianSetUpgrade>>().await?;
+        Ok(upgrade)
     }
 }
 
@@ -134,7 +129,9 @@ mod tests {
         server.mock(|when, then| {
             when.method(httpmock::Method::GET)
                 .path("/v1/guardian_set_upgrade");
-            then.status(404);
+            then.status(200)
+                .header("Content-Type", "application/json")
+                .body("null");
         });
 
         let client = PythLazerRouterClient::new(PythLazerRouterClientConfig {
