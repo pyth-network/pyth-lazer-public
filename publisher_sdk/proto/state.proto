@@ -136,6 +136,24 @@ message FeedMarketSchedule {
     optional string market_schedule = 3;
     // [required] The list of publisher IDs allowed to publish for this market schedule
     repeated uint32 allowed_publisher_ids = 4;
+    // [optional] Benchmark mappings keyed by category
+    // Each category maps to a list of identifiers with optional validity periods.
+    map<string, BenchmarkIdentifiers> benchmark_mapping = 5;
+}
+
+// A list of benchmark identifiers for a single category within a market session.
+message BenchmarkIdentifiers {
+    repeated BenchmarkIdentifier identifiers = 1;
+}
+
+// A single benchmark identifier with an optional validity period.
+message BenchmarkIdentifier {
+    // [required] The identifier string
+    optional string identifier = 1;
+    // [optional] Start of validity period. If absent, valid from the beginning of time.
+    optional google.protobuf.Timestamp valid_from = 2;
+    // [optional] End of validity period. If absent, valid indefinitely.
+    optional google.protobuf.Timestamp valid_to = 3;
 }
 
 // An item of the state describing a feed.

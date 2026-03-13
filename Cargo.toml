@@ -77,11 +77,11 @@ version = "20.0.0"
 
 [workspace.dependencies.pyth-lazer-protocol]
 path = "sdk/rust/protocol"
-version = "0.32.0"
+version = "0.33.0"
 
 [workspace.dependencies.pyth-lazer-publisher-sdk]
 path = "publisher_sdk/rust"
-version = "0.32.0"
+version = "0.33.0"
 
 [workspace.dependencies.async-stripe]
 default-features = true
