@@ -7,12 +7,12 @@ edition = "2024"
 pyth-lazer-protocol = { workspace = true }
 
 anyhow = { workspace = true }
+serde_json = { workspace = true }
 soketto = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-serde_json = { workspace = true }
 
 [lints]
 workspace = true

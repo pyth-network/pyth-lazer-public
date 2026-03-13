@@ -7,9 +7,9 @@ license = "Apache-2.0"
 repository = "https://github.com/pyth-network/pyth-crosschain"
 
 [dependencies]
-pyth-lazer-protocol = { workspace = true }
 anyhow = { workspace = true }
 protobuf = { workspace = true }
+pyth-lazer-protocol = { workspace = true }
 serde_json = { workspace = true }
 
 [build-dependencies]

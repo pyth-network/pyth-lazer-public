@@ -9,28 +9,28 @@ license = "Apache-2.0"
 pyth-lazer-protocol = { workspace = true }
 pyth-lazer-publisher-sdk = { workspace = true }
 
+anyhow = "1.0"
+arc-swap = { workspace = true }
+async-trait = "0.1.89"
+atomicwrites = "0.4.4"
+backoff = { version = "0.4.0", features = ["futures", "tokio"] }
+base64 = { workspace = true }
+derive_more = { version = "1.0.0", features = ["from"] }
+fs-err = { workspace = true }
+futures = { workspace = true }
+futures-util = "0.3"
+humantime-serde = { workspace = true }
+protobuf-json-mapping = { workspace = true }
+reqwest = { workspace = true, features = ["json"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_with = "3.15.1"
 tokio = { version = "1", features = ["full"] }
 tokio-stream = { workspace = true }
 tokio-tungstenite = { version = "0.20", features = ["native-tls"] }
-futures-util = "0.3"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-base64 = { workspace = true }
-anyhow = "1.0"
 tracing = "0.1"
-url = { version = "2.4", features = ["serde"] }
-derive_more = { version = "1.0.0", features = ["from"] }
-backoff = { version = "0.4.0", features = ["futures", "tokio"] }
 ttl_cache = "0.5.1"
-reqwest = { workspace = true, features = ["json"] }
-arc-swap = { workspace = true }
-futures = { workspace = true }
-humantime-serde = { workspace = true }
-fs-err = { workspace = true }
-atomicwrites = "0.4.4"
-protobuf-json-mapping = { workspace = true }
-serde_with = "3.15.1"
-async-trait = "0.1.89"
+url = { version = "2.4", features = ["serde"] }
 
 [dev-dependencies]
 bincode = "1.3.3"

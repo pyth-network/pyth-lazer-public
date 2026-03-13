@@ -1,16 +1,15 @@
 [workspace]
 resolver = "2"
 members = [
-  "sdk/rust/protocol",
+  "agent",
   "publisher_sdk/rust",
-  "sdk/rust/client",
   "publishers/example",
   "publishers/example-jrpc",
-  "agent",
+  "sdk/rust/client",
+  "sdk/rust/protocol",
 ]
 
 [workspace.dependencies]
-pyth-sdk = "0.8.0"
 anyhow = "1.0.98"
 arc-swap = "1.7.1"
 async-nats = "0.39.0"
@@ -53,13 +52,14 @@ protobuf = "3.7.2"
 protobuf-json-mapping = "3.7.2"
 psl = "2"
 pyth-hermes-client-rust = "0.0.1"
+pyth-sdk = "0.8.0"
 pythnet-sdk = "2.3.1"
 rand = "0.9.0"
 replace_with = "0.1.8"
 scopeguard = "1.2.0"
+serde-this-or-that = "0.5.0"
 serde_bytes = "0.11.17"
 serde_json = "1.0.140"
-serde-this-or-that = "0.5.0"
 serde_repr = "0.1.20"
 sha2 = "0.10.8"
 sha3 = "0.10.8"
@@ -71,163 +71,163 @@ truncate-integer = "0.5.1"
 utoipa-axum = "0.2.0"
 winnow = "0.7.6"
 
-[workspace.dependencies.pyth-lazer-publisher-sdk]
-path = "publisher_sdk/rust"
-version = "0.32.0"
+[workspace.dependencies.pyth-lazer-client]
+path = "sdk/rust/client"
+version = "20.0.0"
 
 [workspace.dependencies.pyth-lazer-protocol]
 path = "sdk/rust/protocol"
 version = "0.32.0"
 
-[workspace.dependencies.pyth-lazer-client]
-path = "sdk/rust/client"
-version = "20.0.0"
+[workspace.dependencies.pyth-lazer-publisher-sdk]
+path = "publisher_sdk/rust"
+version = "0.32.0"
 
 [workspace.dependencies.async-stripe]
-version = "=1.0.0-rc.0"
 default-features = true
+version = "=1.0.0-rc.0"
 
 [workspace.dependencies.async-stripe-core]
-version = "=1.0.0-rc.0"
 features = ["customer"]
+version = "=1.0.0-rc.0"
 
 [workspace.dependencies.async-stripe-misc]
-version = "=1.0.0-rc.0"
 features = ["entitlements_active_entitlement", "entitlements_feature"]
+version = "=1.0.0-rc.0"
 
 [workspace.dependencies.async-stripe-shared]
 version = "=1.0.0-rc.0"
 
 [workspace.dependencies.axum]
-version = "0.8.1"
 features = ["ws"]
+version = "0.8.1"
 
 [workspace.dependencies.axum-extra]
+features = ["multipart", "query"]
 version = "0.10.1"
-features = ["query", "multipart"]
 
 [workspace.dependencies.axum-streams]
+features = ["json", "text"]
 version = "0.20.0"
-features = ["text", "json"]
 
 [workspace.dependencies.backoff]
-version = "0.4.0"
 features = ["futures", "tokio"]
+version = "0.4.0"
 
 [workspace.dependencies.bincode]
-version = "2.0.1"
 features = ["serde"]
+version = "2.0.1"
 
 [workspace.dependencies.bip39]
-version = "2.1.0"
 features = ["rand"]
+version = "2.1.0"
 
 [workspace.dependencies.bytes]
-version = "1.10.1"
 features = ["serde"]
+version = "1.10.1"
 
 [workspace.dependencies.cached]
-version = "0.56.0"
 features = ["async"]
+version = "0.56.0"
 
 [workspace.dependencies.clap]
-version = "4.5.32"
 features = ["derive"]
+version = "4.5.32"
 
 [workspace.dependencies.clickhouse]
-version = "0.13.2"
 features = ["inserter", "native-tls", "uuid"]
+version = "0.13.2"
 
 [workspace.dependencies.ed25519-dalek]
-version = "2.1.1"
 features = ["rand_core"]
+version = "2.1.1"
 
 [workspace.dependencies.hex]
-version = "0.4.3"
 features = ["serde"]
+version = "0.4.3"
 
 [workspace.dependencies.hyper]
-version = "1.6.0"
 features = ["http1", "server"]
+version = "1.6.0"
 
 [workspace.dependencies.hyper-util]
-version = "0.1.10"
 features = ["tokio"]
+version = "0.1.10"
 
 [workspace.dependencies.k256]
-version = "0.13.4"
 features = ["ecdsa"]
-
-[workspace.dependencies.opentelemetry_sdk]
-version = "0.28.0"
-features = ["rt-tokio"]
+version = "0.13.4"
 
 [workspace.dependencies.opentelemetry-otlp]
-version = "0.28.0"
 features = ["grpc-tonic"]
+version = "0.28.0"
+
+[workspace.dependencies.opentelemetry_sdk]
+features = ["rt-tokio"]
+version = "0.28.0"
 
 [workspace.dependencies.rdkafka]
 version = "0.37.0"
 
 [workspace.dependencies.reqwest]
-version = "0.12.23"
 features = ["json", "multipart"]
+version = "0.12.23"
 
 [workspace.dependencies.serde]
-version = "1.0.219"
 features = ["derive"]
+version = "1.0.219"
 
 [workspace.dependencies.serde_with]
-version = "3.12.0"
 features = ["base64"]
+version = "3.12.0"
 
 [workspace.dependencies.serde_wormhole]
 git = "https://github.com/wormhole-foundation/wormhole"
 tag = "v2.17.1"
 
 [workspace.dependencies.soketto]
-version = "0.8.1"
 features = ["http"]
+version = "0.8.1"
 
 [workspace.dependencies.strum]
-version = "0.27.2"
 features = ["derive"]
+version = "0.27.2"
 
 [workspace.dependencies.tokio]
-version = "1.44.1"
 features = ["full"]
+version = "1.44.1"
 
 [workspace.dependencies.tokio-tungstenite]
-version = "0.26.2"
 features = ["native-tls", "url"]
+version = "0.26.2"
 
 [workspace.dependencies.tokio-util]
-version = "0.7.14"
 features = ["compat"]
+version = "0.7.14"
 
 [workspace.dependencies.tower-http]
-version = "0.6.1"
 features = ["cors"]
+version = "0.6.1"
 
 [workspace.dependencies.tracing-subscriber]
-version = "0.3.20"
 features = ["env-filter", "json"]
+version = "0.3.20"
 
 [workspace.dependencies.url]
-version = "2.5.4"
 features = ["serde"]
+version = "2.5.4"
 
 [workspace.dependencies.utoipa]
-version = "5.4.0"
 features = ["axum_extras"]
+version = "5.4.0"
 
 [workspace.dependencies.utoipa-swagger-ui]
-version = "9.0.0"
 features = ["axum"]
+version = "9.0.0"
 
 [workspace.dependencies.uuid]
-version = "1.18.1"
 features = ["serde", "v4"]
+version = "1.18.1"
 
 [workspace.dependencies.wormhole-sdk]
 git = "https://github.com/wormhole-foundation/wormhole"

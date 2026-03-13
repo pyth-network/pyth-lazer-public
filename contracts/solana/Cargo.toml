@@ -1,8 +1,6 @@
 [workspace]
 resolver = "2"
-members = [
-  "programs/pyth-lazer-solana-contract",
-]
+members = ["programs/pyth-lazer-solana-contract"]
 
 [profile.release]
 overflow-checks = true
