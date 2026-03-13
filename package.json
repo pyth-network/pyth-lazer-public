@@ -28,6 +28,7 @@
     "@neondatabase/neon-js": "^0.2.0-beta.1",
     "@neondatabase/serverless": "^1.0.2",
     "@next/third-parties": "^16.1.6",
+    "@npmcli/map-workspaces": "^5.0.3",
     "@phosphor-icons/react": "^2.1.10",
     "@pulumi/aws": "^6.0.0",
     "@pulumi/awsx": "^2.0.2",
@@ -194,6 +195,7 @@
     "@cprussin/tsconfig": "catalog:",
     "@dotenvx/dotenvx": "catalog:",
     "@happy-dom/global-registrator": "catalog:",
+    "@npmcli/map-workspaces": "catalog:",
     "@testing-library/react": "catalog:",
     "@types/bun": "catalog:",
     "@types/node": "catalog:",
@@ -201,6 +203,7 @@
     "neonctl": "catalog:",
     "turbo": "catalog:",
     "turbo-ignore": "catalog:",
+    "type-fest": "catalog:",
     "typescript": "catalog:",
     "vercel": "catalog:"
   },

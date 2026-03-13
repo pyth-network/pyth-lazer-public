@@ -15,7 +15,11 @@ export type PriceFeedProperty =
   | "emaPrice"
   | "emaConfidence"
   | "feedUpdateTimestamp";
-export type Channel = "real_time" | "fixed_rate@50ms" | "fixed_rate@200ms";
+export type Channel =
+  | "real_time"
+  | "fixed_rate@50ms"
+  | "fixed_rate@200ms"
+  | "fixed_rate@1000ms";
 
 export type Request =
   | {

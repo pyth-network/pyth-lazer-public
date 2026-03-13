@@ -1,4 +1,4 @@
-import WebSocket from "isomorphic-ws";
+import type WebSocket from "isomorphic-ws";
 import type { Logger } from "ts-log";
 import { dummyLogger } from "ts-log";
 
@@ -41,34 +41,51 @@ const UINT32_NUM_BYTES = 4;
 const UINT64_NUM_BYTES = 8;
 
 export type LazerClientConfig = {
+  /**
+   * if provided and the signal is detected as canceled,
+   * all active listeners and connections will be unbound and killed.
+   */
+  abortSignal?: AbortSignal;
   token: string;
   metadataServiceUrl?: string;
   priceServiceUrl?: string;
   logger?: Logger;
-  webSocketPoolConfig?: WebSocketPoolConfig;
+  webSocketPoolConfig: WebSocketPoolConfig;
+};
+
+type PythLazerClientConstructorOpts = {
+  abortSignal: AbortSignal | null | undefined;
+  logger: Logger;
+  metadataServiceUrl: string;
+  priceServiceUrl: string;
+  token: string;
+  wsp: WebSocketPool;
 };
 
 export class PythLazerClient {
-  private constructor(
-    private readonly token: string,
-    private readonly metadataServiceUrl: string,
-    private readonly priceServiceUrl: string,
-    private readonly logger: Logger,
-    private readonly wsp?: WebSocketPool,
-  ) {}
+  private logger: PythLazerClientConstructorOpts["logger"];
+  private metadataServiceUrl: PythLazerClientConstructorOpts["metadataServiceUrl"];
+  private priceServiceUrl: PythLazerClientConstructorOpts["priceServiceUrl"];
+  private token: PythLazerClientConstructorOpts["token"];
+  private wsp: PythLazerClientConstructorOpts["wsp"];
+  private abortSignal: AbortSignal | undefined | null;
 
-  /**
-   * Gets the WebSocket pool. If the WebSocket pool is not configured, an error is thrown.
-   * @throws Error if WebSocket pool is not configured
-   * @returns The WebSocket pool
-   */
-  private getWebSocketPool(): WebSocketPool {
-    if (!this.wsp) {
-      throw new Error(
-        "WebSocket pool is not available. Make sure to provide webSocketPoolConfig when creating the client.",
-      );
-    }
-    return this.wsp;
+  private constructor({
+    abortSignal,
+    logger,
+    metadataServiceUrl,
+    priceServiceUrl,
+    token,
+    wsp,
+  }: PythLazerClientConstructorOpts) {
+    this.abortSignal = abortSignal;
+    this.logger = logger;
+    this.metadataServiceUrl = metadataServiceUrl;
+    this.priceServiceUrl = priceServiceUrl;
+    this.token = token;
+    this.wsp = wsp;
+
+    this.bindHandlers();
   }
 
   /**
@@ -87,22 +104,27 @@ export class PythLazerClient {
     ).replace(/\/+$/, "");
     const logger = config.logger ?? dummyLogger;
 
-    // If webSocketPoolConfig is provided, create a WebSocket pool and block until at least one connection is established.
-    let wsp: WebSocketPool | undefined;
-    if (config.webSocketPoolConfig) {
-      wsp = await WebSocketPool.create(
-        config.webSocketPoolConfig,
-        token,
-        logger,
-      );
-    }
-    return new PythLazerClient(
+    // the prior API was mismatched, in that it marked a websocket pool as optional,
+    // yet all internal code on the Pyth Pro client used it and threw if it didn't exist.
+    // now, the typings indicate it's no longer optional and we don't sanity check
+    // if it's set
+    const wsp = await WebSocketPool.create(
+      config.webSocketPoolConfig,
       token,
+      config.abortSignal,
+      logger,
+    );
+
+    const client = new PythLazerClient({
+      abortSignal: config.abortSignal,
+      logger,
       metadataServiceUrl,
       priceServiceUrl,
-      logger,
+      token,
       wsp,
-    );
+    });
+
+    return client;
   }
 
   /**
@@ -112,9 +134,8 @@ export class PythLazerClient {
    * or a binary response containing EVM, Solana, or parsed payload data.
    */
   addMessageListener(handler: (event: JsonOrBinaryResponse) => void) {
-    const wsp = this.getWebSocketPool();
-    wsp.addMessageListener(async (data: WebSocket.Data) => {
-      if (typeof data == "string") {
+    this.wsp.addMessageListener(async (data: WebSocket.Data) => {
+      if (typeof data === "string") {
         handler({
           type: "json",
           value: JSON.parse(data) as Response,
@@ -127,7 +148,7 @@ export class PythLazerClient {
         .subarray(pos, pos + UINT32_NUM_BYTES)
         .readUint32LE();
       pos += UINT32_NUM_BYTES;
-      if (magic != BINARY_UPDATE_FORMAT_MAGIC_LE) {
+      if (magic !== BINARY_UPDATE_FORMAT_MAGIC_LE) {
         throw new Error("binary update format magic mismatch");
       }
       // TODO: some uint64 values may not be representable as Number.
@@ -145,15 +166,15 @@ export class PythLazerClient {
         const magic = buffData
           .subarray(pos, pos + UINT32_NUM_BYTES)
           .readUint32LE();
-        if (magic == FORMAT_MAGICS_LE.EVM) {
+        if (magic === FORMAT_MAGICS_LE.EVM) {
           value.evm = buffData.subarray(pos, pos + len);
-        } else if (magic == FORMAT_MAGICS_LE.SOLANA) {
+        } else if (magic === FORMAT_MAGICS_LE.SOLANA) {
           value.solana = buffData.subarray(pos, pos + len);
-        } else if (magic == FORMAT_MAGICS_LE.LE_ECDSA) {
+        } else if (magic === FORMAT_MAGICS_LE.LE_ECDSA) {
           value.leEcdsa = buffData.subarray(pos, pos + len);
-        } else if (magic == FORMAT_MAGICS_LE.LE_UNSIGNED) {
+        } else if (magic === FORMAT_MAGICS_LE.LE_UNSIGNED) {
           value.leUnsigned = buffData.subarray(pos, pos + len);
-        } else if (magic == FORMAT_MAGICS_LE.JSON) {
+        } else if (magic === FORMAT_MAGICS_LE.JSON) {
           value.parsed = JSON.parse(
             buffData.subarray(pos + UINT32_NUM_BYTES, pos + len).toString(),
           ) as ParsedPayload;
@@ -166,22 +187,26 @@ export class PythLazerClient {
     });
   }
 
+  /**
+   * binds any internal event handlers
+   */
+  bindHandlers() {
+    this.abortSignal?.addEventListener("abort", this.abortHandler);
+  }
+
   subscribe(request: Request) {
-    const wsp = this.getWebSocketPool();
     if (request.type !== "subscribe") {
       throw new Error("Request must be a subscribe request");
     }
-    wsp.addSubscription(request);
+    this.wsp.addSubscription(request);
   }
 
   unsubscribe(subscriptionId: number) {
-    const wsp = this.getWebSocketPool();
-    wsp.removeSubscription(subscriptionId);
+    this.wsp.removeSubscription(subscriptionId);
   }
 
   send(request: Request) {
-    const wsp = this.getWebSocketPool();
-    wsp.sendRequest(request);
+    this.wsp.sendRequest(request);
   }
 
   /**
@@ -190,8 +215,7 @@ export class PythLazerClient {
    * @param handler - Function to be called when all connections are down
    */
   addAllConnectionsDownListener(handler: () => void): void {
-    const wsp = this.getWebSocketPool();
-    wsp.addAllConnectionsDownListener(handler);
+    this.wsp.addAllConnectionsDownListener(handler);
   }
 
   /**
@@ -199,8 +223,7 @@ export class PythLazerClient {
    * @param handler - Function to be called when connection is restored
    */
   addConnectionRestoredListener(handler: () => void): void {
-    const wsp = this.getWebSocketPool();
-    wsp.addConnectionRestoredListener(handler);
+    this.wsp.addConnectionRestoredListener(handler);
   }
 
   /**
@@ -210,8 +233,7 @@ export class PythLazerClient {
   addConnectionTimeoutListener(
     handler: (connectionIndex: number, endpoint: string) => void,
   ): void {
-    const wsp = this.getWebSocketPool();
-    wsp.addConnectionTimeoutListener(handler);
+    this.wsp.addConnectionTimeoutListener(handler);
   }
 
   /**
@@ -221,13 +243,20 @@ export class PythLazerClient {
   addConnectionReconnectListener(
     handler: (connectionIndex: number, endpoint: string) => void,
   ): void {
-    const wsp = this.getWebSocketPool();
-    wsp.addConnectionReconnectListener(handler);
+    this.wsp.addConnectionReconnectListener(handler);
   }
 
+  /**
+   * called if and only if a user provided an abort signal and it was aborted
+   */
+  protected abortHandler = (): void => {
+    this.shutdown();
+  };
+
   shutdown(): void {
-    const wsp = this.getWebSocketPool();
-    wsp.shutdown();
+    // Clean up abort signal listener to prevent memory leak
+    this.abortSignal?.removeEventListener("abort", this.abortHandler);
+    this.wsp.shutdown();
   }
 
   /**
@@ -236,14 +265,16 @@ export class PythLazerClient {
    * @param options - Additional fetch options
    * @returns Promise resolving to the fetch Response
    */
-  private async authenticatedFetch(
+  private authenticatedFetch(
     url: string,
     options: RequestInit = {},
   ): Promise<globalThis.Response> {
-    const headers = {
-      Authorization: `Bearer ${this.token}`,
-      ...(options.headers as Record<string, string>),
-    };
+    // Handle all possible types of headers (Headers object, array, or plain object)
+    const headers = new Headers(options.headers);
+    headers.set(
+      "Authorization",
+      headers.get("authorization") ?? `Bearer ${this.token}`,
+    );
 
     return fetch(url, {
       ...options,

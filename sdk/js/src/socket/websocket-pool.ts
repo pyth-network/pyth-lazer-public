@@ -1,6 +1,6 @@
 import TTLCache from "@isaacs/ttlcache";
+import type WebSocket from "isomorphic-ws";
 import type { ErrorEvent } from "isomorphic-ws";
-import WebSocket from "isomorphic-ws";
 import type { Logger } from "ts-log";
 import { dummyLogger } from "ts-log";
 import {
@@ -81,8 +81,12 @@ export class WebSocketPool extends IsomorphicEventEmitter<WebSocketPoolEvents> {
   ) => void)[];
   private wasAllDown = true;
   private checkConnectionStatesInterval: NodeJS.Timeout;
+  private isShutdown = false;
 
-  private constructor(private readonly logger: Logger) {
+  private constructor(
+    private readonly logger: Logger,
+    private readonly abortSignal?: AbortSignal | null | undefined,
+  ) {
     super();
     this.rwsPool = [];
     this.cache = new TTLCache({ ttl: 1000 * 10 }); // TTL of 10 seconds
@@ -110,6 +114,7 @@ export class WebSocketPool extends IsomorphicEventEmitter<WebSocketPoolEvents> {
   static async create(
     config: WebSocketPoolConfig,
     token: string,
+    abortSignal: AbortSignal | null | undefined,
     logger?: Logger,
   ): Promise<WebSocketPool> {
     const urls = config.urls ?? [
@@ -117,7 +122,7 @@ export class WebSocketPool extends IsomorphicEventEmitter<WebSocketPoolEvents> {
       DEFAULT_STREAM_SERVICE_1_URL,
     ];
     const log = logger ?? dummyLogger;
-    const pool = new WebSocketPool(log);
+    const pool = new WebSocketPool(log, abortSignal);
     const numConnections = config.numConnections ?? DEFAULT_NUM_CONNECTIONS;
 
     // bind a handler to capture any emitted errors and send them to the user-provided
@@ -157,7 +162,7 @@ export class WebSocketPool extends IsomorphicEventEmitter<WebSocketPoolEvents> {
       // If a websocket client unexpectedly disconnects, ResilientWebSocket will reestablish
       // the connection and call the onReconnect callback.
       rws.onReconnect = () => {
-        if (rws.wsUserClosed) {
+        if (rws.wsUserClosed || pool.isShutdown || pool.abortSignal?.aborted) {
           return;
         }
         for (const listener of pool.connectionReconnectListeners) {
@@ -202,6 +207,13 @@ export class WebSocketPool extends IsomorphicEventEmitter<WebSocketPoolEvents> {
     );
 
     while (!pool.isAnyConnectionEstablished()) {
+      if (pool.abortSignal?.aborted) {
+        pool.logger.warn(
+          "the WebSocket Pool's abort signal was aborted during connection. Shutting down.",
+        );
+        pool.shutdown();
+        return pool;
+      }
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
 
@@ -277,6 +289,13 @@ export class WebSocketPool extends IsomorphicEventEmitter<WebSocketPoolEvents> {
   };
 
   sendRequest(request: Request) {
+    if (this.isShutdown || this.abortSignal?.aborted) {
+      this.logger.warn(
+        "Cannot send request: WebSocketPool is shutdown or aborted",
+      );
+      return;
+    }
+
     for (const rws of this.rwsPool) {
       try {
         rws.send(JSON.stringify(request));
@@ -287,6 +306,13 @@ export class WebSocketPool extends IsomorphicEventEmitter<WebSocketPoolEvents> {
   }
 
   addSubscription(request: Request) {
+    if (this.isShutdown || this.abortSignal?.aborted) {
+      this.logger.warn(
+        "Cannot add subscription: WebSocketPool is shutdown or aborted",
+      );
+      return;
+    }
+
     if (request.type !== "subscribe") {
       this.emitPoolError(new Error("Request must be a subscribe request"));
       return;
@@ -296,6 +322,13 @@ export class WebSocketPool extends IsomorphicEventEmitter<WebSocketPoolEvents> {
   }
 
   removeSubscription(subscriptionId: number) {
+    if (this.isShutdown || this.abortSignal?.aborted) {
+      this.logger.warn(
+        "Cannot remove subscription: WebSocketPool is shutdown or aborted",
+      );
+      return;
+    }
+
     this.subscriptions.delete(subscriptionId);
     const request: Request = {
       subscriptionId,
@@ -352,6 +385,11 @@ export class WebSocketPool extends IsomorphicEventEmitter<WebSocketPoolEvents> {
   }
 
   private checkConnectionStates(): void {
+    // Stop monitoring if shutdown or aborted
+    if (this.isShutdown || this.abortSignal?.aborted) {
+      return;
+    }
+
     const allDown = this.areAllConnectionsDown();
 
     // If all connections just went down
@@ -382,6 +420,13 @@ export class WebSocketPool extends IsomorphicEventEmitter<WebSocketPoolEvents> {
   }
 
   shutdown(): void {
+    // Prevent multiple shutdown calls
+    if (this.isShutdown) {
+      return;
+    }
+
+    this.isShutdown = true;
+
     for (const rws of this.rwsPool) {
       rws.closeWebSocket();
     }
