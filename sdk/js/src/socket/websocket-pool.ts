@@ -83,10 +83,7 @@ export class WebSocketPool extends IsomorphicEventEmitter<WebSocketPoolEvents> {
   private checkConnectionStatesInterval: NodeJS.Timeout;
   private isShutdown = false;
 
-  private constructor(
-    private readonly logger: Logger,
-    private readonly abortSignal?: AbortSignal | null | undefined,
-  ) {
+  private constructor(private readonly logger: Logger) {
     super();
     this.rwsPool = [];
     this.cache = new TTLCache({ ttl: 1000 * 10 }); // TTL of 10 seconds
@@ -114,114 +111,131 @@ export class WebSocketPool extends IsomorphicEventEmitter<WebSocketPoolEvents> {
   static async create(
     config: WebSocketPoolConfig,
     token: string,
-    abortSignal: AbortSignal | null | undefined,
+    abortSignal?: AbortSignal | null | undefined,
     logger?: Logger,
   ): Promise<WebSocketPool> {
+    // Helper to check if aborted and throw
+    const throwIfAborted = () => {
+      if (abortSignal?.aborted) {
+        throw new DOMException(
+          "WebSocketPool.create() was aborted",
+          "AbortError",
+        );
+      }
+    };
+
+    // Check before starting
+    throwIfAborted();
+
     const urls = config.urls ?? [
       DEFAULT_STREAM_SERVICE_0_URL,
       DEFAULT_STREAM_SERVICE_1_URL,
     ];
     const log = logger ?? dummyLogger;
-    const pool = new WebSocketPool(log, abortSignal);
-    const numConnections = config.numConnections ?? DEFAULT_NUM_CONNECTIONS;
+    const pool = new WebSocketPool(log);
 
-    // bind a handler to capture any emitted errors and send them to the user-provided
-    // onWebSocketPoolError callback (if it is present)
-    if (typeof config.onWebSocketPoolError === "function") {
-      pool.on("error", config.onWebSocketPoolError);
-      pool.once("shutdown", () => {
-        // unbind all error handlers so we don't leak memory
-        pool.off("error");
-      });
-    }
+    try {
+      const numConnections = config.numConnections ?? DEFAULT_NUM_CONNECTIONS;
 
-    for (let i = 0; i < numConnections; i++) {
-      const baseUrl = urls[i % urls.length];
-      const isBrowser = envIsBrowserOrWorker();
-      const url = isBrowser
-        ? addAuthTokenToWebSocketUrl(baseUrl, token)
-        : baseUrl;
-      if (!url) {
-        throw new Error(`URLs must not be null or empty`);
-      }
-      const wsOptions: ResilientWebSocketConfig["wsOptions"] = {
-        ...config.rwsConfig?.wsOptions,
-        headers: isBrowser ? undefined : { Authorization: `Bearer ${token}` },
-      };
-
-      const rws = new ResilientWebSocket({
-        ...config.rwsConfig,
-        endpoint: url,
-        logger: log,
-        wsOptions,
-      });
-
-      const connectionIndex = i;
-      const connectionEndpoint = url;
-
-      // If a websocket client unexpectedly disconnects, ResilientWebSocket will reestablish
-      // the connection and call the onReconnect callback.
-      rws.onReconnect = () => {
-        if (rws.wsUserClosed || pool.isShutdown || pool.abortSignal?.aborted) {
-          return;
-        }
-        for (const listener of pool.connectionReconnectListeners) {
-          listener(connectionIndex, connectionEndpoint);
-        }
-        for (const [, request] of pool.subscriptions) {
-          try {
-            rws.send(JSON.stringify(request));
-          } catch (error) {
-            pool.logger.error(
-              "Failed to resend subscription on reconnect:",
-              error,
-            );
-          }
-        }
-      };
-
-      rws.onTimeout = () => {
-        for (const listener of pool.connectionTimeoutListeners) {
-          listener(connectionIndex, connectionEndpoint);
-        }
-      };
-
-      // eslint-disable-next-line @typescript-eslint/no-deprecated
-      const onErrorHandler = config.onWebSocketError ?? config.onError;
-
-      if (typeof onErrorHandler === "function") {
-        rws.onError = onErrorHandler;
-      }
-      // Handle all client messages ourselves. Dedupe before sending to registered message handlers.
-      rws.onMessage = (data) => {
-        pool.dedupeHandler(data).catch((error: unknown) => {
-          pool.emitPoolError(error, "Error in WebSocketPool dedupeHandler");
+      // bind a handler to capture any emitted errors and send them to the user-provided
+      // onWebSocketPoolError callback (if it is present)
+      if (typeof config.onWebSocketPoolError === "function") {
+        pool.on("error", config.onWebSocketPoolError);
+        pool.once("shutdown", () => {
+          // unbind all error handlers so we don't leak memory
+          pool.off("error");
         });
-      };
-      pool.rwsPool.push(rws);
-      rws.startWebSocket();
-    }
-
-    pool.logger.info(
-      `Started WebSocketPool with ${numConnections.toString()} connections. Waiting for at least one to connect...`,
-    );
-
-    while (!pool.isAnyConnectionEstablished()) {
-      if (pool.abortSignal?.aborted) {
-        pool.logger.warn(
-          "the WebSocket Pool's abort signal was aborted during connection. Shutting down.",
-        );
-        pool.shutdown();
-        return pool;
       }
-      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      for (let i = 0; i < numConnections; i++) {
+        const baseUrl = urls[i % urls.length];
+        const isBrowser = envIsBrowserOrWorker();
+        const url = isBrowser
+          ? addAuthTokenToWebSocketUrl(baseUrl, token)
+          : baseUrl;
+        if (!url) {
+          throw new Error(`URLs must not be null or empty`);
+        }
+        const wsOptions: ResilientWebSocketConfig["wsOptions"] = {
+          ...config.rwsConfig?.wsOptions,
+          headers: isBrowser ? undefined : { Authorization: `Bearer ${token}` },
+        };
+
+        const rws = new ResilientWebSocket({
+          ...config.rwsConfig,
+          endpoint: url,
+          logger: log,
+          wsOptions,
+        });
+
+        const connectionIndex = i;
+        const connectionEndpoint = url;
+
+        // If a websocket client unexpectedly disconnects, ResilientWebSocket will reestablish
+        // the connection and call the onReconnect callback.
+        rws.onReconnect = () => {
+          if (rws.wsUserClosed || pool.isShutdown) {
+            return;
+          }
+          for (const listener of pool.connectionReconnectListeners) {
+            listener(connectionIndex, connectionEndpoint);
+          }
+          for (const [, request] of pool.subscriptions) {
+            try {
+              rws.send(JSON.stringify(request));
+            } catch (error) {
+              pool.logger.error(
+                "Failed to resend subscription on reconnect:",
+                error,
+              );
+            }
+          }
+        };
+
+        rws.onTimeout = () => {
+          for (const listener of pool.connectionTimeoutListeners) {
+            listener(connectionIndex, connectionEndpoint);
+          }
+        };
+
+        // eslint-disable-next-line @typescript-eslint/no-deprecated
+        const onErrorHandler = config.onWebSocketError ?? config.onError;
+
+        if (typeof onErrorHandler === "function") {
+          rws.onError = onErrorHandler;
+        }
+        // Handle all client messages ourselves. Dedupe before sending to registered message handlers.
+        rws.onMessage = (data) => {
+          pool.dedupeHandler(data).catch((error: unknown) => {
+            pool.emitPoolError(error, "Error in WebSocketPool dedupeHandler");
+          });
+        };
+        pool.rwsPool.push(rws);
+        rws.startWebSocket();
+      }
+
+      pool.logger.info(
+        `Started WebSocketPool with ${numConnections.toString()} connections. Waiting for at least one to connect...`,
+      );
+
+      while (!pool.isAnyConnectionEstablished() && !pool.isShutdown) {
+        throwIfAborted();
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+
+      // Final check after loop exits
+      throwIfAborted();
+
+      pool.logger.info(
+        `At least one WebSocket connection is established. WebSocketPool is ready.`,
+      );
+
+      return pool;
+    } catch (error) {
+      // Clean up the pool if aborted during connection wait
+      pool.shutdown();
+      throw error;
     }
-
-    pool.logger.info(
-      `At least one WebSocket connection is established. WebSocketPool is ready.`,
-    );
-
-    return pool;
   }
 
   private emitPoolError(error: unknown, context?: string): void {
@@ -289,10 +303,8 @@ export class WebSocketPool extends IsomorphicEventEmitter<WebSocketPoolEvents> {
   };
 
   sendRequest(request: Request) {
-    if (this.isShutdown || this.abortSignal?.aborted) {
-      this.logger.warn(
-        "Cannot send request: WebSocketPool is shutdown or aborted",
-      );
+    if (this.isShutdown) {
+      this.logger.warn("Cannot send request: WebSocketPool is shutdown");
       return;
     }
 
@@ -306,10 +318,8 @@ export class WebSocketPool extends IsomorphicEventEmitter<WebSocketPoolEvents> {
   }
 
   addSubscription(request: Request) {
-    if (this.isShutdown || this.abortSignal?.aborted) {
-      this.logger.warn(
-        "Cannot add subscription: WebSocketPool is shutdown or aborted",
-      );
+    if (this.isShutdown) {
+      this.logger.warn("Cannot add subscription: WebSocketPool is shutdown");
       return;
     }
 
@@ -322,10 +332,8 @@ export class WebSocketPool extends IsomorphicEventEmitter<WebSocketPoolEvents> {
   }
 
   removeSubscription(subscriptionId: number) {
-    if (this.isShutdown || this.abortSignal?.aborted) {
-      this.logger.warn(
-        "Cannot remove subscription: WebSocketPool is shutdown or aborted",
-      );
+    if (this.isShutdown) {
+      this.logger.warn("Cannot remove subscription: WebSocketPool is shutdown");
       return;
     }
 
@@ -385,8 +393,8 @@ export class WebSocketPool extends IsomorphicEventEmitter<WebSocketPoolEvents> {
   }
 
   private checkConnectionStates(): void {
-    // Stop monitoring if shutdown or aborted
-    if (this.isShutdown || this.abortSignal?.aborted) {
+    // Stop monitoring if shutdown
+    if (this.isShutdown) {
       return;
     }
 

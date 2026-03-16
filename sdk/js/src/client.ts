@@ -42,8 +42,9 @@ const UINT64_NUM_BYTES = 8;
 
 export type LazerClientConfig = {
   /**
-   * if provided and the signal is detected as canceled,
-   * all active listeners and connections will be unbound and killed.
+   * If provided, allows aborting the client creation process.
+   * Once the client is successfully created, this signal has no effect on the client's lifecycle.
+   * When aborted, the promise will reject with a DOMException with name 'AbortError'.
    */
   abortSignal?: AbortSignal;
   token: string;
@@ -54,7 +55,6 @@ export type LazerClientConfig = {
 };
 
 type PythLazerClientConstructorOpts = {
-  abortSignal: AbortSignal | null | undefined;
   logger: Logger;
   metadataServiceUrl: string;
   priceServiceUrl: string;
@@ -68,24 +68,19 @@ export class PythLazerClient {
   private priceServiceUrl: PythLazerClientConstructorOpts["priceServiceUrl"];
   private token: PythLazerClientConstructorOpts["token"];
   private wsp: PythLazerClientConstructorOpts["wsp"];
-  private abortSignal: AbortSignal | undefined | null;
 
   private constructor({
-    abortSignal,
     logger,
     metadataServiceUrl,
     priceServiceUrl,
     token,
     wsp,
   }: PythLazerClientConstructorOpts) {
-    this.abortSignal = abortSignal;
     this.logger = logger;
     this.metadataServiceUrl = metadataServiceUrl;
     this.priceServiceUrl = priceServiceUrl;
     this.token = token;
     this.wsp = wsp;
-
-    this.bindHandlers();
   }
 
   /**
@@ -93,6 +88,32 @@ export class PythLazerClient {
    * @param config - Configuration including token, metadata service URL, and price service URL, and WebSocket pool configuration
    */
   static async create(config: LazerClientConfig): Promise<PythLazerClient> {
+    let wsp: Awaited<ReturnType<typeof WebSocketPool.create>> | undefined =
+      undefined;
+    let client: PythLazerClient | undefined = undefined;
+
+    const { abortSignal } = config;
+
+    const handleAbort = () => {
+      // we need to EXPLICITLY shutdown both items,
+      // because there is a possibility the client was undefined
+      // when the abort signal was called
+      client?.shutdown();
+      wsp?.shutdown();
+      abortSignal?.removeEventListener("abort", handleAbort);
+    };
+
+    const throwIfAborted = () => {
+      if (abortSignal?.aborted) {
+        throw new DOMException(
+          "PythLazerClient.create() was aborted",
+          "AbortError",
+        );
+      }
+    };
+
+    abortSignal?.addEventListener("abort", handleAbort);
+
     const token = config.token;
 
     // Collect and remove trailing slash from URLs
@@ -104,27 +125,42 @@ export class PythLazerClient {
     ).replace(/\/+$/, "");
     const logger = config.logger ?? dummyLogger;
 
-    // the prior API was mismatched, in that it marked a websocket pool as optional,
-    // yet all internal code on the Pyth Pro client used it and threw if it didn't exist.
-    // now, the typings indicate it's no longer optional and we don't sanity check
-    // if it's set
-    const wsp = await WebSocketPool.create(
-      config.webSocketPoolConfig,
-      token,
-      config.abortSignal,
-      logger,
-    );
+    try {
+      throwIfAborted();
 
-    const client = new PythLazerClient({
-      abortSignal: config.abortSignal,
-      logger,
-      metadataServiceUrl,
-      priceServiceUrl,
-      token,
-      wsp,
-    });
+      // the prior API was mismatched, in that it marked a websocket pool as optional,
+      // yet all internal code on the Pyth Pro client used it and threw if it didn't exist.
+      // now, the typings indicate it's no longer optional and we don't sanity check
+      // if it's set
+      wsp = await WebSocketPool.create(
+        config.webSocketPoolConfig,
+        token,
+        abortSignal,
+        logger,
+      );
 
-    return client;
+      throwIfAborted();
+
+      client = new PythLazerClient({
+        logger,
+        metadataServiceUrl,
+        priceServiceUrl,
+        token,
+        wsp,
+      });
+
+      throwIfAborted();
+
+      // detach the abortSignal handler here, because we've made it!
+      abortSignal?.removeEventListener("abort", handleAbort);
+
+      return client;
+    } catch (error) {
+      client?.shutdown();
+      wsp?.shutdown();
+      abortSignal?.removeEventListener("abort", handleAbort);
+      throw error;
+    }
   }
 
   /**
@@ -187,13 +223,6 @@ export class PythLazerClient {
     });
   }
 
-  /**
-   * binds any internal event handlers
-   */
-  bindHandlers() {
-    this.abortSignal?.addEventListener("abort", this.abortHandler);
-  }
-
   subscribe(request: Request) {
     if (request.type !== "subscribe") {
       throw new Error("Request must be a subscribe request");
@@ -246,16 +275,7 @@ export class PythLazerClient {
     this.wsp.addConnectionReconnectListener(handler);
   }
 
-  /**
-   * called if and only if a user provided an abort signal and it was aborted
-   */
-  protected abortHandler = (): void => {
-    this.shutdown();
-  };
-
   shutdown(): void {
-    // Clean up abort signal listener to prevent memory leak
-    this.abortSignal?.removeEventListener("abort", this.abortHandler);
     this.wsp.shutdown();
   }
 
