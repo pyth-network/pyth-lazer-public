@@ -65,15 +65,15 @@ utoipa-axum = "0.2.0"
 
 [workspace.dependencies.pyth-lazer-client]
 path = "sdk/rust/client"
-version = "21.0.0"
+version = "22.0.0"
 
 [workspace.dependencies.pyth-lazer-protocol]
 path = "sdk/rust/protocol"
-version = "0.34.0"
+version = "0.35.0"
 
 [workspace.dependencies.pyth-lazer-publisher-sdk]
 path = "publisher_sdk/rust"
-version = "0.34.0"
+version = "0.35.0"
 
 [workspace.dependencies.axum]
 features = ["ws"]
@@ -191,8 +191,12 @@ features = ["serde"]
 version = "2.5.4"
 
 [workspace.dependencies.utoipa]
-features = ["axum_extras"]
+features = ["axum_extras", "chrono", "uuid"]
 version = "5.4.0"
+
+[workspace.dependencies.utoipa-redoc]
+features = ["axum"]
+version = "6"
 
 [workspace.dependencies.utoipa-swagger-ui]
 features = ["axum"]

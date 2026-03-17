@@ -3237,7 +3237,7 @@ dependencies = [
 
 [[package]]
 name = "pyth-lazer-client"
-version = "21.0.0"
+version = "22.0.0"
 dependencies = [
  "alloy-primitives",
  "anyhow",
@@ -3304,7 +3304,7 @@ dependencies = [
 
 [[package]]
 name = "pyth-lazer-protocol"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "alloy-primitives",
  "anyhow",
@@ -3333,7 +3333,7 @@ dependencies = [
 
 [[package]]
 name = "pyth-lazer-publisher-sdk"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "anyhow",
  "fs-err",
@@ -5115,6 +5115,7 @@ dependencies = [
  "quote",
  "regex",
  "syn 2.0.87",
+ "uuid",
 ]
 
 [[package]]
@@ -5124,6 +5125,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2f87b8aa10b915a06587d0dec516c282ff295b475d94abf425d62b57710070a2"
 dependencies = [
  "js-sys",
+ "serde",
  "wasm-bindgen",
 ]
 

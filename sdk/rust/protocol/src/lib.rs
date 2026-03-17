@@ -42,6 +42,7 @@ pub use crate::{
 )]
 pub struct AssetId(pub u32);
 
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, From, Into,
 )]
