@@ -23,9 +23,9 @@ mod symbol_state;
 pub mod time;
 
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
+
 use {
-    derive_more::derive::{From, Into},
+    derive_more::{From, Into},
     strum::FromRepr,
 };
 
@@ -47,22 +47,11 @@ pub struct AssetId(pub u32);
 )]
 pub struct PublisherId(pub u16);
 
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    Hash,
-    PartialOrd,
-    Ord,
-    Serialize,
-    Deserialize,
-    From,
-    Into,
-    ToSchema,
+    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, From, Into,
 )]
-#[schema(value_type = u32)]
+#[cfg_attr(feature = "utoipa", schema(value_type = u32))]
 pub struct PriceFeedId(pub u32);
 
 #[derive(
@@ -96,7 +85,8 @@ impl ChannelId {
     pub const FIXED_RATE_1000: ChannelId = ChannelId(4);
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema, FromRepr)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, FromRepr)]
 #[serde(rename_all = "camelCase")]
 #[repr(u8)]
 pub enum PriceFeedProperty {

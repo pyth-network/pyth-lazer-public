@@ -1,6 +1,6 @@
 use {
     crate::{price::Price, rate::Rate, time::TimestampUs, PriceFeedId},
-    derive_more::derive::From,
+    derive_more::From,
     serde::{Deserialize, Serialize},
 };
 

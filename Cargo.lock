@@ -973,6 +973,12 @@ dependencies = [
 
 [[package]]
 name = "convert_case"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
+
+[[package]]
+name = "convert_case"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec182b0ca2f35d8fc196cf3404988fd8b8c739a4d270ff118a398feb0cbec1ca"
@@ -1203,6 +1209,19 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "derive_more"
+version = "0.99.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6edb4b64a43d977b8e99788fe3a04d483834fba1215a7e02caa415b626497f7f"
+dependencies = [
+ "convert_case 0.4.0",
+ "proc-macro2",
+ "quote",
+ "rustc_version 0.4.1",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -3218,7 +3237,7 @@ dependencies = [
 
 [[package]]
 name = "pyth-lazer-client"
-version = "20.0.0"
+version = "21.0.0"
 dependencies = [
  "alloy-primitives",
  "anyhow",
@@ -3285,7 +3304,7 @@ dependencies = [
 
 [[package]]
 name = "pyth-lazer-protocol"
-version = "0.33.0"
+version = "0.34.0"
 dependencies = [
  "alloy-primitives",
  "anyhow",
@@ -3294,7 +3313,7 @@ dependencies = [
  "bs58",
  "byteorder",
  "chrono",
- "derive_more 1.0.0",
+ "derive_more 0.99.20",
  "ed25519-dalek 2.1.1",
  "hex",
  "humantime",
@@ -3314,7 +3333,7 @@ dependencies = [
 
 [[package]]
 name = "pyth-lazer-publisher-sdk"
-version = "0.33.0"
+version = "0.34.0"
 dependencies = [
  "anyhow",
  "fs-err",

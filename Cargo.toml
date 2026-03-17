@@ -46,7 +46,7 @@ option-inspect-none = "1"
 pin-project = "1"
 prometheus = "0.13.4"
 prometheus_exporter = "0.8.5"
-protobuf = "3.7.2"
+protobuf = "3.4.0"
 protobuf-json-mapping = "3.7.2"
 pyth-sdk = "0.8.0"
 pythnet-sdk = "2.3.1"
@@ -65,15 +65,15 @@ utoipa-axum = "0.2.0"
 
 [workspace.dependencies.pyth-lazer-client]
 path = "sdk/rust/client"
-version = "20.0.0"
+version = "21.0.0"
 
 [workspace.dependencies.pyth-lazer-protocol]
 path = "sdk/rust/protocol"
-version = "0.33.0"
+version = "0.34.0"
 
 [workspace.dependencies.pyth-lazer-publisher-sdk]
 path = "publisher_sdk/rust"
-version = "0.33.0"
+version = "0.34.0"
 
 [workspace.dependencies.axum]
 features = ["ws"]
@@ -152,7 +152,7 @@ version = "1.0.219"
 
 [workspace.dependencies.serde_with]
 features = ["base64"]
-version = "3.12.0"
+version = "3.10.0"
 
 [workspace.dependencies.serde_wormhole]
 git = "https://github.com/wormhole-foundation/wormhole"

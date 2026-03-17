@@ -1,0 +1,20 @@
+[package]
+name = "anchor_0_29_support_test"
+version = "0.1.0"
+description = "Created with Anchor"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "anchor_0_29_support_test"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = "0.29.0"
+pyth-lazer-solana-contract = { path = "../../../solana/programs/pyth-lazer-solana-contract" }

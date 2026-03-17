@@ -19,13 +19,21 @@ pub use {
 
 declare_id!("pytd2yyk641x7ak7mkaasSJVXh6YYZnC7wTmtgAyxPt");
 
-pub const STORAGE_ID: Pubkey = pubkey!("3rdJbqfnagQ4yx9HXJViD4zc4xpiSqmFsKpPuSCQVyQL");
+#[rustfmt::skip]
+pub const STORAGE_ID: Pubkey = Pubkey::new_from_array([
+    42, 109, 225, 199, 127, 174, 116, 113, 78, 156, 43, 125, 245, 28, 89, 122,
+    141, 218, 138, 70, 61, 251, 135, 64, 90, 171, 220, 10, 61, 0, 238, 25,
+]);
 
 #[test]
 fn test_ids() {
     assert_eq!(
         Pubkey::find_program_address(&[STORAGE_SEED], &ID).0,
         STORAGE_ID
+    );
+    assert_eq!(
+        STORAGE_ID.to_string(),
+        "3rdJbqfnagQ4yx9HXJViD4zc4xpiSqmFsKpPuSCQVyQL"
     );
 }
 

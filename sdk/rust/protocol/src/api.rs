@@ -1,17 +1,13 @@
-use {
-    std::{
-        cmp::Ordering,
-        fmt::Display,
-        ops::{Deref, DerefMut},
-    },
-    utoipa::PartialSchema,
+use std::{
+    cmp::Ordering,
+    fmt::Display,
+    ops::{Deref, DerefMut},
 };
 
-use derive_more::derive::From;
+use derive_more::From;
 use itertools::Itertools as _;
 use serde::{de::Error, Deserialize, Serialize};
 use serde_with::{hex::Hex, serde_as};
-use utoipa::ToSchema;
 
 use crate::{
     payload::AggregatedPriceFeedData,
@@ -19,9 +15,10 @@ use crate::{
     ChannelId, Price, PriceFeedId, PriceFeedProperty, Rate,
 };
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[schema(examples(LatestPriceRequestRepr::example1))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "utoipa", schema(examples(LatestPriceRequestRepr::example1)))]
 pub struct LatestPriceRequestRepr {
     /// List of feed IDs.
     /// Either feed ids or symbols must be specified.
@@ -45,6 +42,7 @@ pub struct LatestPriceRequestRepr {
     pub channel: Channel,
 }
 
+#[cfg(feature = "utoipa")]
 impl LatestPriceRequestRepr {
     fn example1() -> Self {
         Self {
@@ -59,8 +57,9 @@ impl LatestPriceRequestRepr {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct LatestPriceRequest(LatestPriceRequestRepr);
 
 impl<'de> Deserialize<'de> for LatestPriceRequest {
@@ -105,8 +104,9 @@ impl DerefMut for LatestPriceRequest {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct PriceRequestRepr {
     /// Requested timestamp of the update.
     pub timestamp: TimestampUs,
@@ -115,7 +115,7 @@ pub struct PriceRequestRepr {
     pub price_feed_ids: Option<Vec<PriceFeedId>>,
     /// List of feed symbols.
     /// Either feed ids or symbols must be specified.
-    #[schema(default)]
+    #[cfg_attr(feature = "utoipa", schema(default))]
     pub symbols: Option<Vec<String>>,
     /// List of feed properties the sender is interested in.
     pub properties: Vec<PriceFeedProperty>,
@@ -131,8 +131,9 @@ pub struct PriceRequestRepr {
     pub channel: Channel,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct PriceRequest(PriceRequestRepr);
 
 impl<'de> Deserialize<'de> for PriceRequest {
@@ -177,8 +178,9 @@ impl DerefMut for PriceRequest {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct ReducePriceRequest {
     /// Feed update previously received from WebSocket or from "Fetch price"
     /// or "Fetch latest price" endpoints.
@@ -202,8 +204,9 @@ pub fn schema_default_price_feed_ids() -> Option<Vec<PriceFeedId>> {
     Some(vec![PriceFeedId(1)])
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub enum DeliveryFormat {
     /// Deliver stream updates as JSON text messages.
     #[default]
@@ -212,8 +215,9 @@ pub enum DeliveryFormat {
     Binary,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub enum Format {
     Evm,
     Solana,
@@ -221,15 +225,17 @@ pub enum Format {
     LeUnsigned,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub enum JsonBinaryEncoding {
     #[default]
     Base64,
     Hex,
 }
 
-#[derive(Serialize, Deserialize, ToSchema)]
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub enum ChannelSchemaRepr {
     #[serde(rename = "real_time")]
     RealTime,
@@ -247,13 +253,15 @@ pub enum Channel {
     RealTime,
 }
 
-impl PartialSchema for Channel {
+#[cfg(feature = "utoipa")]
+impl utoipa::PartialSchema for Channel {
     fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
         ChannelSchemaRepr::schema()
     }
 }
 
-impl ToSchema for Channel {
+#[cfg(feature = "utoipa")]
+impl utoipa::ToSchema for Channel {
     fn name() -> std::borrow::Cow<'static, str> {
         ChannelSchemaRepr::name()
     }
@@ -455,15 +463,16 @@ impl<'de> Deserialize<'de> for Channel {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct SubscriptionParamsRepr {
     /// List of feed IDs.
     /// Either feed ids or symbols must be specified.
     pub price_feed_ids: Option<Vec<PriceFeedId>>,
     /// List of feed symbols.
     /// Either feed ids or symbols must be specified.
-    #[schema(default)]
+    #[cfg_attr(feature = "utoipa", schema(default))]
     pub symbols: Option<Vec<String>>,
     /// List of feed properties the sender is interested in.
     pub properties: Vec<PriceFeedProperty>,
@@ -493,8 +502,9 @@ pub struct SubscriptionParamsRepr {
     pub ignore_invalid_feeds: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct SubscriptionParams(SubscriptionParamsRepr);
 
 impl<'de> Deserialize<'de> for SubscriptionParams {
@@ -539,8 +549,9 @@ impl DerefMut for SubscriptionParams {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct JsonBinaryData {
     /// Encoding of the data. It will be the same as `jsonBinaryEncoding` specified in the `SubscriptionRequest`.
     pub encoding: JsonBinaryEncoding,
@@ -548,8 +559,9 @@ pub struct JsonBinaryData {
     pub data: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct JsonUpdate {
     /// Parsed representation of the price update.
     /// Present unless `parsed = false` is specified in subscription params.
@@ -569,20 +581,22 @@ pub struct JsonUpdate {
     pub le_unsigned: Option<JsonBinaryData>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct ParsedPayload {
     /// Unix timestamp associated with the update (with microsecond precision).
     #[serde(with = "crate::serde_str::timestamp")]
-    #[schema(value_type = String)]
+    #[cfg_attr(feature = "utoipa", schema(value_type = String))]
     pub timestamp_us: TimestampUs,
     /// Values of the update for each feed.
     pub price_feeds: Vec<ParsedFeedPayload>,
 }
 
 /// Parsed representation of a feed update.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct ParsedFeedPayload {
     /// Feed ID.
     pub price_feed_id: PriceFeedId,
@@ -592,7 +606,7 @@ pub struct ParsedFeedPayload {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(with = "crate::serde_str::option_price")]
     #[serde(default)]
-    #[schema(value_type = Option<String>)]
+    #[cfg_attr(feature = "utoipa", schema(value_type = Option<String>))]
     pub price: Option<Price>,
     /// Best bid price for this price feed. Only present if the `bestBidPrice` property
     /// was specified in the `SubscriptionRequest` and this is a price feed and
@@ -600,7 +614,7 @@ pub struct ParsedFeedPayload {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(with = "crate::serde_str::option_price")]
     #[serde(default)]
-    #[schema(value_type = Option<String>)]
+    #[cfg_attr(feature = "utoipa", schema(value_type = Option<String>))]
     pub best_bid_price: Option<Price>,
     /// Best ask price for this price feed. Only present if the `bestAskPrice` property was
     /// specified in the `SubscriptionRequest` and this is a price feed and
@@ -608,7 +622,7 @@ pub struct ParsedFeedPayload {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(with = "crate::serde_str::option_price")]
     #[serde(default)]
-    #[schema(value_type = Option<String>)]
+    #[cfg_attr(feature = "utoipa", schema(value_type = Option<String>))]
     pub best_ask_price: Option<Price>,
     /// Number of publishers contributing to this feed update. Only present if the `publisherCount`
     /// property was specified in the `SubscriptionRequest`.
@@ -660,7 +674,7 @@ pub struct ParsedFeedPayload {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(with = "crate::serde_str::option_price")]
     #[serde(default)]
-    #[schema(value_type = Option<String>)]
+    #[cfg_attr(feature = "utoipa", schema(value_type = Option<String>))]
     pub ema_price: Option<Price>,
     /// Exponential moving average of the confidence for this price feeds.
     /// Only present if the `emaConfidence` property was specified
@@ -768,17 +782,17 @@ impl ParsedFeedPayload {
 }
 
 /// A WebSocket JSON message sent from the client to the server.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub enum WsRequest {
     Subscribe(SubscribeRequest),
     Unsubscribe(UnsubscribeRequest),
 }
 
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, ToSchema,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct SubscriptionId(pub u64);
 
 /// A subscription request.
@@ -788,8 +802,9 @@ pub struct SubscriptionId(pub u64);
 /// followed by `StreamUpdatedResponse` messages.
 /// If a subscription cannot be made, the server will respond with a `SubscriptionError`
 /// message containing the error message.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct SubscribeRequest {
     /// A number chosen by the client to identify the new subscription.
     /// This identifier will be sent back in any responses related to this subscription.
@@ -805,17 +820,19 @@ pub struct SubscribeRequest {
 /// and stop sending `SubscriptionErrorResponse` messages for that subscription.
 /// If the unsubscription cannot be made, the server will respond with a `SubscriptionError` message
 /// containing the error text.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct UnsubscribeRequest {
     /// ID of the subscription that should be canceled.
     pub subscription_id: SubscriptionId,
 }
 
 /// A WebSocket JSON message sent from the server to the client.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, From, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, From)]
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub enum WsResponse {
     Error(ErrorResponse),
     Subscribed(SubscribedResponse),
@@ -826,14 +843,16 @@ pub enum WsResponse {
 }
 
 /// Sent from the server when a subscription succeeded and all specified feeds were valid.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct SubscribedResponse {
     pub subscription_id: SubscriptionId,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct InvalidFeedSubscriptionDetails {
     /// List of price feed IDs that could not be found.
     pub unknown_ids: Vec<PriceFeedId>,
@@ -850,8 +869,9 @@ pub struct InvalidFeedSubscriptionDetails {
 
 /// Sent from the server when a subscription succeeded, but
 /// some of the  specified feeds were invalid.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct SubscribedWithInvalidFeedIdsIgnoredResponse {
     /// The value specified in the corresponding `SubscribeRequest`.
     pub subscription_id: SubscriptionId,
@@ -862,8 +882,9 @@ pub struct SubscribedWithInvalidFeedIdsIgnoredResponse {
 }
 
 /// Notification of a successful unsubscription.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct UnsubscribedResponse {
     /// The value specified in the corresponding `SubscribeRequest`.
     pub subscription_id: SubscriptionId,
@@ -871,8 +892,9 @@ pub struct UnsubscribedResponse {
 
 /// Sent from the server if the requested subscription or unsubscription request
 /// could not be fulfilled.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct SubscriptionErrorResponse {
     /// The value specified in the corresponding `SubscribeRequest`.
     pub subscription_id: SubscriptionId,
@@ -882,8 +904,9 @@ pub struct SubscriptionErrorResponse {
 
 /// Sent from the server if an internal error occured while serving data for an existing subscription,
 /// or a client request sent a bad request.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct ErrorResponse {
     /// Text of the error.
     pub error: String,
@@ -891,8 +914,9 @@ pub struct ErrorResponse {
 
 /// Sent from the server when new data is available for an existing subscription
 /// (only if `delivery_format == Json`).
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct StreamUpdatedResponse {
     /// The value specified in the corresponding `SubscribeRequest`.
     pub subscription_id: SubscriptionId,
@@ -951,11 +975,10 @@ fn validate_formats(formats: &[Format]) -> Result<(), &'static str> {
     Ok(())
 }
 
-#[derive(
-    Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, From, ToSchema, Default,
-)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, From, Default)]
 #[serde(rename_all = "camelCase")]
-#[schema(example = "regular")]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "utoipa", schema(example = "regular"))]
 pub enum MarketSession {
     #[default]
     Regular,
@@ -965,11 +988,10 @@ pub enum MarketSession {
     Closed,
 }
 
-#[derive(
-    Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, From, ToSchema, Default,
-)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, From, Default)]
 #[serde(rename_all = "camelCase")]
-#[schema(example = "open")]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "utoipa", schema(example = "open"))]
 pub enum TradingStatus {
     #[default]
     Open,
@@ -1014,11 +1036,12 @@ pub type MerklePriceFeedId = [u8; 32];
 pub type RawMerkleMessage = Vec<u8>;
 
 #[serde_as]
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct SignedMerkleRoot {
     /// Hex-encoded 20-byte Keccak160 merkle root
     #[serde_as(as = "Hex")]
-    #[schema(value_type = String, example = "0x1a2b3c...")]
+    #[cfg_attr(feature = "utoipa", schema(value_type = String, example = "0x1a2b3c..."))]
     pub root: Vec<u8>,
 
     pub slot: Slot,
@@ -1027,16 +1050,17 @@ pub struct SignedMerkleRoot {
 
     /// Hex-encoded 65-byte ECDSA signature (r || s || v)
     #[serde_as(as = "Hex")]
-    #[schema(value_type = String, example = "0x1a2b3c...")]
+    #[cfg_attr(feature = "utoipa", schema(value_type = String, example = "0x1a2b3c..."))]
     pub signature: Vec<u8>,
 
     #[serde_as(as = "Vec<Hex>")]
-    #[schema(value_type = Vec<String>, example = json!(["00abcdef...", "00123456..."]))]
+    #[cfg_attr(feature = "utoipa", schema(value_type = Vec<String>, example = json!(["00abcdef...", "00123456..."])))]
     pub messages: Vec<RawMerkleMessage>,
 }
 
 #[serde_as]
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct SignedGuardianSetUpgrade {
     /// Current guardian set index (the signing set)
     pub current_guardian_set_index: u32,
@@ -1047,11 +1071,11 @@ pub struct SignedGuardianSetUpgrade {
     pub new_guardian_keys: Vec<Vec<u8>>,
     /// Hex-encoded serialized VAA body bytes (for downstream VAA assembly)
     #[serde_as(as = "Hex")]
-    #[schema(value_type = String, example = "0x1a2b3c...")]
+    #[cfg_attr(feature = "utoipa", schema(value_type = String, example = "0x1a2b3c..."))]
     pub body: Vec<u8>,
     /// Hex-encoded 65-byte ECDSA signature (r || s || v) over the body digest
     #[serde_as(as = "Hex")]
-    #[schema(value_type = String, example = "0x1a2b3c...")]
+    #[cfg_attr(feature = "utoipa", schema(value_type = String, example = "0x1a2b3c..."))]
     pub signature: Vec<u8>,
 }
 

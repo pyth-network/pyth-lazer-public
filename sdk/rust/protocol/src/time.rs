@@ -11,14 +11,12 @@ use {
     },
     serde::{Deserialize, Serialize},
     std::time::{Duration, SystemTime},
-    utoipa::ToSchema,
 };
 
 /// Unix timestamp with microsecond resolution.
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, ToSchema,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[repr(transparent)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct TimestampUs(u64);
 
 #[cfg_attr(feature = "mry", mry::mry)]
@@ -141,9 +139,18 @@ impl TimestampUs {
     /// Calculates the smallest value greater than or equal to self that is a multiple of `duration`.
     #[inline]
     pub fn next_multiple_of(self, duration: DurationUs) -> anyhow::Result<TimestampUs> {
+        // Copy implementation from std source to support older Rust.
+        #[inline]
+        fn checked_next_multiple_of(lhs: u64, rhs: u64) -> Option<u64> {
+            match lhs.checked_rem(rhs)? {
+                0 => Some(lhs),
+                // rhs - r cannot overflow because r is smaller than rhs
+                r => lhs.checked_add(rhs - r),
+            }
+        }
+
         Ok(TimestampUs(
-            self.0
-                .checked_next_multiple_of(duration.0)
+            checked_next_multiple_of(self.0, duration.0)
                 .context("checked_next_multiple_of failed")?,
         ))
     }
@@ -282,10 +289,9 @@ impl TryFrom<TimestampUs> for chrono::DateTime<chrono::Utc> {
 }
 
 /// Non-negative duration with microsecond resolution.
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, ToSchema,
-)]
-#[schema(value_type = u64)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "utoipa", schema(value_type = u64))]
 pub struct DurationUs(u64);
 
 impl DurationUs {
@@ -493,8 +499,9 @@ pub mod duration_us_serde_humantime {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, ToSchema)]
-#[schema(as = String, example = "fixed_rate@200ms")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "utoipa", schema(as = String, example = "fixed_rate@200ms"))]
 pub struct FixedRate {
     rate: DurationUs,
 }
