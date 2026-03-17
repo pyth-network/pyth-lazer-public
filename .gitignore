@@ -125,3 +125,4 @@ yarn.lock
 ansible/playbooks/roles/stress_test/files/router-stress-test-config.json
 ansible/playbooks/roles/stress_test/files/publisher-stress-test-publishers.json
 ansible/playbooks/roles/lazer/vars/stress_test_generated.yaml
+storybook-static/
