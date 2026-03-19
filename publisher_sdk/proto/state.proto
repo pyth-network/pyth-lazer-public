@@ -52,6 +52,8 @@ message State {
     repeated Asset assets = 11;
     // Multisig key sets (current + optional next during upgrade).
     optional MultisigKeySets multisig_key_sets = 12;
+    // List of exchanges.
+    repeated ExchangeClassificationSchedule exchanges = 13;
 }
 
 // An item of the state describing a publisher.
@@ -127,6 +129,68 @@ enum PublisherKeyType {
     PRODUCTION = 2;
 }
 
+// Asset class for exchange classification.
+enum ExchangeAssetClass {
+    EXCHANGE_ASSET_CLASS_UNSPECIFIED = 0;
+    EXCHANGE_ASSET_CLASS_EQUITY = 1;
+    EXCHANGE_ASSET_CLASS_FUTURE = 2;
+}
+
+// Asset subclass for exchange classification.
+enum ExchangeAssetSubclass {
+    EXCHANGE_ASSET_SUBCLASS_UNSPECIFIED = 0;
+    EXCHANGE_ASSET_SUBCLASS_COMMON_STOCK = 1;
+    EXCHANGE_ASSET_SUBCLASS_ETF = 2;
+    EXCHANGE_ASSET_SUBCLASS_ENERGY = 3;
+    EXCHANGE_ASSET_SUBCLASS_METALS = 4;
+    EXCHANGE_ASSET_SUBCLASS_EQUITY = 5;
+    EXCHANGE_ASSET_SUBCLASS_FIXED_INCOME = 6;
+    EXCHANGE_ASSET_SUBCLASS_FX = 7;
+    EXCHANGE_ASSET_SUBCLASS_AGRICULTURAL = 8;
+}
+
+// Asset sector for exchange classification.
+enum ExchangeAssetSector {
+    EXCHANGE_ASSET_SECTOR_UNSPECIFIED = 0;
+    EXCHANGE_ASSET_SECTOR_TECHNOLOGY = 1;
+    EXCHANGE_ASSET_SECTOR_FINANCIALS = 2;
+    EXCHANGE_ASSET_SECTOR_BROAD_MARKET = 3;
+    EXCHANGE_ASSET_SECTOR_OIL = 4;
+    EXCHANGE_ASSET_SECTOR_METALS = 5;
+    EXCHANGE_ASSET_SECTOR_INDEX = 6;
+    EXCHANGE_ASSET_SECTOR_RATES = 7;
+    EXCHANGE_ASSET_SECTOR_FX = 8;
+    EXCHANGE_ASSET_SECTOR_AGRICULTURAL = 9;
+}
+
+// Market schedule configuration for a session on an exchange.
+message ExchangeSessionConfig {
+    // [required] Which session this applies to.
+    optional MarketSession session = 1;
+    // [required] Market schedule in Pythnet format (timezone;weekly;holidays).
+    optional string market_schedule = 2;
+}
+
+// An item of the state describing an exchange (trading venue).
+// Together, (exchange, asset_class, asset_subclass, asset_sector) uniquely
+// determines the schedule a feed should follow.
+message ExchangeClassificationSchedule {
+    // [required] ID of the exchange.
+    optional uint32 exchange_id = 1;
+    // [required] Human-readable name, e.g. "NASDAQ", "CME", "Binance".
+    optional string name = 2;
+    // [optional] Additional metadata values (region, mic_code, etc.).
+    optional DynamicValue.Map metadata = 3;
+    // [optional] Asset class for this exchange entry.
+    optional ExchangeAssetClass asset_class = 4;
+    // [optional] Asset subclass for this exchange entry.
+    optional ExchangeAssetSubclass asset_subclass = 5;
+    // [optional] Asset sector for this exchange entry.
+    optional ExchangeAssetSector asset_sector = 6;
+    // Schedule templates for this exchange combination.
+    repeated ExchangeSessionConfig sessions = 7;
+}
+
 message FeedMarketSchedule {
     // [required] Which session this applies to
     optional MarketSession session = 1;
@@ -192,6 +256,9 @@ message Feed {
     // [optional] List of Market schedules for different sessions
     // Overrides market_schedule field if set
     repeated FeedMarketSchedule market_schedules = 110;
+    // [optional] Reference to an exchange. When set, the feed can inherit
+    // market session schedules from the exchange.
+    optional uint32 exchange_id = 111;
 
     // [required] Feed status in the current shard. Disabled feeds will not be visible in
     // the consumer API for the current shard. This setting should only be used

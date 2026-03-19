@@ -5,6 +5,7 @@ pub mod api;
 /// Binary delivery format for WebSocket.
 pub mod binary_update;
 mod dynamic_value;
+mod exchange_enums;
 mod feed_kind;
 /// Lazer Agent JSON-RPC API.
 pub mod jrpc;
@@ -31,6 +32,7 @@ use {
 
 pub use crate::{
     dynamic_value::DynamicValue,
+    exchange_enums::{ExchangeAssetClass, ExchangeAssetSector, ExchangeAssetSubclass},
     feed_kind::FeedKind,
     price::{Price, PriceError},
     rate::{Rate, RateError},
@@ -46,6 +48,14 @@ pub struct AssetId(pub u32);
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, From, Into,
 )]
+#[cfg_attr(feature = "utoipa", schema(value_type = u32))]
+pub struct ExchangeId(pub u32);
+
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, From, Into,
+)]
+#[cfg_attr(feature = "utoipa", schema(value_type = u16))]
 pub struct PublisherId(pub u16);
 
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]

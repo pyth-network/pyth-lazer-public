@@ -2,9 +2,10 @@ use crate::publisher_update::feed_update::Update;
 use crate::publisher_update::{FeedUpdate, FundingRateUpdate, PriceUpdate};
 use crate::state::FeedState;
 use ::protobuf::{EnumOrUnknown, MessageField};
-use pyth_lazer_protocol::FeedKind;
-use pyth_lazer_protocol::SymbolState;
 use pyth_lazer_protocol::jrpc::{FeedUpdateParams, UpdateParams};
+use pyth_lazer_protocol::{
+    ExchangeAssetClass, ExchangeAssetSector, ExchangeAssetSubclass, FeedKind, SymbolState,
+};
 
 pub mod transaction_envelope {
     pub use crate::protobuf::transaction_envelope::*;
@@ -217,6 +218,144 @@ impl From<state::TradingStatus> for pyth_lazer_protocol::api::TradingStatus {
             }
             state::TradingStatus::TRADING_STATUS_CORP_ACTION => {
                 pyth_lazer_protocol::api::TradingStatus::CorpAction
+            }
+        }
+    }
+}
+
+impl From<state::ExchangeAssetClass> for ExchangeAssetClass {
+    fn from(value: state::ExchangeAssetClass) -> Self {
+        match value {
+            state::ExchangeAssetClass::EXCHANGE_ASSET_CLASS_UNSPECIFIED => {
+                ExchangeAssetClass::Unspecified
+            }
+            state::ExchangeAssetClass::EXCHANGE_ASSET_CLASS_EQUITY => ExchangeAssetClass::Equity,
+            state::ExchangeAssetClass::EXCHANGE_ASSET_CLASS_FUTURE => ExchangeAssetClass::Future,
+        }
+    }
+}
+
+impl From<ExchangeAssetClass> for state::ExchangeAssetClass {
+    fn from(value: ExchangeAssetClass) -> Self {
+        match value {
+            ExchangeAssetClass::Unspecified => {
+                state::ExchangeAssetClass::EXCHANGE_ASSET_CLASS_UNSPECIFIED
+            }
+            ExchangeAssetClass::Equity => state::ExchangeAssetClass::EXCHANGE_ASSET_CLASS_EQUITY,
+            ExchangeAssetClass::Future => state::ExchangeAssetClass::EXCHANGE_ASSET_CLASS_FUTURE,
+        }
+    }
+}
+
+impl From<state::ExchangeAssetSubclass> for ExchangeAssetSubclass {
+    fn from(value: state::ExchangeAssetSubclass) -> Self {
+        match value {
+            state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_UNSPECIFIED => {
+                ExchangeAssetSubclass::Unspecified
+            }
+            state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_COMMON_STOCK => {
+                ExchangeAssetSubclass::CommonStock
+            }
+            state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_ETF => ExchangeAssetSubclass::Etf,
+            state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_ENERGY => {
+                ExchangeAssetSubclass::Energy
+            }
+            state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_METALS => {
+                ExchangeAssetSubclass::Metals
+            }
+            state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_EQUITY => {
+                ExchangeAssetSubclass::Equity
+            }
+            state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_FIXED_INCOME => {
+                ExchangeAssetSubclass::FixedIncome
+            }
+            state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_FX => ExchangeAssetSubclass::Fx,
+            state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_AGRICULTURAL => {
+                ExchangeAssetSubclass::Agricultural
+            }
+        }
+    }
+}
+
+impl From<ExchangeAssetSubclass> for state::ExchangeAssetSubclass {
+    fn from(value: ExchangeAssetSubclass) -> Self {
+        match value {
+            ExchangeAssetSubclass::Unspecified => {
+                state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_UNSPECIFIED
+            }
+            ExchangeAssetSubclass::CommonStock => {
+                state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_COMMON_STOCK
+            }
+            ExchangeAssetSubclass::Etf => state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_ETF,
+            ExchangeAssetSubclass::Energy => {
+                state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_ENERGY
+            }
+            ExchangeAssetSubclass::Metals => {
+                state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_METALS
+            }
+            ExchangeAssetSubclass::Equity => {
+                state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_EQUITY
+            }
+            ExchangeAssetSubclass::FixedIncome => {
+                state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_FIXED_INCOME
+            }
+            ExchangeAssetSubclass::Fx => state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_FX,
+            ExchangeAssetSubclass::Agricultural => {
+                state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_AGRICULTURAL
+            }
+        }
+    }
+}
+
+impl From<state::ExchangeAssetSector> for ExchangeAssetSector {
+    fn from(value: state::ExchangeAssetSector) -> Self {
+        match value {
+            state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_UNSPECIFIED => {
+                ExchangeAssetSector::Unspecified
+            }
+            state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_TECHNOLOGY => {
+                ExchangeAssetSector::Technology
+            }
+            state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_FINANCIALS => {
+                ExchangeAssetSector::Financials
+            }
+            state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_BROAD_MARKET => {
+                ExchangeAssetSector::BroadMarket
+            }
+            state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_OIL => ExchangeAssetSector::Oil,
+            state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_METALS => ExchangeAssetSector::Metals,
+            state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_INDEX => ExchangeAssetSector::Index,
+            state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_RATES => ExchangeAssetSector::Rates,
+            state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_FX => ExchangeAssetSector::Fx,
+            state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_AGRICULTURAL => {
+                ExchangeAssetSector::Agricultural
+            }
+        }
+    }
+}
+
+impl From<ExchangeAssetSector> for state::ExchangeAssetSector {
+    fn from(value: ExchangeAssetSector) -> Self {
+        match value {
+            ExchangeAssetSector::Unspecified => {
+                state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_UNSPECIFIED
+            }
+            ExchangeAssetSector::Technology => {
+                state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_TECHNOLOGY
+            }
+            ExchangeAssetSector::Financials => {
+                state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_FINANCIALS
+            }
+            ExchangeAssetSector::BroadMarket => {
+                state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_BROAD_MARKET
+            }
+            ExchangeAssetSector::Oil => state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_OIL,
+            ExchangeAssetSector::Metals => state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_METALS,
+            ExchangeAssetSector::Index => state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_INDEX,
+            ExchangeAssetSector::Rates => state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_RATES,
+            ExchangeAssetSector::Fx => state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_FX,
+            ExchangeAssetSector::Agricultural => {
+                state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_AGRICULTURAL
             }
         }
     }

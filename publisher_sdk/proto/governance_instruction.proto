@@ -99,6 +99,9 @@ message GovernanceInstructionItem {
         UpdateAsset update_asset = 117;
         RemoveAsset remove_asset = 118;
         SetMultisigKeys set_multisig_keys = 119;
+        AddExchange add_exchange = 120;
+        UpdateExchange update_exchange = 121;
+        RemoveExchange remove_exchange = 122;
     }
 }
 
@@ -305,6 +308,8 @@ message AddFeed {
     optional FeedKind kind = 108;
     // [required]
     repeated FeedMarketSchedule market_schedules = 109;
+    // [optional] Reference to an exchange for schedule inheritance.
+    optional uint32 exchange_id = 110;
     // [required]
     optional bool is_enabled_in_shard = 201;
 
@@ -357,6 +362,9 @@ message UpdateFeedProperties {
     // While proto does not allow distinguishing between "not set" and "set to empty",
     // an empty list here means to not update the market schedules.
     repeated FeedMarketSchedule market_schedules = 109;
+    // [optional] Reference to an exchange for schedule inheritance.
+    // Set to 0 to clear the exchange reference.
+    optional uint32 exchange_id = 110;
     // [optional]
     optional bool is_enabled_in_shard = 201;
 }
@@ -431,6 +439,64 @@ message RemoveAsset {
 }
 
 message UpdateAssetMetadata {
+    // [required] Property name.
+    optional string name = 1;
+    // [optional] Property value. If unset, the property will be removed.
+    optional DynamicValue value = 2;
+}
+
+// Add a new exchange. Refer to `ExchangeClassificationSchedule` message fields documentation.
+message AddExchange {
+    // [required]
+    optional uint32 exchange_id = 1;
+    // [required]
+    optional string name = 2;
+    // [optional]
+    optional DynamicValue.Map metadata = 3;
+    // [optional]
+    optional ExchangeAssetClass asset_class = 4;
+    // [optional]
+    optional ExchangeAssetSubclass asset_subclass = 5;
+    // [optional]
+    optional ExchangeAssetSector asset_sector = 6;
+    // [optional]
+    repeated ExchangeSessionConfig sessions = 7;
+}
+
+message UpdateExchange {
+    // [required] ID of the exchange that is being updated. Rejects if there is no such exchange.
+    optional uint32 exchange_id = 1;
+    // [required]
+    oneof action {
+        UpdateExchangeProperties update_exchange_properties = 101;
+        UpdateExchangeMetadata update_exchange_metadata = 102;
+    }
+}
+
+message RemoveExchange {
+    // [required] ID of the exchange that is being removed. Rejects if there is no such exchange.
+    // Rejects if any feed references this exchange.
+    optional uint32 exchange_id = 1;
+}
+
+// Update an exchange's properties. If a value is not supplied, the corresponding
+// property will remain unchanged.
+message UpdateExchangeProperties {
+    // [optional]
+    optional string name = 1;
+    // [optional]
+    optional ExchangeAssetClass asset_class = 2;
+    // [optional]
+    optional ExchangeAssetSubclass asset_subclass = 3;
+    // [optional]
+    optional ExchangeAssetSector asset_sector = 4;
+    // [optional]
+    // While proto does not allow distinguishing between "not set" and "set to empty",
+    // an empty list here means to not update the sessions.
+    repeated ExchangeSessionConfig sessions = 5;
+}
+
+message UpdateExchangeMetadata {
     // [required] Property name.
     optional string name = 1;
     // [optional] Property value. If unset, the property will be removed.
