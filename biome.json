@@ -31,7 +31,8 @@
       "!*.tsbuildinfo",
       "!ansible/**/*",
       "!scripts/**/*.sh",
-      "!scripts/**/*.py"
+      "!scripts/**/*.py",
+      "!**/*.gen.ts"
     ]
   },
   "formatter": {
