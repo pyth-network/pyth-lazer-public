@@ -57,7 +57,9 @@
     "AUTH_TOKENS",
     "CLICKHOUSE_USERNAME",
     "CLICKHOUSE_PASSWORD",
-    "CLICKHOUSE_HOST"
+    "CLICKHOUSE_HOST",
+    "FORCE_COLOR",
+    "BIOME_BINARY"
   ],
   "tasks": {
     "//#fix:format": {
