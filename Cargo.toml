@@ -65,15 +65,15 @@ utoipa-axum = "0.2.0"
 
 [workspace.dependencies.pyth-lazer-client]
 path = "sdk/rust/client"
-version = "22.1.0"
+version = "23.0.0"
 
 [workspace.dependencies.pyth-lazer-protocol]
 path = "sdk/rust/protocol"
-version = "0.36.0"
+version = "0.37.0"
 
 [workspace.dependencies.pyth-lazer-publisher-sdk]
 path = "publisher_sdk/rust"
-version = "0.36.0"
+version = "0.37.0"
 
 [workspace.dependencies.axum]
 features = ["ws"]
