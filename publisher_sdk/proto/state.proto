@@ -259,6 +259,8 @@ message Feed {
     // [optional] Reference to an exchange. When set, the feed can inherit
     // market session schedules from the exchange.
     optional uint32 exchange_id = 111;
+    // [optional] Indicates whether the last aggregated data is fresh.
+    optional bool is_aggregated_data_fresh = 112;
 
     // [required] Feed status in the current shard. Disabled feeds will not be visible in
     // the consumer API for the current shard. This setting should only be used
