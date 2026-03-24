@@ -106,6 +106,7 @@
     "@next/third-parties": "^16.2.1",
     "@npmcli/map-workspaces": "^5.0.3",
     "@phosphor-icons/react": "^2.1.10",
+    "@posthog/nextjs-config": "^1.8.23",
     "@pulumi/aws": "^6.0.0",
     "@pulumi/awsx": "^2.0.2",
     "@pulumi/pulumi": "^3.224.0",
