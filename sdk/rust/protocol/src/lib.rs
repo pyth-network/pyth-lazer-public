@@ -23,7 +23,10 @@ mod symbol_state;
 /// Lazer's types for time representation.
 pub mod time;
 
-use serde::{Deserialize, Serialize};
+use {
+    protobuf::MessageFull,
+    serde::{Deserialize, Serialize},
+};
 
 use {
     derive_more::{From, Into},
@@ -169,6 +172,18 @@ impl ExponentFactor {
     }
 }
 
+pub fn parse_proto_json<M: MessageFull>(
+    json: &str,
+) -> Result<M, protobuf_json_mapping::ParseError> {
+    protobuf_json_mapping::parse_from_str_with_options::<M>(
+        json,
+        &protobuf_json_mapping::ParseOptions {
+            ignore_unknown_fields: true,
+            ..Default::default()
+        },
+    )
+}
+
 #[test]
 fn magics_in_big_endian() {
     use crate::{
@@ -204,4 +219,17 @@ fn magics_in_big_endian() {
         // Required to distinguish between byte orders.
         assert_ne!(u32::swap_bytes(magic), magic);
     }
+}
+
+#[test]
+fn parse_proto_json_works() {
+    use protobuf::descriptor::descriptor_proto::ExtensionRange;
+
+    let ts1 = parse_proto_json::<ExtensionRange>(r#"{"start":1,"end":2}"#).unwrap();
+    assert_eq!(ts1.start, Some(1));
+    assert_eq!(ts1.end, Some(2));
+
+    let ts2 = parse_proto_json::<ExtensionRange>(r#"{"start":3,"extra":5}"#).unwrap();
+    assert_eq!(ts2.start, Some(3));
+    assert_eq!(ts2.end, None);
 }

@@ -17,6 +17,7 @@ humantime-serde = { workspace = true }
 itertools = "0.13.0"
 mry = { workspace = true, features = ["serde"], optional = true }
 protobuf = { workspace = true }
+protobuf-json-mapping = { workspace = true }
 rust_decimal = "1.36.0"
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

@@ -1441,6 +1441,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "protobuf-json-mapping"
+version = "3.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d8440284a60d89deae81f67cc713f03f770ae51461e7613e44808910502693e"
+dependencies = [
+ "protobuf",
+ "protobuf-support",
+ "thiserror 1.0.56",
+]
+
+[[package]]
 name = "protobuf-support"
 version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1482,6 +1493,7 @@ dependencies = [
  "humantime-serde",
  "itertools 0.13.0",
  "protobuf",
+ "protobuf-json-mapping",
  "rust_decimal",
  "serde",
  "serde_json",

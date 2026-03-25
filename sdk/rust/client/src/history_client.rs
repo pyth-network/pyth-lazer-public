@@ -3,7 +3,7 @@ use {
     atomicwrites::replace_atomic,
     backoff::{SystemClock, exponential::ExponentialBackoff, future::retry_notify},
     futures::{Stream, StreamExt, future::BoxFuture, stream::FuturesUnordered},
-    pyth_lazer_protocol::jrpc::SymbolMetadata,
+    pyth_lazer_protocol::{jrpc::SymbolMetadata, parse_proto_json},
     pyth_lazer_publisher_sdk::state::State,
     serde::{
         Deserialize, Serialize,
@@ -453,7 +453,7 @@ impl PythLazerHistoryClient {
                 anyhow::Error::from(err).context(format!("failed to parse state from {url}")),
             )
         })?;
-        let state = protobuf_json_mapping::parse_from_str::<State>(&json).map_err(|err| {
+        let state = parse_proto_json::<State>(&json).map_err(|err| {
             backoff::Error::permanent(
                 anyhow::Error::from(err).context(format!("failed to parse state from {url}")),
             )
@@ -485,7 +485,7 @@ impl<'de> Deserialize<'de> for StateWithSerde {
     {
         let json_value = serde_json::Value::deserialize(deserializer)?;
         let json = serde_json::to_string(&json_value).map_err(D::Error::custom)?;
-        let value = protobuf_json_mapping::parse_from_str(&json).map_err(D::Error::custom)?;
+        let value = parse_proto_json(&json).map_err(D::Error::custom)?;
         Ok(Self(value))
     }
 }
