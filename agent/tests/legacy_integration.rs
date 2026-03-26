@@ -179,10 +179,10 @@ async fn test_legacy_user_journey() {
     assert_eq!(products.len(), 1);
     let product = &products[0];
     assert_eq!(product["attr_dict"]["symbol"], "Crypto.BTC/USD");
-    let price_accounts = product["price_accounts"].as_array().unwrap();
-    assert_eq!(price_accounts.len(), 1);
-    assert_eq!(price_accounts[0]["price_exponent"], -8);
-    let price_account = price_accounts[0]["account"].as_str().unwrap().to_string();
+    let price = product["price"].as_array().unwrap();
+    assert_eq!(price.len(), 1);
+    assert_eq!(price[0]["price_exponent"], -8);
+    let price_account = price[0]["account"].as_str().unwrap().to_string();
 
     // subscribe_price_sched
     send_jrpc(

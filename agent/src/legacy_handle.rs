@@ -150,30 +150,14 @@ fn make_error_value(id: &JrpcId, message: &str) -> serde_json::Result<serde_json
 struct ProductAccountDetail {
     account: String,
     attr_dict: HashMap<String, String>,
-    price_accounts: Vec<PriceAccountDetail>,
+    price: Vec<PriceAccountDetail>,
 }
 
-/// A complete PriceAccount, including pricing data.
-///
-/// This is only to support backward type compatibility with the legacy API
-/// but the content is not going to be compatible. As in price and conf fields
-/// are going to be set to zero.
 #[derive(Serialize, Clone, Debug)]
 struct PriceAccountDetail {
     account: String,
-    price_type: &'static str,
     price_exponent: i16,
-    status: &'static str,
-    price: i64,
-    conf: u64,
-    twap: i64,
-    twac: i64,
-    valid_slot: u64,
-    pub_slot: u64,
-    prev_slot: u64,
-    prev_price: i64,
-    prev_conf: u64,
-    publisher_accounts: Vec<serde_json::Value>,
+    price_type: &'static str,
 }
 
 fn product_detail_from_metadata(sym: &SymbolMetadata) -> ProductAccountDetail {
@@ -190,21 +174,10 @@ fn product_detail_from_metadata(sym: &SymbolMetadata) -> ProductAccountDetail {
     ProductAccountDetail {
         account: feed_id_str.clone(),
         attr_dict,
-        price_accounts: vec![PriceAccountDetail {
+        price: vec![PriceAccountDetail {
             account: feed_id_str,
-            price_type: "price",
             price_exponent: sym.exponent,
-            status: "trading",
-            price: 0,
-            conf: 0,
-            twap: 0,
-            twac: 0,
-            valid_slot: 0,
-            pub_slot: 0,
-            prev_slot: 0,
-            prev_price: 0,
-            prev_conf: 0,
-            publisher_accounts: vec![],
+            price_type: "price",
         }],
     }
 }
@@ -640,22 +613,11 @@ mod tests {
         assert_eq!(detail.attr_dict["description"], "BTC/USD");
         assert_eq!(detail.attr_dict["quote_currency"], "USD");
 
-        assert_eq!(detail.price_accounts.len(), 1);
-        let pa = &detail.price_accounts[0];
+        assert_eq!(detail.price.len(), 1);
+        let pa = &detail.price[0];
         assert_eq!(pa.account, "1");
         assert_eq!(pa.price_exponent, -8);
         assert_eq!(pa.price_type, "price");
-        assert_eq!(pa.status, "trading");
-        assert_eq!(pa.price, 0);
-        assert_eq!(pa.conf, 0);
-        assert_eq!(pa.twap, 0);
-        assert_eq!(pa.twac, 0);
-        assert_eq!(pa.valid_slot, 0);
-        assert_eq!(pa.pub_slot, 0);
-        assert_eq!(pa.prev_slot, 0);
-        assert_eq!(pa.prev_price, 0);
-        assert_eq!(pa.prev_conf, 0);
-        assert!(pa.publisher_accounts.is_empty());
     }
 
     #[test]
@@ -688,7 +650,7 @@ mod tests {
         assert_eq!(detail.attr_dict["asset_type"], "Equity");
         assert_eq!(detail.attr_dict["description"], "AAPL/USD");
         assert!(!detail.attr_dict.contains_key("quote_currency"));
-        assert_eq!(detail.price_accounts[0].price_exponent, -4);
+        assert_eq!(detail.price[0].price_exponent, -4);
     }
 
     #[test]
