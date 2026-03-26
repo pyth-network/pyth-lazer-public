@@ -40,7 +40,7 @@
     },
     "sdk/js": {
       "name": "@pythnetwork/pyth-lazer-sdk",
-      "version": "6.2.1",
+      "version": "6.2.2",
       "dependencies": {
         "@isaacs/ttlcache": "catalog:",
         "buffer": "catalog:",
@@ -97,7 +97,7 @@
     "@heroicons/react": "^2.2.0",
     "@hookform/resolvers": "^3.10.0",
     "@hubspot/api-client": "^13.5.0",
-    "@isaacs/ttlcache": "^1.4.1",
+    "@isaacs/ttlcache": "^2.1.4",
     "@katex/katex": "^0.16.9",
     "@mysten/sui": "^1.3.0",
     "@neondatabase/auth": "^0.2.0-beta.1",
@@ -400,7 +400,7 @@
 
     "@isaacs/fs-minipass": ["@isaacs/fs-minipass@4.0.1", "", { "dependencies": { "minipass": "^7.0.4" } }, "sha512-wgm9Ehl2jpeqP3zw/7mo3kRHFp5MEDhqAdwy1fTGkHAwnkGOVsgpvQhL8B5n1qlb01jV3n/bI0ZfZp5lWA1k4w=="],
 
-    "@isaacs/ttlcache": ["@isaacs/ttlcache@1.4.1", "", {}, "sha512-RQgQ4uQ+pLbqXfOmieB91ejmLwvSgv9nLx6sT6sD83s7umBypgg+OIBOBbEUiJXrfpnp9j0mRhYYdzp9uqq3lA=="],
+    "@isaacs/ttlcache": ["@isaacs/ttlcache@2.1.4", "", {}, "sha512-7kMz0BJpMvgAMkyglums7B2vtrn5g0a0am77JY0GjkZZNetOBCFn7AG7gKCwT0QPiXyxW7YIQSgtARknUEOcxQ=="],
 
     "@lukeed/csprng": ["@lukeed/csprng@1.1.0", "", {}, "sha512-Z7C/xXCiGWsg0KuKsHTKJxbWhpI3Vs5GwLfOean7MGyVFGqdRgBbAjOCh6u4bbjPc/8MJ2pZmK/0DLdCbivLDA=="],
 

@@ -1,4 +1,4 @@
-import TTLCache from "@isaacs/ttlcache";
+import { TTLCache } from "@isaacs/ttlcache";
 import type WebSocket from "isomorphic-ws";
 import type { ErrorEvent } from "isomorphic-ws";
 import type { Logger } from "ts-log";
