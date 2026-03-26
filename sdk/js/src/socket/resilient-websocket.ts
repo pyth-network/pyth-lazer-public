@@ -119,7 +119,7 @@ export class ResilientWebSocket {
       return;
     }
 
-    if (this.wsFailedAttempts == 0) {
+    if (this.wsFailedAttempts === 0) {
       this.logger.info(`Creating Web Socket client`);
     }
 
@@ -128,51 +128,73 @@ export class ResilientWebSocket {
       this.retryTimeout = undefined;
     }
 
-    // browser constructor supports a different 2nd argument for the constructor,
-    // so we need to ensure it's not included if we're running in that environment:
-    // https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/WebSocket#protocols
-    this.wsClient = new WebSocket(
-      this.endpoint,
-      envIsBrowserOrWorker() ? undefined : this.wsOptions,
-    );
+    // we wrap the new WebSocket() construction in a try / catch because,
+    // if one of our instances legitimately goes down or there's some network
+    // error that impacts connectivity, the WebSocket constructor will throw
+    // an uncaught DOMException in the browser (or equivalent in Node, Bun or Deno)
+    // and potentially blow up the process (if running in Node, Bun or Deno)
+    try {
+      // browser constructor supports a different 2nd argument for the constructor,
+      // so we need to ensure it's not included if we're running in that environment:
+      // https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/WebSocket#protocols
+      this.wsClient = new WebSocket(
+        this.endpoint,
+        envIsBrowserOrWorker() ? undefined : this.wsOptions,
+      );
 
-    this.wsClient.addEventListener("open", () => {
-      this.logger.info("WebSocket connection established");
-      this.wsFailedAttempts = 0;
-      this._isReconnecting = false;
-      this.resetHeartbeat();
-      this.onReconnect();
-    });
-
-    this.wsClient.addEventListener("close", (e) => {
-      if (this.wsUserClosed) {
-        this.logger.info(
-          `WebSocket connection to ${this.endpoint} closed by user`,
-        );
-      } else {
-        if (this.shouldLogRetry()) {
-          this.logger.warn(
-            `WebSocket connection to ${this.endpoint} closed unexpectedly: Code: ${e.code.toString()}`,
-          );
-        }
-        this.handleReconnect();
-      }
-    });
-
-    this.wsClient.addEventListener("error", (event) => {
-      this.onError(event);
-    });
-
-    this.wsClient.addEventListener("message", (event) => {
-      this.resetHeartbeat();
-      this.onMessage(event.data);
-    });
-
-    if ("on" in this.wsClient) {
-      this.wsClient.on("ping", () => {
-        this.logger.info("Ping received");
+      this.wsClient.addEventListener("open", () => {
+        this.logger.info("WebSocket connection established");
+        this.wsFailedAttempts = 0;
+        this._isReconnecting = false;
         this.resetHeartbeat();
+        try {
+          this.onReconnect();
+        } catch (error) {
+          this.logger.error("Error in onReconnect callback:", error);
+        }
       });
+
+      this.wsClient.addEventListener("close", (e) => {
+        if (this.wsUserClosed) {
+          this.logger.info(
+            `WebSocket connection to ${this.endpoint} closed by user`,
+          );
+        } else {
+          if (this.shouldLogRetry()) {
+            this.logger.warn(
+              `WebSocket connection to ${this.endpoint} closed unexpectedly: Code: ${e.code.toString()}`,
+            );
+          }
+          this.handleReconnect();
+        }
+      });
+
+      this.wsClient.addEventListener("error", (event) => {
+        try {
+          this.onError(event);
+        } catch (error) {
+          this.logger.error("Error in onError callback:", error);
+        }
+      });
+
+      this.wsClient.addEventListener("message", (event) => {
+        this.resetHeartbeat();
+        try {
+          this.onMessage(event.data);
+        } catch (error) {
+          this.logger.error("Error in onMessage callback:", error);
+        }
+      });
+
+      if (typeof this.wsClient?.on === "function") {
+        this.wsClient.on("ping", () => {
+          this.logger.debug("Ping received");
+          this.resetHeartbeat();
+        });
+      }
+    } catch (error) {
+      this.logger.error("Failed to create WebSocket client:", error);
+      this.handleReconnect();
     }
   }
 
@@ -184,7 +206,11 @@ export class ResilientWebSocket {
     this.heartbeatTimeout = setTimeout(() => {
       const warnMsg = "Connection timed out. Reconnecting...";
       this.logger.warn(warnMsg);
-      this.onTimeout();
+      try {
+        this.onTimeout();
+      } catch (error) {
+        this.logger.error("Error in onTimeout callback:", error);
+      }
       if (this.wsClient) {
         if (typeof this.wsClient.terminate === "function") {
           this.wsClient.terminate();
@@ -198,7 +224,8 @@ export class ResilientWebSocket {
           );
         }
       }
-      this.handleReconnect();
+      // No direct call to handleReconnect() here
+      // terminate/close will trigger the 'close' event, which will call it.
     }, this.heartbeatTimeoutDurationMs);
   }
 
@@ -237,11 +264,12 @@ export class ResilientWebSocket {
   }
 
   closeWebSocket(): void {
-    if (this.wsClient !== undefined) {
+    // immediately block duplicate calls to this function
+    this.wsUserClosed = true;
+    if (typeof this.wsClient?.close === "function") {
       this.wsClient.close();
       this.wsClient = undefined;
     }
-    this.wsUserClosed = true;
   }
 
   /**
