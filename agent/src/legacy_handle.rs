@@ -34,13 +34,20 @@ struct LegacyJrpcRequest {
 #[derive(Deserialize, Debug)]
 #[serde(tag = "method", content = "params", rename_all = "snake_case")]
 enum LegacyMethod {
-    GetProductList,
+    GetProductList(
+        #[allow(dead_code, reason = "validated by serde during deserialization")]
+        Option<EmptyParams>,
+    ),
     GetProduct(AccountParams),
     GetAllProducts,
     SubscribePriceSched(AccountParams),
     SubscribePrice(AccountParams),
     UpdatePrice(UpdatePriceParams),
 }
+
+#[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+struct EmptyParams {}
 
 #[derive(Deserialize, Debug)]
 struct AccountParams {
@@ -351,7 +358,7 @@ async fn dispatch_request(
 
     let id = &request.id;
     match request.method {
-        LegacyMethod::GetProductList => handle_get_product_list(metadata_url, id).await,
+        LegacyMethod::GetProductList(_) => handle_get_product_list(metadata_url, id).await,
         LegacyMethod::GetProduct(params) => {
             handle_get_product(metadata_url, &params.account, id).await
         }
@@ -538,7 +545,15 @@ mod tests {
     fn test_deserialize_get_product_list() {
         let json = r#"{"jsonrpc": "2.0", "method": "get_product_list", "id": 1}"#;
         let req: LegacyJrpcRequest = serde_json::from_str(json).unwrap();
-        assert!(matches!(req.method, LegacyMethod::GetProductList));
+        assert!(matches!(req.method, LegacyMethod::GetProductList(_)));
+        assert_eq!(req.id, JrpcId::Int(1));
+    }
+
+    #[test]
+    fn test_deserialize_get_product_list_with_empty_params() {
+        let json = r#"{"jsonrpc": "2.0", "method": "get_product_list", "params": {}, "id": 1}"#;
+        let req: LegacyJrpcRequest = serde_json::from_str(json).unwrap();
+        assert!(matches!(req.method, LegacyMethod::GetProductList(_)));
         assert_eq!(req.id, JrpcId::Int(1));
     }
 
@@ -567,7 +582,10 @@ mod tests {
         ]"#;
         let requests: Vec<LegacyJrpcRequest> = serde_json::from_str(json).unwrap();
         assert_eq!(requests.len(), 2);
-        assert!(matches!(requests[0].method, LegacyMethod::GetProductList));
+        assert!(matches!(
+            requests[0].method,
+            LegacyMethod::GetProductList(_)
+        ));
         assert!(matches!(requests[1].method, LegacyMethod::GetAllProducts));
     }
 
