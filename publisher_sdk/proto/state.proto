@@ -196,13 +196,30 @@ message FeedMarketSchedule {
     optional MarketSession session = 1;
     // [optional] Numeric value. If not set, minimum publishers from the feed level apply
     optional int32 min_publishers = 2;
-    // [required] Market schedule in Pythnet format
+    // [conditionally required] Market schedule in Pythnet format.
+    // Required when the feed does not inherit from an exchange for this session.
+    // When omitted and the feed has exchange_id set, the schedule is inherited from
+    // the exchange's matching session.
     optional string market_schedule = 3;
     // [required] The list of publisher IDs allowed to publish for this market schedule
     repeated uint32 allowed_publisher_ids = 4;
     // [optional] Benchmark mappings keyed by category
     // Each category maps to a list of identifiers with optional validity periods.
     map<string, BenchmarkIdentifiers> benchmark_mapping = 5;
+    // [optional] Feed-level modifications to the inherited exchange schedule.
+    // Only applies when market_schedule is absent (i.e. the schedule is inherited).
+    // Ignored when an explicit market_schedule is set.
+    optional ScheduleOverrides schedule_overrides = 6;
+}
+
+// Feed-level schedule overrides for modifying an inherited exchange schedule.
+message ScheduleOverrides {
+    // Holiday overrides using the same "MMDD/kind" format as the schedule string.
+    // Each entry replaces any exchange holiday on the same date, or is appended if new.
+    // Use "MMDD/O" to effectively remove an exchange holiday.
+    // Use "MMDD/C" to add a closure.
+    // Use "MMDD/0930-1300" to set custom hours for that date.
+    repeated string holiday_overrides = 1;
 }
 
 // A list of benchmark identifiers for a single category within a market session.

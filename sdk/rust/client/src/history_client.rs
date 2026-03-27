@@ -96,6 +96,8 @@ pub struct GetStateParams {
     pub governance_sources: bool,
     #[serde(default)]
     pub feature_flags: bool,
+    #[serde(default)]
+    pub exchanges: bool,
 }
 
 impl PythLazerHistoryClient {
@@ -123,16 +125,18 @@ impl PythLazerHistoryClient {
             feeds,
             governance_sources,
             feature_flags,
+            exchanges,
         } = params;
 
         self.config.cache_dir.as_ref().map(|path| {
             path.join(format!(
-                "state_{}{}{}{}{}_v1.json",
+                "state_{}{}{}{}{}{}_v1.json",
                 *all as u8,
                 *publishers as u8,
                 *feeds as u8,
                 *governance_sources as u8,
                 *feature_flags as u8,
+                *exchanges as u8,
             ))
         })
     }
