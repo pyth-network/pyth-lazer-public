@@ -73,7 +73,7 @@ version = "24.1.0"
 
 [workspace.dependencies.pyth-lazer-protocol]
 path = "sdk/rust/protocol"
-version = "0.39.0"
+version = "0.39.1"
 
 [workspace.dependencies.pyth-lazer-publisher-sdk]
 path = "publisher_sdk/rust"
@@ -195,7 +195,7 @@ features = ["serde"]
 version = "2.5.4"
 
 [workspace.dependencies.utoipa]
-features = ["axum_extras", "chrono", "uuid"]
+features = ["axum_extras", "chrono", "non_strict_integers", "uuid"]
 version = "5.4.0"
 
 [workspace.dependencies.utoipa-redoc]

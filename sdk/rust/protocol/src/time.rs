@@ -291,7 +291,6 @@ impl TryFrom<TimestampUs> for chrono::DateTime<chrono::Utc> {
 /// Non-negative duration with microsecond resolution.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[cfg_attr(feature = "utoipa", schema(value_type = u64))]
 pub struct DurationUs(u64);
 
 impl DurationUs {
