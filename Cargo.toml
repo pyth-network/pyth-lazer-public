@@ -29,6 +29,7 @@ config = "0.15.11"
 csv = "1.4.0"
 derivative = "2.2.0"
 derive_more = "2.0.1"
+dotenvy = "0.15.7"
 fs-err = "3.1.1"
 futures = "0.3.31"
 futures-util = "0.3.31"
@@ -62,6 +63,7 @@ solana-account = "3.4.0"
 solana-address = "2.2.0"
 solana-instruction = "3.2.0"
 tokio-stream = "0.1.17"
+toml = "0.8.19"
 tracing = "0.1.41"
 tracing-opentelemetry = "0.29.0"
 truncate-integer = "0.5.1"
@@ -150,6 +152,10 @@ version = "0.37.0"
 features = ["json", "multipart"]
 version = "0.12.23"
 
+[workspace.dependencies.rust_decimal]
+features = ["serde-with-str"]
+version = "1.36.0"
+
 [workspace.dependencies.serde]
 features = ["derive"]
 version = "1.0.219"
@@ -205,6 +211,9 @@ version = "6"
 [workspace.dependencies.utoipa-swagger-ui]
 features = ["axum"]
 version = "9.0.0"
+
+[workspace.dependencies.winnow]
+version = "0.7.6"
 
 [workspace.dependencies.wormhole-sdk]
 git = "https://github.com/wormhole-foundation/wormhole"
