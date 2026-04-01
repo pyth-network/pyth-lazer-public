@@ -189,7 +189,7 @@ features = ["compat"]
 version = "0.7.14"
 
 [workspace.dependencies.tower-http]
-features = ["cors"]
+features = ["cors", "trace"]
 version = "0.6.1"
 
 [workspace.dependencies.tracing-subscriber]
