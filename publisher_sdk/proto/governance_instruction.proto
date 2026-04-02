@@ -310,6 +310,8 @@ message AddFeed {
     repeated FeedMarketSchedule market_schedules = 109;
     // [optional] Reference to an exchange for schedule inheritance.
     optional uint32 exchange_id = 110;
+    // [optional]
+    repeated CorporateAction corporate_actions = 111;
     // [required]
     optional bool is_enabled_in_shard = 201;
 
@@ -365,8 +367,17 @@ message UpdateFeedProperties {
     // [optional] Reference to an exchange for schedule inheritance.
     // Set to 0 to clear the exchange reference.
     optional uint32 exchange_id = 110;
+    // [optional] If set, replaces all corporate actions on the feed.
+    // An empty corporate_actions list clears all corporate actions.
+    // If absent, corporate actions remain unchanged.
+    optional SetCorporateActions set_corporate_actions = 111;
     // [optional]
     optional bool is_enabled_in_shard = 201;
+}
+
+// Replace all corporate actions on a feed. An empty list clears them.
+message SetCorporateActions {
+    repeated CorporateAction corporate_actions = 1;
 }
 
 message UpdateFeedMetadata {
