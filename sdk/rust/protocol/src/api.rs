@@ -1045,8 +1045,8 @@ pub struct SignedMerkleRoot {
     pub root: Vec<u8>,
 
     pub slot: Slot,
-
     pub timestamp: u32,
+    pub channel: Channel,
 
     /// Hex-encoded 65-byte ECDSA signature (r || s || v)
     #[serde_as(as = "Hex")]
@@ -1093,6 +1093,7 @@ mod tests {
             ],
             slot: 34567890123,
             timestamp: 1700000000,
+            channel: Channel::FixedRate(FixedRate::RATE_200_MS),
             signature: vec![0xaa; 65],
             messages: vec![vec![0x00, 0xab, 0xcd, 0xef], vec![0x00, 0x12, 0x34, 0x56]],
         };
@@ -1103,6 +1104,10 @@ mod tests {
         assert_eq!(json["root"], "0102030405060708090a0b0c0d0e0f1011121314");
         assert_eq!(json["slot"], 34567890123u64);
         assert_eq!(json["timestamp"], 1700000000u32);
+        assert_eq!(
+            json["channel"],
+            Channel::FixedRate(FixedRate::RATE_200_MS).to_string()
+        );
         assert_eq!(json["signature"], "aa".repeat(65));
         assert_eq!(json["messages"], json!(["00abcdef", "00123456"]));
 
