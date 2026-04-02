@@ -1,7 +1,7 @@
 use crate::config::Config;
 use crate::lazer_publisher::LazerPublisher;
 use crate::metadata::fetch_metadata;
-use crate::websocket_utils::{handle_websocket_error, send_text};
+use crate::websocket_utils::{flush, handle_websocket_error, send_text, send_text_no_flush};
 use futures::{AsyncRead, AsyncWrite};
 use futures_util::io::{BufReader, BufWriter};
 use hyper_util::rt::TokioIo;
@@ -305,10 +305,15 @@ async fn send_sched_notifications<T: AsyncRead + AsyncWrite + Unpin>(
             },
         };
         if let Ok(json) = serde_json::to_string(&notification) {
-            if let Err(err) = send_text(sender, &json).await {
+            if let Err(err) = send_text_no_flush(sender, &json).await {
                 debug!("failed to send notify_price_sched: {err}");
                 return;
             }
+        }
+    }
+    if !sched_subscriptions.is_empty() {
+        if let Err(err) = flush(sender).await {
+            debug!("failed to flush notify_price_sched: {err}");
         }
     }
 }

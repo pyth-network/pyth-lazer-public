@@ -42,6 +42,27 @@ pub async fn send_text<T: AsyncRead + AsyncWrite + Unpin>(
     .await?
 }
 
+pub async fn send_text_no_flush<T: AsyncRead + AsyncWrite + Unpin>(
+    sender: &mut Sender<T>,
+    text: &str,
+) -> anyhow::Result<()> {
+    timeout(SEND_TIMEOUT, async {
+        sender.send_text(text).await?;
+        anyhow::Ok(())
+    })
+    .await?
+}
+
+pub async fn flush<T: AsyncRead + AsyncWrite + Unpin>(
+    sender: &mut Sender<T>,
+) -> anyhow::Result<()> {
+    timeout(SEND_TIMEOUT, async {
+        sender.flush().await?;
+        anyhow::Ok(())
+    })
+    .await?
+}
+
 pub async fn send_json<T: AsyncRead + AsyncWrite + Unpin, U: serde::Serialize>(
     sender: &mut Sender<T>,
     value: &U,
