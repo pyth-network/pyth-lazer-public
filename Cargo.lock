@@ -7010,6 +7010,7 @@ dependencies = [
  "pyth-lazer-aggregator",
  "pyth-lazer-client",
  "pyth-lazer-db-lib",
+ "pyth-lazer-entitlements-sdk",
  "pyth-lazer-internal-protocol",
  "pyth-lazer-protocol",
  "pyth-lazer-publisher-sdk",
