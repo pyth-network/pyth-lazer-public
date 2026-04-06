@@ -6,6 +6,7 @@ members = [
   "publishers/example",
   "publishers/example-jrpc",
   "sdk/rust/client",
+  "sdk/rust/entitlements",
   "sdk/rust/protocol",
 ]
 
@@ -72,6 +73,9 @@ utoipa-axum = "0.2.0"
 [workspace.dependencies.pyth-lazer-client]
 path = "sdk/rust/client"
 version = "25.0.0"
+
+[workspace.dependencies.pyth-lazer-entitlements-sdk]
+path = "sdk/rust/entitlements"
 
 [workspace.dependencies.pyth-lazer-protocol]
 path = "sdk/rust/protocol"
