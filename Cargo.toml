@@ -43,6 +43,7 @@ itertools = "0.14.0"
 json-pretty-compact = "0.1.2"
 lazy_static = "1.5.0"
 mry = "0.13.0"
+num-traits = "0.2.19"
 opentelemetry = "0.28.0"
 opentelemetry-prometheus = "0.28.0"
 option-inspect-none = "1"
@@ -149,6 +150,10 @@ version = "0.13.4"
 features = ["rt-tokio"]
 version = "0.28.0"
 
+[workspace.dependencies.polars]
+default-features = false
+version = "0.44.2"
+
 [workspace.dependencies.rdkafka]
 version = "0.37.0"
 
@@ -179,6 +184,10 @@ version = "0.8.1"
 [workspace.dependencies.strum]
 features = ["derive"]
 version = "0.27.2"
+
+[workspace.dependencies.time]
+features = ["macros", "serde-human-readable", "serde-well-known"]
+version = "0.3"
 
 [workspace.dependencies.tokio]
 features = ["full"]
