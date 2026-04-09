@@ -54,14 +54,17 @@ pub enum EntitlementError {
     /// The requested feed is not accessible with this API key
     FeedNotEntitled {
         feed_id: PriceFeedId,
+        hermes_id: Option<String>,
         reason: String,
     },
     /// The feed is not available
     FeedNotAvailable {
         feed_id: PriceFeedId,
+        hermes_id: Option<String>,
     },
     FeedDoesNotExist {
         feed_id: PriceFeedId,
+        hermes_id: Option<String>,
     },
 }
 
@@ -79,7 +82,11 @@ impl std::fmt::Display for EntitlementError {
                     requested_channel, min_allowed_ms
                 )
             }
-            EntitlementError::FeedNotEntitled { feed_id, reason } => {
+            EntitlementError::FeedNotEntitled {
+                feed_id,
+                hermes_id: _,
+                reason,
+            } => {
                 write!(
                     f,
                     "API key has insufficient access: \
@@ -87,7 +94,10 @@ impl std::fmt::Display for EntitlementError {
                     feed_id.0, reason
                 )
             }
-            EntitlementError::FeedNotAvailable { feed_id } => {
+            EntitlementError::FeedNotAvailable {
+                feed_id,
+                hermes_id: _,
+            } => {
                 write!(
                     f,
                     "API key has insufficient access: \
@@ -95,7 +105,10 @@ impl std::fmt::Display for EntitlementError {
                     feed_id.0
                 )
             }
-            EntitlementError::FeedDoesNotExist { feed_id } => {
+            EntitlementError::FeedDoesNotExist {
+                feed_id,
+                hermes_id: _,
+            } => {
                 write!(
                     f,
                     "API key has insufficient access: \
@@ -254,6 +267,7 @@ impl EntitlementManager {
                             *price_feed_id,
                             EntitlementError::FeedDoesNotExist {
                                 feed_id: *price_feed_id,
+                                hermes_id: None,
                             },
                         ));
                         continue;
@@ -272,7 +286,10 @@ impl EntitlementManager {
                             FeedVisibility::Unlisted => {
                                 feed_errors.push((
                                     *price_feed_id,
-                                    EntitlementError::FeedNotAvailable { feed_id: feed.id },
+                                    EntitlementError::FeedNotAvailable {
+                                        feed_id: feed.id,
+                                        hermes_id: feed.hermes_id().map(|id| id.to_string()),
+                                    },
                                 ));
                             }
                         }
@@ -387,6 +404,7 @@ impl EntitlementManager {
         let allowed_types: Vec<_> = entitlements.asset_types.iter().cloned().collect();
         Err(EntitlementError::FeedNotEntitled {
             feed_id: feed.id,
+            hermes_id: feed.hermes_id().map(|id| id.to_string()),
             reason: format!(
                 "asset type '{}' is not in allowed types: {:?}",
                 feed.asset_type(),
