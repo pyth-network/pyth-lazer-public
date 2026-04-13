@@ -7024,6 +7024,7 @@ dependencies = [
  "serde_with",
  "serde_wormhole 0.1.0 (git+https://github.com/wormhole-foundation/wormhole?tag=v2.17.1)",
  "sha3",
+ "strum",
  "tokio",
  "tokio-stream",
  "tower-http 0.6.6",
@@ -7497,7 +7498,7 @@ dependencies = [
 
 [[package]]
 name = "pyth-lazer-protocol"
-version = "0.40.0"
+version = "0.40.1"
 dependencies = [
  "alloy-primitives",
  "anyhow",

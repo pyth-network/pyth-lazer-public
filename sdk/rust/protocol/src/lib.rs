@@ -120,7 +120,7 @@ pub enum PriceFeedProperty {
     // More fields may be added later.
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, strum::EnumIter)]
 #[serde(rename_all = "kebab-case")]
 pub enum AssetClass {
     Crypto,
