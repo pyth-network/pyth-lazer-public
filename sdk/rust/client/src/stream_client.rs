@@ -41,7 +41,10 @@
 //! }
 //! ```
 
-use std::time::Duration;
+use {
+    std::time::Duration,
+    tracing::{Instrument, info_span},
+};
 
 use crate::{
     CHANNEL_CAPACITY,
@@ -177,28 +180,32 @@ impl PythLazerStreamClient {
 
         let mut seen_updates = TtlCache::new(DEDUP_CACHE_SIZE);
 
-        tokio::spawn(async move {
-            while let Some(response) = ws_connection_receiver.recv().await {
-                let cache_key = response.cache_key();
-                if seen_updates.contains_key(&cache_key) {
-                    continue;
-                }
-                seen_updates.insert(cache_key, true, DEDUP_TTL);
+        #[allow(clippy::disallowed_methods, reason = "instrumented")]
+        tokio::spawn(
+            async move {
+                while let Some(response) = ws_connection_receiver.recv().await {
+                    let cache_key = response.cache_key();
+                    if seen_updates.contains_key(&cache_key) {
+                        continue;
+                    }
+                    seen_updates.insert(cache_key, true, DEDUP_TTL);
 
-                match sender.try_send(response) {
-                    Ok(_) => (),
-                    Err(TrySendError::Full(r)) => {
-                        warn!("Sender channel is full, responses will be delayed");
-                        if sender.send(r).await.is_err() {
+                    match sender.try_send(response) {
+                        Ok(_) => (),
+                        Err(TrySendError::Full(r)) => {
+                            warn!("Sender channel is full, responses will be delayed");
+                            if sender.send(r).await.is_err() {
+                                error!("Sender channel is closed, stopping client");
+                            }
+                        }
+                        Err(TrySendError::Closed(_)) => {
                             error!("Sender channel is closed, stopping client");
                         }
                     }
-                    Err(TrySendError::Closed(_)) => {
-                        error!("Sender channel is closed, stopping client");
-                    }
                 }
             }
-        });
+            .instrument(info_span!("stream client task", endpoints = ?self.endpoints)),
+        );
 
         Ok(receiver)
     }

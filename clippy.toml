@@ -2,3 +2,8 @@ allow-unwrap-in-tests = true
 allow-expect-in-tests = true
 allow-indexing-slicing-in-tests = true
 allow-panic-in-tests = true
+
+disallowed-methods = [
+  { path = "tokio::spawn", reason = "all tokio tasks must be instrumented\nuse `pyth_lazer_utils::task::spawn` or allow this warning and add `.instrument()` to the future" },
+  { path = "tokio::task::spawn", reason = "all tokio tasks must be instrumented\nuse `pyth_lazer_utils::task::spawn` or allow this warning and add `.instrument()` to the future" },
+]

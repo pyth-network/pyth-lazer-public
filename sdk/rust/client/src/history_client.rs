@@ -200,6 +200,7 @@ impl PythLazerHistoryClient {
             .await
             .expect("send to new channel failed");
         let client = self.clone();
+        #[allow(clippy::disallowed_methods, reason = "instrumented")]
         tokio::spawn(
             async move {
                 client
@@ -208,7 +209,7 @@ impl PythLazerHistoryClient {
                     })
                     .await;
             }
-            .in_current_span(),
+            .instrument(info_span!("history client task", urls = ?self.config.urls)),
         );
         Ok(ReceiverStream::new(receiver))
     }

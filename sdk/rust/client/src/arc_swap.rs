@@ -4,7 +4,7 @@ use {
     futures::Stream,
     futures_util::StreamExt as _,
     std::sync::Arc,
-    tracing::{Instrument as _, info},
+    tracing::{Instrument as _, info, info_span},
 };
 
 #[async_trait::async_trait]
@@ -20,6 +20,8 @@ where
             .context("cannot create auto updated handle from empty stream")?;
         let handle = Arc::new(ArcSwap::new(Arc::new(first_value)));
         let weak_handle = Arc::downgrade(&handle);
+
+        #[allow(clippy::disallowed_methods, reason = "instrumented")]
         tokio::spawn(
             async move {
                 while let Some(value) = self.next().await {
@@ -30,7 +32,7 @@ where
                     handle.store(Arc::new(value));
                 }
             }
-            .in_current_span(),
+            .instrument(info_span!("handle update task")),
         );
         Ok(handle)
     }

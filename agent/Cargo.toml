@@ -38,7 +38,7 @@ tokio-native-tls = "0.3.1"
 tokio-tungstenite = { version = "0.26.2", features = ["native-tls", "url"] }
 tokio-util = { version = "0.7.14", features = ["compat"] }
 tracing = "0.1.41"
-tracing-subscriber = { version = "0.3.19", features = ["env-filter", "json"] }
+tracing-subscriber = { version = "0.3.23", features = ["env-filter", "json"] }
 ttl_cache = "0.5.1"
 url = { version = "2.5.4", features = ["serde"] }
 

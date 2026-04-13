@@ -1,4 +1,7 @@
-use std::time::Duration;
+use {
+    std::time::Duration,
+    tracing::{Instrument, info_span},
+};
 
 use crate::{
     CHANNEL_CAPACITY,
@@ -76,28 +79,32 @@ impl PythLazerMerkleStreamClient {
 
         let mut seen_updates = TtlCache::new(DEDUP_CACHE_SIZE);
 
-        tokio::spawn(async move {
-            while let Some(root) = ws_connection_receiver.recv().await {
-                let key = cache_key(&root);
-                if seen_updates.contains_key(&key) {
-                    continue;
-                }
-                seen_updates.insert(key, true, DEDUP_TTL);
+        #[allow(clippy::disallowed_methods, reason = "instrumented")]
+        tokio::spawn(
+            async move {
+                while let Some(root) = ws_connection_receiver.recv().await {
+                    let key = cache_key(&root);
+                    if seen_updates.contains_key(&key) {
+                        continue;
+                    }
+                    seen_updates.insert(key, true, DEDUP_TTL);
 
-                match sender.try_send(root) {
-                    Ok(_) => (),
-                    Err(TrySendError::Full(r)) => {
-                        warn!("Sender channel is full, responses will be delayed");
-                        if sender.send(r).await.is_err() {
+                    match sender.try_send(root) {
+                        Ok(_) => (),
+                        Err(TrySendError::Full(r)) => {
+                            warn!("Sender channel is full, responses will be delayed");
+                            if sender.send(r).await.is_err() {
+                                error!("Sender channel is closed, stopping merkle client");
+                            }
+                        }
+                        Err(TrySendError::Closed(_)) => {
                             error!("Sender channel is closed, stopping merkle client");
                         }
                     }
-                    Err(TrySendError::Closed(_)) => {
-                        error!("Sender channel is closed, stopping merkle client");
-                    }
                 }
             }
-        });
+            .instrument(info_span!("merkle stream client task", endpoints = ?self.endpoints)),
+        );
 
         Ok(receiver)
     }

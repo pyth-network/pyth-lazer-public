@@ -1,4 +1,3 @@
-use crate::jrpc_handle::{JrpcConnectionContext, handle_jrpc};
 use crate::legacy_handle::handle_legacy;
 use crate::publisher_handle::handle_publisher;
 use crate::{
@@ -13,9 +12,13 @@ use soketto::{
     handshake::http::{Server, is_upgrade_request},
 };
 use std::fmt::Debug;
-use std::{io, net::SocketAddr};
+use std::net::SocketAddr;
 use tokio::net::{TcpListener, TcpStream};
 use tracing::{debug, info, instrument, warn};
+use {
+    crate::jrpc_handle::{JrpcConnectionContext, handle_jrpc},
+    tracing::{Instrument, info_span},
+};
 
 type FullBody = http_body_util::Full<Bytes>;
 
@@ -46,25 +49,35 @@ pub async fn run(config: Config, lazer_publisher: LazerPublisher) -> Result<()> 
     info!("listening on {:?}", &config.listen_address);
 
     loop {
-        let stream_addr = listener.accept().await;
+        let (stream, remote_addr) = match listener.accept().await {
+            Ok(v) => v,
+            Err(error) => {
+                warn!(?error, "failed to accept connection");
+                continue;
+            }
+        };
         let lazer_publisher_clone = lazer_publisher.clone();
         let config = config.clone();
-        tokio::spawn(async move {
-            if let Err(err) =
-                try_handle_connection(config, stream_addr, lazer_publisher_clone).await
-            {
-                warn!("error while handling connection: {err:?}");
+        #[allow(clippy::disallowed_methods, reason = "instrumented")]
+        tokio::spawn(
+            async move {
+                if let Err(err) =
+                    try_handle_connection(config, stream, remote_addr, lazer_publisher_clone).await
+                {
+                    warn!("error while handling connection: {err:?}");
+                }
             }
-        });
+            .instrument(info_span!("http connection handler", %remote_addr)),
+        );
     }
 }
 
 async fn try_handle_connection(
     config: Config,
-    stream_addr: io::Result<(TcpStream, SocketAddr)>,
+    stream: TcpStream,
+    remote_addr: SocketAddr,
     lazer_publisher: LazerPublisher,
 ) -> Result<()> {
-    let (stream, remote_addr) = stream_addr?;
     debug!("accepted connection from {}", remote_addr);
     stream.set_nodelay(true)?;
     http1::Builder::new()
@@ -140,32 +153,39 @@ async fn request_handler(
                         request_type: publisher_request_type,
                         _remote_addr: remote_addr,
                     };
-                    tokio::spawn(handle_publisher(
-                        server,
-                        request.0,
-                        publisher_connection_context,
-                        lazer_publisher,
-                    ));
+                    #[allow(clippy::disallowed_methods, reason = "instrumented")]
+                    tokio::spawn(
+                        handle_publisher(
+                            server,
+                            request.0,
+                            publisher_connection_context,
+                            lazer_publisher,
+                        )
+                        .instrument(info_span!("publisher ws connection handler", %remote_addr)),
+                    );
                     Ok(response.map(|()| FullBody::default()))
                 }
                 Request::JrpcV1 => {
                     let publisher_connection_context = JrpcConnectionContext {};
-                    tokio::spawn(handle_jrpc(
-                        config.clone(),
-                        server,
-                        request.0,
-                        publisher_connection_context,
-                        lazer_publisher,
-                    ));
+                    #[allow(clippy::disallowed_methods, reason = "instrumented")]
+                    tokio::spawn(
+                        handle_jrpc(
+                            config.clone(),
+                            server,
+                            request.0,
+                            publisher_connection_context,
+                            lazer_publisher,
+                        )
+                        .instrument(info_span!("jrpc ws connection handler", %remote_addr)),
+                    );
                     Ok(response.map(|()| FullBody::default()))
                 }
                 Request::LegacyV1 => {
-                    tokio::spawn(handle_legacy(
-                        config.clone(),
-                        server,
-                        request.0,
-                        lazer_publisher,
-                    ));
+                    #[allow(clippy::disallowed_methods, reason = "instrumented")]
+                    tokio::spawn(
+                        handle_legacy(config.clone(), server, request.0, lazer_publisher)
+                            .instrument(info_span!("legacy ws connection handler", %remote_addr)),
+                    );
                     Ok(response.map(|()| FullBody::default()))
                 }
             }

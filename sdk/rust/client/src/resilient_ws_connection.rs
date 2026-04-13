@@ -1,4 +1,7 @@
-use std::time::Duration;
+use {
+    std::time::Duration,
+    tracing::{Instrument, info_span},
+};
 
 use backoff::{ExponentialBackoff, backoff::Backoff};
 use futures_util::StreamExt;
@@ -37,14 +40,22 @@ impl PythLazerResilientWSConnection {
         sender: mpsc::Sender<AnyResponse>,
     ) -> Self {
         let (request_sender, mut request_receiver) = mpsc::channel(CHANNEL_CAPACITY);
-        let mut task =
-            PythLazerResilientWSConnectionTask::new(endpoint, access_token, backoff, timeout);
+        let mut task = PythLazerResilientWSConnectionTask::new(
+            endpoint.clone(),
+            access_token,
+            backoff,
+            timeout,
+        );
 
-        tokio::spawn(async move {
-            if let Err(e) = task.run(sender, &mut request_receiver).await {
-                error!("Resilient WebSocket connection task failed: {}", e);
+        #[allow(clippy::disallowed_methods, reason = "instrumented")]
+        tokio::spawn(
+            async move {
+                if let Err(e) = task.run(sender, &mut request_receiver).await {
+                    error!("Resilient WebSocket connection task failed: {}", e);
+                }
             }
-        });
+            .instrument(info_span!("ws connection task", %endpoint)),
+        );
 
         Self { request_sender }
     }

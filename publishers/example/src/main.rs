@@ -14,7 +14,7 @@ use {
         MaybeTlsStream, WebSocketStream, connect_async,
         tungstenite::{client::IntoClientRequest, http::header::HeaderValue, protocol::Message},
     },
-    tracing::{error, info, level_filters::LevelFilter},
+    tracing::{Instrument, error, info, info_span, level_filters::LevelFilter},
     tracing_subscriber::EnvFilter,
     url::Url,
 };
@@ -115,27 +115,31 @@ async fn main() -> Result<()> {
 
     // Handle messages from the relayer, such as errors if we send a bad update
     for (i, stream) in [receiver, receiver2].into_iter().enumerate() {
-        tokio::spawn(async move {
-            futures_util::pin_mut!(stream);
-            while let Some(msg) = stream.next().await {
-                match msg {
-                    Ok(Message::Text(text)) => {
-                        info!("Received a message from relayer {i}: {text}");
-                    }
-                    Ok(Message::Binary(data)) => {
-                        info!(
-                            "Received a message from relayer {i}: {}",
-                            String::from_utf8_lossy(&data)
-                        );
-                    }
-                    Ok(_) => {}
-                    Err(error) => {
-                        error!(?error, "Error receiving from relayer {i}");
-                        break;
+        #[allow(clippy::disallowed_methods, reason = "instrumented")]
+        tokio::spawn(
+            async move {
+                futures_util::pin_mut!(stream);
+                while let Some(msg) = stream.next().await {
+                    match msg {
+                        Ok(Message::Text(text)) => {
+                            info!("Received a message from relayer {i}: {text}");
+                        }
+                        Ok(Message::Binary(data)) => {
+                            info!(
+                                "Received a message from relayer {i}: {}",
+                                String::from_utf8_lossy(&data)
+                            );
+                        }
+                        Ok(_) => {}
+                        Err(error) => {
+                            error!(?error, "Error receiving from relayer {i}");
+                            break;
+                        }
                     }
                 }
             }
-        });
+            .instrument(info_span!("relayer receive task", %i)),
+        );
     }
 
     let mut buf = Vec::new();

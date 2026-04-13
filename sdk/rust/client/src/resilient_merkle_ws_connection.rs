@@ -1,4 +1,7 @@
-use std::time::Duration;
+use {
+    std::time::Duration,
+    tracing::{Instrument, info_span},
+};
 
 use backoff::{ExponentialBackoff, backoff::Backoff};
 use futures_util::StreamExt;
@@ -22,14 +25,22 @@ impl PythLazerResilientMerkleWSConnection {
         timeout: Duration,
         sender: mpsc::Sender<SignedMerkleRoot>,
     ) -> Self {
-        let mut task =
-            PythLazerResilientMerkleWSConnectionTask::new(endpoint, access_token, backoff, timeout);
+        let mut task = PythLazerResilientMerkleWSConnectionTask::new(
+            endpoint.clone(),
+            access_token,
+            backoff,
+            timeout,
+        );
 
-        tokio::spawn(async move {
-            if let Err(e) = task.run(sender).await {
-                error!("Resilient Merkle WebSocket connection task failed: {}", e);
+        #[allow(clippy::disallowed_methods, reason = "instrumented")]
+        tokio::spawn(
+            async move {
+                if let Err(e) = task.run(sender).await {
+                    error!("Resilient Merkle WebSocket connection task failed: {}", e);
+                }
             }
-        });
+            .instrument(info_span!("merkle ws connection task", %endpoint)),
+        );
 
         Self
     }

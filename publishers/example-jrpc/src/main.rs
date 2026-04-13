@@ -16,7 +16,7 @@ use {
     },
     tokio::{net::TcpStream, time::sleep},
     tokio_util::compat::{Compat, TokioAsyncReadCompatExt},
-    tracing::{debug, error, info, level_filters::LevelFilter},
+    tracing::{Instrument, debug, error, info, info_span, level_filters::LevelFilter},
     tracing_subscriber::EnvFilter,
 };
 
@@ -84,24 +84,28 @@ async fn main() -> Result<()> {
 
     // Handle messages from the relayer, such as errors if we send a bad update
     for (i, mut receiver) in [receiver].into_iter().enumerate() {
-        tokio::spawn(async move {
-            let mut data = Vec::new();
-            loop {
-                data.clear();
-                match receiver.receive(&mut data).await {
-                    Ok(Incoming::Data(_)) => info!(
-                        "Received a message from relayer {i}: {}",
-                        String::from_utf8_lossy(&data)
-                    ),
-                    Ok(Incoming::Pong(_)) => println!("Received a pong from relayer {i}"),
-                    Ok(_) => {}
-                    Err(error) => {
-                        error!(?error, "Error receiving from relayer {i}");
-                        break;
+        #[allow(clippy::disallowed_methods, reason = "instrumented")]
+        tokio::spawn(
+            async move {
+                let mut data = Vec::new();
+                loop {
+                    data.clear();
+                    match receiver.receive(&mut data).await {
+                        Ok(Incoming::Data(_)) => info!(
+                            "Received a message from relayer {i}: {}",
+                            String::from_utf8_lossy(&data)
+                        ),
+                        Ok(Incoming::Pong(_)) => println!("Received a pong from relayer {i}"),
+                        Ok(_) => {}
+                        Err(error) => {
+                            error!(?error, "Error receiving from relayer {i}");
+                            break;
+                        }
                     }
                 }
             }
-        });
+            .instrument(info_span!("relayer receive task", %i)),
+        );
     }
 
     let mut i = 0;

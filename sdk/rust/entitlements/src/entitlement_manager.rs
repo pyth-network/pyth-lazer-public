@@ -416,7 +416,6 @@ impl EntitlementManager {
 
 #[cfg(test)]
 mod tests {
-    use super::{EntitlementsConfig, default_entitlement_cache_ttl};
     use crate::entitlement_manager::{EntitlementManager, FULL_ACCESS_FEED_ID};
     use axum::{Router, extract::Json, response::IntoResponse, routing::post};
     use cached::Cached;
@@ -436,6 +435,10 @@ mod tests {
     use std::time::Duration;
     use tokio::net::TcpListener;
     use url::Url;
+    use {
+        super::{EntitlementsConfig, default_entitlement_cache_ttl},
+        pyth_lazer_utils::task::spawn,
+    };
 
     const FREE_KEY: &str = "free_key";
     const PRO_KEY: &str = "pro_key";
@@ -617,7 +620,8 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
         let url = Url::parse(&format!("http://{addr}/entitlements")).unwrap();
-        let handle = tokio::spawn(async move {
+        #[allow(clippy::disallowed_methods, reason = "instrumented")]
+        let handle = spawn("mock entitlement service", async move {
             axum::serve(listener, app).await.unwrap();
         });
         (url, handle)

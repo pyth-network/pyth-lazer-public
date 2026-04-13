@@ -326,7 +326,6 @@ impl RelayerSessionTask {
 //noinspection DuplicatedCode
 #[cfg(test)]
 mod tests {
-    use crate::relayer_session::RelayerSessionTask;
     use ed25519_dalek::{Signer, SigningKey};
     use futures_util::StreamExt;
     use protobuf::well_known_types::timestamp::Timestamp;
@@ -344,6 +343,10 @@ mod tests {
     use tokio::net::TcpListener;
     use tokio::sync::{broadcast, mpsc};
     use url::Url;
+    use {
+        crate::relayer_session::RelayerSessionTask,
+        tracing::{Instrument, info_span},
+    };
 
     pub const RELAYER_CHANNEL_CAPACITY: usize = 1000;
 
@@ -363,28 +366,32 @@ mod tests {
     ) {
         let listener = TcpListener::bind(addr).await.unwrap();
 
-        tokio::spawn(async move {
-            let Ok((stream, _)) = listener.accept().await else {
-                panic!("failed to accept mock relayer websocket connection");
-            };
-            let ws_stream = tokio_tungstenite::accept_async(stream)
-                .await
-                .expect("handshake failed");
-            let (_, mut read) = ws_stream.split();
-            while let Some(msg) = read.next().await {
-                if let Ok(msg) = msg {
-                    if msg.is_binary() {
-                        tracing::info!("Received a binary message: {msg:?}");
-                        let transaction =
-                            SignedLazerTransaction::parse_from_bytes(msg.into_data().as_ref())
-                                .unwrap();
-                        back_sender.clone().send(transaction).await.unwrap();
+        #[allow(clippy::disallowed_methods, reason = "instrumented")]
+        tokio::spawn(
+            async move {
+                let Ok((stream, _)) = listener.accept().await else {
+                    panic!("failed to accept mock relayer websocket connection");
+                };
+                let ws_stream = tokio_tungstenite::accept_async(stream)
+                    .await
+                    .expect("handshake failed");
+                let (_, mut read) = ws_stream.split();
+                while let Some(msg) = read.next().await {
+                    if let Ok(msg) = msg {
+                        if msg.is_binary() {
+                            tracing::info!("Received a binary message: {msg:?}");
+                            let transaction =
+                                SignedLazerTransaction::parse_from_bytes(msg.into_data().as_ref())
+                                    .unwrap();
+                            back_sender.clone().send(transaction).await.unwrap();
+                        }
+                    } else {
+                        tracing::error!("Received a malformed message: {msg:?}");
                     }
-                } else {
-                    tracing::error!("Received a malformed message: {msg:?}");
                 }
             }
-        });
+            .instrument(info_span!("mock relayer")),
+        );
     }
 
     #[tokio::test]
@@ -403,7 +410,11 @@ mod tests {
             is_ready: Arc::new(AtomicBool::new(false)),
             proxy_url: None,
         };
-        tokio::spawn(async move { relayer_session_task.run().await });
+        #[allow(clippy::disallowed_methods, reason = "instrumented")]
+        tokio::spawn(
+            async move { relayer_session_task.run().await }
+                .instrument(info_span!("relayer session task")),
+        );
         tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
 
         let transaction = get_signed_lazer_transaction();

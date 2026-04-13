@@ -38,4 +38,4 @@ ed25519-dalek = { version = "2.1.1", features = ["rand_core"] }
 hex = "0.4.3"
 libsecp256k1 = "0.7.1"
 alloy-primitives = "0.8.19"
-tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }
+tracing-subscriber = { workspace = true }

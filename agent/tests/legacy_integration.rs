@@ -5,7 +5,6 @@
     reason = "test code"
 )]
 
-use futures_util::{SinkExt, StreamExt};
 use hyper::body::Incoming;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
@@ -26,6 +25,10 @@ use tempfile::NamedTempFile;
 use tokio::net::TcpListener;
 use tokio_tungstenite::tungstenite::Message as TungsteniteMessage;
 use url::Url;
+use {
+    futures_util::{SinkExt, StreamExt},
+    tracing::{Instrument, info_span},
+};
 
 fn get_private_key_file() -> NamedTempFile {
     let private_key_string = "[105,175,146,91,32,145,164,199,37,111,139,255,44,225,5,247,154,170,238,70,47,15,9,48,102,87,180,50,50,38,148,243,62,148,219,72,222,170,8,246,176,33,205,29,118,11,220,163,214,204,46,49,132,94,170,173,244,39,179,211,177,70,252,31]";
@@ -63,35 +66,42 @@ async fn start_mock_history_service() -> (u16, tokio::task::JoinHandle<()>) {
     let port = listener.local_addr().unwrap().port();
     let metadata_json = test_metadata_json();
 
-    let handle = tokio::spawn(async move {
-        loop {
-            let Ok((stream, _)) = listener.accept().await else {
-                return;
-            };
-            let json = metadata_json.clone();
-            tokio::spawn(async move {
-                let _ = http1::Builder::new()
-                    .serve_connection(
-                        TokioIo::new(stream),
-                        service_fn(move |_req: hyper::Request<Incoming>| {
-                            let json = json.clone();
-                            async move {
-                                Ok::<_, hyper::Error>(
-                                    Response::builder()
-                                        .status(StatusCode::OK)
-                                        .header("content-type", "application/json")
-                                        .body(http_body_util::Full::new(hyper::body::Bytes::from(
-                                            json,
-                                        )))
-                                        .unwrap(),
-                                )
-                            }
-                        }),
-                    )
-                    .await;
-            });
+    #[allow(clippy::disallowed_methods, reason = "instrumented")]
+    let handle = tokio::spawn(
+        async move {
+            loop {
+                let Ok((stream, _)) = listener.accept().await else {
+                    return;
+                };
+                let json = metadata_json.clone();
+                tokio::spawn(
+                    async move {
+                        let _ = http1::Builder::new()
+                            .serve_connection(
+                                TokioIo::new(stream),
+                                service_fn(move |_req: hyper::Request<Incoming>| {
+                                    let json = json.clone();
+                                    async move {
+                                        Ok::<_, hyper::Error>(
+                                            Response::builder()
+                                                .status(StatusCode::OK)
+                                                .header("content-type", "application/json")
+                                                .body(http_body_util::Full::new(
+                                                    hyper::body::Bytes::from(json),
+                                                ))
+                                                .unwrap(),
+                                        )
+                                    }
+                                }),
+                            )
+                            .await;
+                    }
+                    .instrument(info_span!("mock history service connection handler task")),
+                );
+            }
         }
-    });
+        .instrument(info_span!("mock history service task")),
+    );
 
     (port, handle)
 }
@@ -157,7 +167,10 @@ async fn test_legacy_user_journey() {
     };
 
     let lazer_publisher = LazerPublisher::new(&config).await;
-    tokio::spawn(http_server::run(config, lazer_publisher));
+    #[allow(clippy::disallowed_methods, reason = "instrumented")]
+    tokio::spawn(
+        http_server::run(config, lazer_publisher).instrument(info_span!("lazer publisher task")),
+    );
 
     tokio::time::sleep(Duration::from_millis(100)).await;
 

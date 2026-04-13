@@ -1,4 +1,3 @@
-use crate::config::{CHANNEL_CAPACITY, Config};
 use crate::relayer_session::RelayerSessionTask;
 use anyhow::{Context, Result, bail};
 use base64::Engine;
@@ -25,6 +24,10 @@ use tokio::{
 };
 use tracing::error;
 use ttl_cache::TtlCache;
+use {
+    crate::config::{CHANNEL_CAPACITY, Config},
+    tracing::{Instrument, info_span},
+};
 
 const DEDUP_CACHE_SIZE: usize = 100_000;
 
@@ -82,7 +85,10 @@ impl LazerPublisher {
                 is_ready: is_ready.clone(),
                 proxy_url: config.proxy_url.clone(),
             };
-            tokio::spawn(async move { task.run().await });
+            #[allow(clippy::disallowed_methods, reason = "instrumented")]
+            tokio::spawn(async move { task.run().await }.instrument(
+                info_span!("relayer session task", %url, proxy_url = ?config.proxy_url),
+            ));
         }
 
         let (sender, receiver) = mpsc::channel(CHANNEL_CAPACITY);
@@ -94,7 +100,10 @@ impl LazerPublisher {
             signing_key,
             ttl_cache: TtlCache::new(DEDUP_CACHE_SIZE),
         };
-        tokio::spawn(async move { task.run().await });
+        #[allow(clippy::disallowed_methods, reason = "instrumented")]
+        tokio::spawn(
+            async move { task.run().await }.instrument(info_span!("lazer publisher task")),
+        );
         Self {
             sender,
             is_ready: is_ready.clone(),
@@ -235,7 +244,6 @@ fn deduplicate_feed_updates(
 
 #[cfg(test)]
 mod tests {
-    use crate::config::{CHANNEL_CAPACITY, Config};
     use crate::lazer_publisher::{
         DEDUP_CACHE_SIZE, LazerPublisherTask, deduplicate_feed_updates_in_tx,
     };
@@ -254,6 +262,10 @@ mod tests {
     use tokio::sync::{broadcast, mpsc};
     use ttl_cache::TtlCache;
     use url::Url;
+    use {
+        crate::config::{CHANNEL_CAPACITY, Config},
+        tracing::{Instrument, info_span},
+    };
 
     fn get_private_key() -> SigningKey {
         SigningKey::from_keypair_bytes(&[
@@ -318,7 +330,10 @@ mod tests {
             signing_key,
             ttl_cache: TtlCache::new(DEDUP_CACHE_SIZE),
         };
-        tokio::spawn(async move { task.run().await });
+        #[allow(clippy::disallowed_methods, reason = "instrumented")]
+        tokio::spawn(
+            async move { task.run().await }.instrument(info_span!("lazer publisher task")),
+        );
 
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         match relayer_receiver.try_recv() {
