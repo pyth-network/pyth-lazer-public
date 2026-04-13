@@ -7030,6 +7030,7 @@ dependencies = [
  "tracing",
  "tracing-opentelemetry",
  "tracing-subscriber",
+ "truncate-integer",
  "url",
  "utoipa",
  "utoipa-axum",
