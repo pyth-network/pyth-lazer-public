@@ -252,6 +252,7 @@
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.2.2",
     "throttleit": "^2.1.0",
+    "totally-tubular": "^0.3.3",
     "ts-deepmerge": "^7.0.3",
     "ts-log": "^2.2.7",
     "tsconfig-paths": "^4.2.0",
