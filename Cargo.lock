@@ -4450,6 +4450,7 @@ dependencies = [
  "protobuf 3.7.2",
  "pyth-lazer-client",
  "pyth-lazer-imp",
+ "pyth-lazer-internal-client",
  "pyth-lazer-internal-protocol",
  "pyth-lazer-protocol",
  "pyth-lazer-publisher-sdk",
@@ -7412,6 +7413,27 @@ dependencies = [
  "utoipa",
  "utoipa-redoc",
  "uuid",
+]
+
+[[package]]
+name = "pyth-lazer-internal-client"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "backoff",
+ "derivative",
+ "futures",
+ "humantime-serde",
+ "pyth-lazer-internal-protocol",
+ "pyth-lazer-utils",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-stream",
+ "tokio-tungstenite 0.26.2",
+ "tokio-util",
+ "tracing",
 ]
 
 [[package]]
