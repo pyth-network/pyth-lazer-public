@@ -7333,6 +7333,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "pyth-lazer-hermes-writer"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "config",
+ "derivative",
+ "opentelemetry",
+ "pyth-lazer-client",
+ "pyth-lazer-db-lib",
+ "pyth-lazer-protocol",
+ "pyth-lazer-utils",
+ "serde",
+ "tokio",
+ "tracing",
+ "url",
+]
+
+[[package]]
 name = "pyth-lazer-history-service"
 version = "1.0.0"
 dependencies = [

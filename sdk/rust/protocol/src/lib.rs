@@ -7,6 +7,7 @@ pub mod binary_update;
 mod dynamic_value;
 mod exchange_enums;
 mod feed_kind;
+pub mod hermes;
 /// Lazer Agent JSON-RPC API.
 pub mod jrpc;
 /// Types describing Lazer's verifiable messages containing signature and payload.
