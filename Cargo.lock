@@ -7002,6 +7002,7 @@ dependencies = [
  "http-body 1.0.1",
  "httpmock",
  "humantime-serde",
+ "itertools 0.14.0",
  "k256",
  "lazy_static",
  "opentelemetry",
