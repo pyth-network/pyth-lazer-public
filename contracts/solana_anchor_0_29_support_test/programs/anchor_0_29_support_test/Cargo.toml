@@ -3,6 +3,8 @@ name = "anchor_0_29_support_test"
 version = "0.1.0"
 description = "Created with Anchor"
 edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/pyth-network/pyth-lazer-public"
 
 [lib]
 crate-type = ["cdylib", "lib"]

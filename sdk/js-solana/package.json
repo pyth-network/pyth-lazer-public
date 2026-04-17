@@ -1,6 +1,6 @@
 {
   "bugs": {
-    "url": "https://github.com/pyth-network/pyth-crosschain/issues"
+    "url": "https://github.com/pyth-network/pyth-lazer-public/issues"
   },
   "dependencies": {
     "@solana/buffer-layout": "catalog:",
@@ -51,7 +51,7 @@
   "files": [
     "dist/**/*"
   ],
-  "homepage": "https://github.com/pyth-network/pyth-crosschain/tree/main/lazer/sdk/js-solana",
+  "homepage": "https://github.com/pyth-network/pyth-lazer-public/tree/main/sdk/js-solana",
   "keywords": [
     "pyth",
     "oracle"
@@ -64,9 +64,9 @@
     "access": "public"
   },
   "repository": {
-    "directory": "lazer/sdk/js-solana",
+    "directory": "sdk/js-solana",
     "type": "git",
-    "url": "https://github.com/pyth-network/pyth-crosschain"
+    "url": "https://github.com/pyth-network/pyth-lazer-public"
   },
   "scripts": {
     "build": "ts-duality",

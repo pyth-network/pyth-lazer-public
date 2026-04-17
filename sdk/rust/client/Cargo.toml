@@ -4,6 +4,7 @@ version = "25.0.0"
 edition = "2024"
 description = "A Rust client for Pyth Lazer"
 license = "Apache-2.0"
+repository = "https://github.com/pyth-network/pyth-lazer-public"
 
 [dependencies]
 pyth-lazer-protocol = { workspace = true }

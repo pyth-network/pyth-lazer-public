@@ -4,7 +4,7 @@ version = "0.40.0"
 edition = "2024"
 description = "Pyth Lazer Publisher SDK types."
 license = "Apache-2.0"
-repository = "https://github.com/pyth-network/pyth-crosschain"
+repository = "https://github.com/pyth-network/pyth-lazer-public"
 
 [dependencies]
 anyhow = { workspace = true }

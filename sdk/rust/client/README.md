@@ -357,7 +357,7 @@ For complete API documentation, visit [docs.rs/pyth-lazer-client](https://docs.r
 
 ## License
 
-This project is licensed under the Apache-2.0 License. See the [LICENSE](../../../../LICENSE) file for details.
+This project is licensed under the Apache-2.0 License. See the [LICENSE](../../../LICENSE) file for details.
 
 ## Resources
 
@@ -365,4 +365,4 @@ This project is licensed under the Apache-2.0 License. See the [LICENSE](../../.
 - [Pyth Lazer Overview](https://docs.pyth.network/price-feeds/lazer)
 - [API Reference](https://docs.rs/pyth-lazer-client)
 - [Examples](examples/)
-- [GitHub Repository](https://github.com/pyth-network/pyth-crosschain)
+- [GitHub Repository](https://github.com/pyth-network/pyth-lazer-public)

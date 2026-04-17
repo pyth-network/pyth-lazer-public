@@ -11,7 +11,7 @@ export type PythLazerSolanaContract = {
     version: "0.4.2";
     spec: "0.1.0";
     description: "Pyth Lazer Solana contract and SDK.";
-    repository: "https://github.com/pyth-network/pyth-crosschain";
+    repository: "https://github.com/pyth-network/pyth-lazer-public";
   };
   instructions: [
     {

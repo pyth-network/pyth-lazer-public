@@ -3,7 +3,6 @@ name = "pyth-lazer-entitlements-sdk"
 version = "0.1.0"
 edition = "2024"
 description = "Pyth Lazer SDK - entitlements types and manager."
-license = "Apache-2.0"
 
 [dependencies]
 pyth-lazer-aggregator = { workspace = true }

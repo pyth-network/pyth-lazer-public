@@ -68,3 +68,7 @@ cargo clippy --all-targets
 cargo fmt --check
 bun turbo run lint
 ```
+
+### License
+
+Licensed under <a href="LICENSE">Apache License, Version 2.0</a>.

@@ -4,7 +4,7 @@ version = "0.8.0"
 edition = "2021"
 description = "Pyth Lazer Solana contract and SDK."
 license = "Apache-2.0"
-repository = "https://github.com/pyth-network/pyth-crosschain"
+repository = "https://github.com/pyth-network/pyth-lazer-public"
 
 [lib]
 crate-type = ["cdylib", "lib"]

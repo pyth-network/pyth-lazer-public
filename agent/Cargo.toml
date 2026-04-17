@@ -4,7 +4,7 @@ version = "0.12.0"
 edition = "2024"
 description = "Pyth Lazer Agent"
 license = "Apache-2.0"
-repository = "https://github.com/pyth-network/pyth-crosschain"
+repository = "https://github.com/pyth-network/pyth-lazer-public"
 
 [dependencies]
 pyth-lazer-protocol = { workspace = true }

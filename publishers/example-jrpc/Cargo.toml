@@ -2,6 +2,8 @@
 name = "pyth-lazer-example-publisher-jrpc"
 version = "1.0.0"
 edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/pyth-network/pyth-lazer-public"
 
 [dependencies]
 pyth-lazer-protocol = { workspace = true }

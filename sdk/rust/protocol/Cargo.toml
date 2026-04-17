@@ -4,7 +4,7 @@ version = "0.40.1"
 edition = "2021"
 description = "Pyth Lazer SDK - protocol types."
 license = "Apache-2.0"
-repository = "https://github.com/pyth-network/pyth-crosschain"
+repository = "https://github.com/pyth-network/pyth-lazer-public"
 
 [dependencies]
 anyhow = { workspace = true }
