@@ -522,6 +522,7 @@ impl FixedRate {
     // - all intervals are divisable by the smallest interval.
     pub const ALL: [Self; 3] = [Self::RATE_50_MS, Self::RATE_200_MS, Self::RATE_1000_MS];
     pub const MIN: Self = Self::ALL[0];
+    pub const MAX: Self = Self::ALL[Self::ALL.len() - 1];
 
     pub fn from_millis(millis: u32) -> Option<Self> {
         Self::ALL

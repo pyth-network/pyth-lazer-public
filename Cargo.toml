@@ -80,7 +80,7 @@ path = "sdk/rust/entitlements"
 
 [workspace.dependencies.pyth-lazer-protocol]
 path = "sdk/rust/protocol"
-version = "0.40.0"
+version = "0.41.0"
 
 [workspace.dependencies.pyth-lazer-publisher-sdk]
 path = "publisher_sdk/rust"
