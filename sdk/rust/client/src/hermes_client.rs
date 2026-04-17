@@ -156,16 +156,22 @@ impl PythLazerHermesClient {
                 .await
             {
                 Ok(resp) => resp,
-                Err(err) => {
-                    warn!(error = %err, "Failed to fetch metadata from endpoint: {}", metadata_url);
+                Err(error) => {
+                    warn!(
+                        ?error,
+                        "Failed to fetch metadata from endpoint: {}", metadata_url
+                    );
                     continue;
                 }
             };
 
             let feeds: Vec<PriceFeedMetadata> = match response.json().await {
                 Ok(feeds) => feeds,
-                Err(err) => {
-                    warn!(error = %err, "Failed to parse metadata from endpoint: {}", metadata_url);
+                Err(error) => {
+                    warn!(
+                        ?error,
+                        "Failed to parse metadata from endpoint: {}", metadata_url
+                    );
                     continue;
                 }
             };
