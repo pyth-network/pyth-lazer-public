@@ -4448,6 +4448,7 @@ dependencies = [
  "json",
  "mollusk-svm",
  "protobuf 3.7.2",
+ "protobuf-json-mapping",
  "pyth-lazer-client",
  "pyth-lazer-imp",
  "pyth-lazer-internal-client",
