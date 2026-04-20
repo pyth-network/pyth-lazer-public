@@ -269,3 +269,104 @@ async fn test_legacy_user_journey() {
 
     ws_sink.close().await.unwrap();
 }
+
+/// Verify that a successful update_price resets the sched timer so the next
+/// notification arrives a full interval after the update, not sooner.
+#[tokio::test]
+async fn test_update_price_resets_sched_timer() {
+    let (history_port, _history_handle) = start_mock_history_service().await;
+    let history_url = Url::from_str(&format!("http://127.0.0.1:{history_port}")).unwrap();
+
+    let signing_key_file = get_private_key_file();
+
+    let agent_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let agent_port = agent_listener.local_addr().unwrap().port();
+    drop(agent_listener);
+
+    let sched_interval = Duration::from_millis(300);
+    let config = Config {
+        listen_address: format!("127.0.0.1:{agent_port}").parse().unwrap(),
+        relayer_urls: vec![],
+        authorization_token: None,
+        publish_keypair_path: PathBuf::from(signing_key_file.path()),
+        publish_interval_duration: Duration::from_millis(25),
+        history_service_url: history_url,
+        enable_update_deduplication: false,
+        update_deduplication_ttl: Default::default(),
+        proxy_url: None,
+        legacy_sched_interval_duration: sched_interval,
+    };
+
+    let lazer_publisher = LazerPublisher::new(&config).await;
+    #[allow(clippy::disallowed_methods, reason = "instrumented")]
+    tokio::spawn(
+        http_server::run(config, lazer_publisher).instrument(info_span!("lazer publisher task")),
+    );
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let url = format!("ws://127.0.0.1:{agent_port}/v1/legacy");
+    let (ws_stream, _) = tokio_tungstenite::connect_async(&url).await.unwrap();
+    let (mut ws_sink, mut ws_stream) = ws_stream.split();
+
+    // Subscribe
+    send_jrpc(
+        &mut ws_sink,
+        &serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": "subscribe_price_sched",
+            "params": {"account": "42"},
+            "id": 1
+        }),
+    )
+    .await;
+    let resp = recv_json(&mut ws_stream).await;
+    assert_eq!(resp["result"]["subscription"], 1);
+
+    // Wait for first notification to establish baseline
+    let first = recv_json(&mut ws_stream).await;
+    assert_eq!(first["method"], "notify_price_sched");
+
+    // Immediately after the notification, wait ~half the interval then send
+    // update_price, which should reset the timer.
+    tokio::time::sleep(sched_interval / 2).await;
+
+    send_jrpc(
+        &mut ws_sink,
+        &serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": "update_price",
+            "params": {
+                "account": "42",
+                "price": 100,
+                "conf": 1,
+                "status": "trading"
+            },
+            "id": 2
+        }),
+    )
+    .await;
+
+    let resp = recv_json(&mut ws_stream).await;
+    assert_eq!(resp["id"], 2);
+    assert_eq!(resp["result"], 0);
+
+    // Now measure how long until the next notification. If the timer was
+    // reset by update_price, it should be close to sched_interval from now
+    // (not sched_interval/2 which would be the remainder without reset).
+    let t_after_update = tokio::time::Instant::now();
+    let next_notification = recv_json(&mut ws_stream).await;
+    let elapsed = t_after_update.elapsed();
+    assert_eq!(next_notification["method"], "notify_price_sched");
+
+    // The notification should arrive ~sched_interval after the update,
+    // not ~sched_interval/2 (the leftover from the old timer).
+    let min_expected = sched_interval.mul_f64(0.6);
+    assert!(
+        elapsed >= min_expected,
+        "notification arrived too soon ({elapsed:?}), expected at least {min_expected:?} — \
+         timer was not properly reset by update_price"
+    );
+
+    ws_sink.close().await.unwrap();
+}

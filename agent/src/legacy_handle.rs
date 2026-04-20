@@ -12,13 +12,15 @@ use pyth_lazer_publisher_sdk::publisher_update::feed_update::Update;
 use pyth_lazer_publisher_sdk::publisher_update::{FeedUpdate, PriceUpdate};
 use pyth_lazer_publisher_sdk::state::TradingStatus;
 use serde::{Deserialize, Serialize};
-use soketto::Sender;
 use soketto::handshake::http::Server;
-use std::collections::{HashMap, HashSet};
-use tokio::time::MissedTickBehavior;
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
+use tokio::sync::Notify;
 use tokio::{pin, select};
 use tokio_util::compat::TokioAsyncReadCompatExt;
-use tracing::{debug, error, instrument};
+use tracing::{Instrument, debug, error, instrument};
 use url::Url;
 
 #[derive(Deserialize, Debug)]
@@ -214,10 +216,7 @@ async fn try_handle_legacy(
 
     let mut receive_buf = Vec::new();
     let mut next_subscription_id: u64 = 1;
-    let mut sched_subscriptions: HashSet<u64> = HashSet::new();
-
-    let mut sched_interval = tokio::time::interval(config.legacy_sched_interval_duration);
-    sched_interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
+    let mut sched_manager = SchedManager::new(config.legacy_sched_interval_duration);
 
     loop {
         receive_buf.clear();
@@ -230,8 +229,13 @@ async fn try_handle_legacy(
                         result?;
                         break;
                     }
-                    _ = sched_interval.tick() => {
-                        send_sched_notifications(&mut ws_sender, &sched_subscriptions).await;
+                    () = sched_manager.notified() => {
+                        for sub_id in sched_manager.take_ready() {
+                            send_sched_notification(&mut ws_sender, sub_id).await;
+                        }
+                        if let Err(err) = flush(&mut ws_sender).await {
+                            debug!("failed to flush notify_price_sched: {err}");
+                        }
                     }
                 }
             }
@@ -265,7 +269,7 @@ async fn try_handle_legacy(
                             &lazer_publisher,
                             &config.history_service_url,
                             &mut next_subscription_id,
-                            &mut sched_subscriptions,
+                            &mut sched_manager,
                         )
                         .await?,
                     );
@@ -278,7 +282,7 @@ async fn try_handle_legacy(
                     &lazer_publisher,
                     &config.history_service_url,
                     &mut next_subscription_id,
-                    &mut sched_subscriptions,
+                    &mut sched_manager,
                 )
                 .await?;
                 send_text(&mut ws_sender, &serde_json::to_string(&response)?).await?;
@@ -292,28 +296,104 @@ async fn try_handle_legacy(
     }
 }
 
-async fn send_sched_notifications<T: AsyncRead + AsyncWrite + Unpin>(
-    sender: &mut Sender<T>,
-    sched_subscriptions: &HashSet<u64>,
-) {
-    for &sub_id in sched_subscriptions {
-        let notification = LegacyNotification {
-            jsonrpc: JSONRPC_V2,
-            method: "notify_price_sched",
-            params: SchedNotificationParams {
-                subscription: sub_id,
-            },
-        };
-        if let Ok(json) = serde_json::to_string(&notification) {
-            if let Err(err) = send_text_no_flush(sender, &json).await {
-                debug!("failed to send notify_price_sched: {err}");
-                return;
+/// Per-subscription timer tasks with flag-based signaling.
+/// Multiple fires from the same sub coalesce into one pending notification.
+struct SchedManager {
+    interval: Duration,
+    wake: Arc<Notify>,
+    subs: HashMap<u64, Arc<AtomicBool>>,
+    by_account: HashMap<String, Vec<(u64, Arc<Notify>)>>,
+    abort_handles: Vec<tokio::task::AbortHandle>,
+}
+
+impl Drop for SchedManager {
+    fn drop(&mut self) {
+        for handle in &self.abort_handles {
+            handle.abort();
+        }
+    }
+}
+
+impl SchedManager {
+    fn new(interval: Duration) -> Self {
+        Self {
+            interval,
+            wake: Arc::new(Notify::new()),
+            subs: HashMap::new(),
+            by_account: HashMap::new(),
+            abort_handles: Vec::new(),
+        }
+    }
+
+    fn subscribe(&mut self, sub_id: u64, account: String) {
+        let ready = Arc::new(AtomicBool::new(false));
+        let reset = Arc::new(Notify::new());
+        let wake = Arc::clone(&self.wake);
+        let ready_clone = Arc::clone(&ready);
+        let reset_clone = Arc::clone(&reset);
+        let interval = self.interval;
+
+        #[allow(clippy::disallowed_methods, reason = "instrumented")]
+        let handle = tokio::spawn(
+            async move {
+                loop {
+                    select! {
+                        () = tokio::time::sleep(interval) => {
+                            ready_clone.store(true, Ordering::Release);
+                            wake.notify_one();
+                        }
+                        () = reset_clone.notified() => continue,
+                    }
+                }
+            }
+            .instrument(tracing::info_span!("sched_timer_task", sub_id)),
+        );
+
+        self.abort_handles.push(handle.abort_handle());
+        self.subs.insert(sub_id, ready);
+        self.by_account
+            .entry(account)
+            .or_default()
+            .push((sub_id, reset));
+    }
+
+    fn reset_account(&self, account: &str) {
+        if let Some(entries) = self.by_account.get(account) {
+            for (_, reset) in entries {
+                reset.notify_one();
             }
         }
     }
-    if !sched_subscriptions.is_empty() {
-        if let Err(err) = flush(sender).await {
-            debug!("failed to flush notify_price_sched: {err}");
+
+    async fn notified(&self) {
+        self.wake.notified().await;
+    }
+
+    fn take_ready(&self) -> Vec<u64> {
+        let mut ready_ids = Vec::new();
+        for (&sub_id, flag) in &self.subs {
+            if flag.swap(false, Ordering::AcqRel) {
+                ready_ids.push(sub_id);
+            }
+        }
+        ready_ids
+    }
+}
+
+async fn send_sched_notification<T: AsyncRead + AsyncWrite + Unpin>(
+    sender: &mut soketto::Sender<T>,
+    sub_id: u64,
+) {
+    let notification = LegacyNotification {
+        jsonrpc: JSONRPC_V2,
+        method: "notify_price_sched",
+        params: SchedNotificationParams {
+            subscription: sub_id,
+        },
+    };
+    if let Ok(json) = serde_json::to_string(&notification) {
+        if let Err(err) = send_text_no_flush(sender, &json).await {
+            debug!("failed to send notify_price_sched: {err}");
         }
     }
 }
@@ -323,7 +403,7 @@ async fn dispatch_request(
     lazer_publisher: &LazerPublisher,
     metadata_url: &Url,
     next_subscription_id: &mut u64,
-    sched_subscriptions: &mut HashSet<u64>,
+    sched_manager: &mut SchedManager,
 ) -> serde_json::Result<serde_json::Value> {
     let fallback_id = JrpcId::Int(0);
 
@@ -341,11 +421,13 @@ async fn dispatch_request(
             handle_get_product(metadata_url, &params.account, id).await
         }
         LegacyMethod::GetAllProducts => handle_get_all_products(metadata_url, id).await,
-        LegacyMethod::SubscribePriceSched(_params) => {
-            handle_subscribe_price_sched(id, next_subscription_id, sched_subscriptions).await
+        LegacyMethod::SubscribePriceSched(params) => {
+            handle_subscribe_price_sched(params, id, next_subscription_id, sched_manager).await
         }
         LegacyMethod::SubscribePrice(_params) => handle_subscribe_price(id).await,
-        LegacyMethod::UpdatePrice(params) => handle_update_price(params, id, lazer_publisher).await,
+        LegacyMethod::UpdatePrice(params) => {
+            handle_update_price(params, id, lazer_publisher, sched_manager).await
+        }
     }
 }
 
@@ -405,13 +487,14 @@ async fn handle_get_all_products(
 }
 
 async fn handle_subscribe_price_sched(
+    params: AccountParams,
     id: &JrpcId,
     next_subscription_id: &mut u64,
-    sched_subscriptions: &mut HashSet<u64>,
+    sched_manager: &mut SchedManager,
 ) -> serde_json::Result<serde_json::Value> {
     let sub_id = *next_subscription_id;
     *next_subscription_id += 1;
-    sched_subscriptions.insert(sub_id);
+    sched_manager.subscribe(sub_id, params.account);
     make_success_value(
         id,
         SubscriptionResult {
@@ -428,6 +511,7 @@ async fn handle_update_price(
     params: UpdatePriceParams,
     id: &JrpcId,
     lazer_publisher: &LazerPublisher,
+    sched_manager: &SchedManager,
 ) -> serde_json::Result<serde_json::Value> {
     let feed_id = match params.account.parse::<u32>().ok().map(PriceFeedId) {
         Some(fid) => fid,
@@ -458,7 +542,10 @@ async fn handle_update_price(
     };
 
     match lazer_publisher.push_feed_update(feed_update).await {
-        Ok(()) => make_success_value(id, 0),
+        Ok(()) => {
+            sched_manager.reset_account(&params.account);
+            make_success_value(id, 0)
+        }
         Err(err) => {
             error!("error while sending update: {err:?}");
             make_error_value(id, &err.to_string())
