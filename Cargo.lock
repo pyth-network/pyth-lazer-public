@@ -6961,6 +6961,7 @@ dependencies = [
  "rdkafka",
  "replace_with",
  "reqwest",
+ "scopeguard",
  "serde",
  "serde_bytes",
  "serde_json",
