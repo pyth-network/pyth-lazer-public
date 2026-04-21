@@ -31,7 +31,11 @@ async fn main() -> anyhow::Result<()> {
 
     let config =
         config::load_config(args.config.to_string()).context("Failed to read config file")?;
-    info!(?config, "starting lazer-agent");
+    info!(
+        ?config,
+        version = env!("CARGO_PKG_VERSION"),
+        "starting pyth-lazer-agent"
+    );
 
     let lazer_publisher = LazerPublisher::new(&config).await;
     http_server::run(config, lazer_publisher).await?;

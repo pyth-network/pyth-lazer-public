@@ -16,6 +16,7 @@ async-trait = "0.1.89"
 atomicwrites = "0.4.4"
 backoff = { version = "0.4.0", features = ["futures", "tokio"] }
 base64 = { workspace = true }
+derivative = { workspace = true }
 derive_more = { version = "1.0.0", features = ["from"] }
 fs-err = { workspace = true }
 futures = { workspace = true }

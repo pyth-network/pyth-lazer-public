@@ -2,6 +2,7 @@ use {
     anyhow::{Context as _, bail, format_err},
     atomicwrites::replace_atomic,
     backoff::{SystemClock, exponential::ExponentialBackoff, future::retry_notify},
+    derivative::Derivative,
     futures::{Stream, StreamExt, future::BoxFuture, stream::FuturesUnordered},
     pyth_lazer_protocol::{jrpc::SymbolMetadata, parse_proto_json},
     pyth_lazer_publisher_sdk::state::State,
@@ -24,7 +25,8 @@ use {
 };
 
 /// Configuration for the history client.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Derivative, Clone, PartialEq, Serialize, Deserialize)]
+#[derivative(Debug)]
 pub struct PythLazerHistoryClientConfig {
     /// URLs of the history services.
     #[serde(default = "default_urls")]
@@ -44,6 +46,7 @@ pub struct PythLazerHistoryClientConfig {
     /// Access token for publisher or governance restricted endpoints.
     ///
     /// Not needed for consumer facing endpoints.
+    #[derivative(Debug = "ignore")]
     pub access_token: Option<String>,
 }
 
