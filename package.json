@@ -95,6 +95,7 @@
     "color": "^5.0.3",
     "connectkit": "^1.9.2",
     "consola": "^3.4.2",
+    "copy-to-clipboard": "^3.3.3",
     "copyfiles": "^2.4.1",
     "countries-list": "^3.3.0",
     "css-loader": "^7.1.4",
