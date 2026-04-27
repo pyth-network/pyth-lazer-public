@@ -219,7 +219,7 @@ features = ["serde"]
 version = "2.5.4"
 
 [workspace.dependencies.utoipa]
-features = ["axum_extras", "chrono", "non_strict_integers", "uuid"]
+features = ["axum_extras", "chrono", "decimal", "non_strict_integers", "uuid"]
 version = "5.4.0"
 
 [workspace.dependencies.utoipa-redoc]

@@ -7005,6 +7005,7 @@ dependencies = [
  "bytes",
  "chrono",
  "clap",
+ "clickhouse",
  "config",
  "crossbeam-skiplist",
  "derivative",
