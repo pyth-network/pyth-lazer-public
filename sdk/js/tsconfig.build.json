@@ -4,7 +4,8 @@
     "incremental": false,
     "isolatedModules": false,
     "noEmit": false,
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "rootDir": "./src"
   },
   "exclude": [
     "node_modules",
