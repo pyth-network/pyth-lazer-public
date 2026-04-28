@@ -205,16 +205,20 @@
     "@dotenvx/dotenvx": "catalog:",
     "@happy-dom/global-registrator": "catalog:",
     "@npmcli/map-workspaces": "catalog:",
+    "@pythnetwork/logger": "workspace:",
     "@testing-library/react": "catalog:",
     "@types/bun": "catalog:",
     "@types/node": "catalog:",
+    "@types/yargs": "catalog:",
+    "dayjs": "catalog:",
     "happy-dom": "catalog:",
     "neonctl": "catalog:",
     "turbo": "catalog:",
     "turbo-ignore": "catalog:",
     "type-fest": "catalog:",
     "typescript": "catalog:",
-    "vercel": "catalog:"
+    "vercel": "catalog:",
+    "yargs": "catalog:"
   },
   "engines": {
     "bun": ">=1.3.12"

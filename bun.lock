@@ -11,9 +11,12 @@
         "@dotenvx/dotenvx": "catalog:",
         "@happy-dom/global-registrator": "catalog:",
         "@npmcli/map-workspaces": "catalog:",
+        "@pythnetwork/logger": "workspace:",
         "@testing-library/react": "catalog:",
         "@types/bun": "catalog:",
         "@types/node": "catalog:",
+        "@types/yargs": "catalog:",
+        "dayjs": "catalog:",
         "happy-dom": "catalog:",
         "neonctl": "catalog:",
         "turbo": "catalog:",
@@ -21,6 +24,7 @@
         "type-fest": "catalog:",
         "typescript": "catalog:",
         "vercel": "catalog:",
+        "yargs": "catalog:",
       },
     },
     "contracts/solana": {
@@ -479,6 +483,8 @@
 
     "@oxc-transform/binding-win32-x64-msvc": ["@oxc-transform/binding-win32-x64-msvc@0.111.0", "", { "os": "win32", "cpu": "x64" }, "sha512-QddKW4kBH0Wof6Y65eYCNHM4iOGmCTWLLcNYY1FGswhzmTYOUVXajNROR+iCXAOFnOF0ldtsR79SyqgyHH1Bgg=="],
 
+    "@pythnetwork/logger": ["@pythnetwork/pyth-lazer@root:", {}],
+
     "@pythnetwork/pyth-lazer-sdk": ["@pythnetwork/pyth-lazer-sdk@workspace:sdk/js"],
 
     "@pythnetwork/pyth-lazer-solana-contract": ["@pythnetwork/pyth-lazer-solana-contract@workspace:contracts/solana"],
@@ -830,6 +836,8 @@
     "csstype": ["csstype@3.2.3", "", {}, "sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ=="],
 
     "data-uri-to-buffer": ["data-uri-to-buffer@6.0.2", "", {}, "sha512-7hvf7/GW8e86rW0ptuwS3OcBGDjIi6SZva7hCyWC0yYry2cOPmLIjXAUHI6DK2HsnwJd9ifmt57i8eV2n4YNpw=="],
+
+    "dayjs": ["dayjs@1.11.20", "", {}, "sha512-YbwwqR/uYpeoP4pu043q+LTDLFBLApUP6VxRihdfNTqu4ubqMlGDLd6ErXhEgsyvY0K6nCs7nggYumAN+9uEuQ=="],
 
     "debug": ["debug@4.4.3", "", { "dependencies": { "ms": "^2.1.3" } }, "sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA=="],
 

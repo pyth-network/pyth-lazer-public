@@ -116,7 +116,7 @@
     },
     "auth:db:migrate": {
       "cache": false,
-      "dependsOn": ["setup:neon-branch"]
+      "dependsOn": ["pull:env"]
     },
     "build": {
       "dependsOn": [
@@ -142,12 +142,7 @@
       "outputs": ["storybook-static/**"]
     },
     "build:vercel": {
-      "dependsOn": [
-        "//#install:modules",
-        "auth:db:migrate",
-        "^build",
-        "test:types"
-      ],
+      "dependsOn": ["//#install:modules", "env:fix", "^build", "test:types"],
       "inputs": [
         "$TURBO_DEFAULT$",
         "!README.md",
@@ -161,6 +156,11 @@
     "clean": {
       "cache": false,
       "outputs": []
+    },
+    "env:fix": {
+      "cache": false,
+      "dependsOn": ["//#install:modules", "pull:env"],
+      "outputs": [".env.local"]
     },
     "fix:lint": {
       "cache": false,
@@ -184,9 +184,14 @@
       "dependsOn": ["pull:env"],
       "outputs": [".env.local"]
     },
+    "setup:neon-reset": {
+      "cache": false,
+      "dependsOn": ["pull:env"],
+      "outputs": [".env.local"]
+    },
     "start:dev": {
       "cache": false,
-      "dependsOn": ["//#install:modules", "auth:db:migrate", "^build"],
+      "dependsOn": ["//#install:modules", "pull:env", "^build"],
       "persistent": true
     },
     "start:prod": {
