@@ -7923,6 +7923,7 @@ dependencies = [
  "lazy_static",
  "opentelemetry",
  "pyth-lazer-client",
+ "pyth-lazer-internal-client",
  "pyth-lazer-internal-protocol",
  "pyth-lazer-metrics-utils",
  "pyth-lazer-protocol",
