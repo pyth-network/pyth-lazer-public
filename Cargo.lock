@@ -6896,7 +6896,7 @@ dependencies = [
  "pyth-lazer-client",
  "pyth-lazer-config-utils",
  "pyth-lazer-protocol",
- "pyth-lazer-utils",
+ "pyth-lazer-tracing-utils",
  "rust_decimal",
  "serde",
  "serde_json",
