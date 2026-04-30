@@ -1,6 +1,6 @@
 use {futures::StreamExt, std::time::Duration};
 
-use pyth_lazer_client::history_client::{PythLazerHistoryClient, PythLazerHistoryClientConfig};
+use pyth_lazer_client::api_client::{PythLazerApiClient, PythLazerApiClientConfig};
 use pyth_lazer_protocol::PriceFeedId;
 use url::Url;
 
@@ -12,7 +12,7 @@ async fn main() -> anyhow::Result<()> {
         .map(|s| Url::parse(&s))
         .collect::<Result<Vec<_>, _>>()?;
 
-    let client = PythLazerHistoryClient::new(PythLazerHistoryClientConfig {
+    let client = PythLazerApiClient::new(PythLazerApiClientConfig {
         urls,
         update_interval: Duration::from_secs(5),
         ..Default::default()

@@ -1,7 +1,7 @@
 use {
     pyth_lazer_client::arc_swap::StreamIntoAutoUpdatedHandle,
-    pyth_lazer_client::history_client::GetStateParams,
-    pyth_lazer_client::history_client::{PythLazerHistoryClient, PythLazerHistoryClientConfig},
+    pyth_lazer_client::state_client::GetStateParams,
+    pyth_lazer_client::state_client::{PythLazerStateClient, PythLazerStateClientConfig},
     std::{env, time::Duration},
     tokio::time::sleep,
     url::Url,
@@ -15,7 +15,7 @@ async fn main() -> anyhow::Result<()> {
         .map(|s| Url::parse(&s))
         .collect::<Result<Vec<_>, _>>()?;
 
-    let client = PythLazerHistoryClient::new(PythLazerHistoryClientConfig {
+    let client = PythLazerStateClient::new(PythLazerStateClientConfig {
         urls,
         update_interval: Duration::from_secs(5),
         access_token: Some(env::var("ACCESS_TOKEN")?),

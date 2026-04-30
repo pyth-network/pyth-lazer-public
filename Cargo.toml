@@ -80,7 +80,7 @@ utoipa-axum = "0.2.0"
 
 [workspace.dependencies.pyth-lazer-client]
 path = "sdk/rust/client"
-version = "25.0.0"
+version = "26.0.0"
 
 [workspace.dependencies.pyth-lazer-entitlements-sdk]
 path = "sdk/rust/entitlements"
