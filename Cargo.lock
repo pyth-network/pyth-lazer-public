@@ -4451,14 +4451,15 @@ dependencies = [
  "protobuf-json-mapping",
  "pyth-lazer-client",
  "pyth-lazer-config-utils",
+ "pyth-lazer-consumer-utils",
  "pyth-lazer-imp",
  "pyth-lazer-internal-client",
  "pyth-lazer-internal-protocol",
+ "pyth-lazer-merkle-utils",
  "pyth-lazer-protocol",
  "pyth-lazer-publisher-common",
  "pyth-lazer-publisher-sdk",
  "pyth-lazer-task-utils",
- "pyth-lazer-utils",
  "pyth-lazer-version-utils",
  "pyth-legacy-solana-sdk",
  "pythnet-sdk",
@@ -5520,7 +5521,6 @@ dependencies = [
  "pyth-lazer-client",
  "pyth-lazer-protocol",
  "pyth-lazer-task-utils",
- "pyth-lazer-utils",
  "pyth-lazer-version-utils",
  "reqwest",
  "rust_decimal",
@@ -6987,18 +6987,24 @@ dependencies = [
  "proptest",
  "protobuf 3.7.2",
  "protobuf-json-mapping",
+ "pyth-lazer-channel-utils",
  "pyth-lazer-internal-protocol",
  "pyth-lazer-protocol",
  "pyth-lazer-publisher-common",
  "pyth-lazer-publisher-sdk",
+ "pyth-lazer-signature-utils",
+ "pyth-lazer-snapshot-utils",
  "pyth-lazer-task-utils",
+ "pyth-lazer-test-utils",
  "pyth-lazer-tracing-utils",
- "pyth-lazer-utils",
+ "pyth-lazer-url-utils",
  "pyth-lazer-version-utils",
+ "pyth-lazer-ws-utils",
  "rand 0.9.2",
  "rdkafka",
  "replace_with",
  "reqwest",
+ "run_every",
  "scopeguard",
  "serde",
  "serde_bytes",
@@ -7051,17 +7057,20 @@ dependencies = [
  "pin-project",
  "protobuf-json-mapping",
  "pyth-lazer-aggregator",
+ "pyth-lazer-channel-utils",
  "pyth-lazer-client",
  "pyth-lazer-config-utils",
  "pyth-lazer-db-lib",
  "pyth-lazer-entitlements-sdk",
+ "pyth-lazer-guardian-set-utils",
  "pyth-lazer-internal-protocol",
+ "pyth-lazer-merkle-utils",
  "pyth-lazer-metrics-utils",
  "pyth-lazer-protocol",
  "pyth-lazer-publisher-sdk",
+ "pyth-lazer-signature-utils",
  "pyth-lazer-task-utils",
  "pyth-lazer-tracing-utils",
- "pyth-lazer-utils",
  "pyth-lazer-version-utils",
  "pythnet-sdk",
  "rand 0.9.2",
@@ -7084,6 +7093,15 @@ dependencies = [
  "utoipa-axum",
  "utoipa-swagger-ui",
  "wormhole-sdk",
+]
+
+[[package]]
+name = "pyth-lazer-backoff-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "backoff",
+ "reqwest",
 ]
 
 [[package]]
@@ -7115,6 +7133,8 @@ dependencies = [
  "prometheus",
  "prometheus_exporter",
  "protobuf 3.7.2",
+ "pyth-lazer-backoff-utils",
+ "pyth-lazer-clickhouse-writer-utils",
  "pyth-lazer-client",
  "pyth-lazer-config-utils",
  "pyth-lazer-db-lib",
@@ -7124,9 +7144,9 @@ dependencies = [
  "pyth-lazer-publisher-sdk",
  "pyth-lazer-task-utils",
  "pyth-lazer-tracing-utils",
- "pyth-lazer-utils",
  "pyth-lazer-version-utils",
  "reqwest",
+ "run_every",
  "serde",
  "serde_json",
  "serde_repr",
@@ -7151,11 +7171,44 @@ dependencies = [
  "futures-util",
  "pyth-lazer-protocol",
  "pyth-lazer-publisher-common",
- "pyth-lazer-utils",
  "serde",
  "serde_json",
  "tokio",
  "tokio-tungstenite 0.26.2",
+ "tracing",
+]
+
+[[package]]
+name = "pyth-lazer-binance-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "futures-util",
+ "pyth-lazer-task-utils",
+ "rand 0.9.2",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-stream",
+ "tokio-tungstenite 0.26.2",
+ "tracing",
+ "ttl_cache",
+]
+
+[[package]]
+name = "pyth-lazer-channel-utils"
+version = "0.1.0"
+
+[[package]]
+name = "pyth-lazer-clickhouse-writer-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clickhouse",
+ "pyth-lazer-backoff-utils",
+ "pyth-lazer-task-utils",
+ "serde",
+ "tokio",
  "tracing",
 ]
 
@@ -7207,6 +7260,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "pyth-lazer-consumer-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "futures-util",
+ "http 1.3.1",
+ "pyth-lazer-protocol",
+ "reqwest",
+ "serde_json",
+ "tokio",
+ "tokio-tungstenite 0.26.2",
+ "tracing",
+ "url",
+]
+
+[[package]]
+name = "pyth-lazer-cors-utils"
+version = "0.1.0"
+dependencies = [
+ "axum 0.8.3",
+ "tower-http 0.6.6",
+]
+
+[[package]]
 name = "pyth-lazer-db-lib"
 version = "1.0.0"
 dependencies = [
@@ -7223,10 +7300,10 @@ dependencies = [
  "protobuf 3.7.2",
  "protobuf-json-mapping",
  "pyth-lazer-aggregator",
+ "pyth-lazer-backoff-utils",
  "pyth-lazer-internal-protocol",
  "pyth-lazer-protocol",
  "pyth-lazer-publisher-sdk",
- "pyth-lazer-utils",
  "serde",
  "serde_json",
  "serde_repr",
@@ -7255,7 +7332,6 @@ dependencies = [
  "pyth-lazer-config-utils",
  "pyth-lazer-metrics-utils",
  "pyth-lazer-protocol",
- "pyth-lazer-utils",
  "serde",
  "serde_json",
  "tokio",
@@ -7292,13 +7368,13 @@ dependencies = [
  "opentelemetry_sdk",
  "prometheus",
  "prometheus_exporter",
+ "pyth-lazer-backoff-utils",
  "pyth-lazer-config-utils",
  "pyth-lazer-internal-protocol",
  "pyth-lazer-metrics-utils",
  "pyth-lazer-protocol",
  "pyth-lazer-task-utils",
  "pyth-lazer-tracing-utils",
- "pyth-lazer-utils",
  "pyth-lazer-version-utils",
  "rand 0.9.2",
  "serde",
@@ -7327,8 +7403,8 @@ dependencies = [
  "pyth-lazer-internal-protocol",
  "pyth-lazer-protocol",
  "pyth-lazer-task-utils",
- "pyth-lazer-utils",
  "reqwest",
+ "run_every",
  "serde",
  "serde_json",
  "tokio",
@@ -7378,11 +7454,21 @@ dependencies = [
  "pyth-lazer-internal-protocol",
  "pyth-lazer-protocol",
  "pyth-lazer-publisher-common",
- "pyth-lazer-utils",
  "reqwest",
  "serde",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "pyth-lazer-guardian-set-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "k256",
+ "serde_wormhole 0.1.0 (git+https://github.com/wormhole-foundation/wormhole?tag=v2.17.1)",
+ "sha3",
+ "wormhole-sdk",
 ]
 
 [[package]]
@@ -7398,7 +7484,6 @@ dependencies = [
  "pyth-lazer-internal-protocol",
  "pyth-lazer-protocol",
  "pyth-lazer-publisher-common",
- "pyth-lazer-utils",
  "pyth-sdk",
  "serde",
  "serde_json",
@@ -7433,13 +7518,13 @@ dependencies = [
  "config",
  "derivative",
  "opentelemetry",
+ "pyth-lazer-backoff-utils",
  "pyth-lazer-client",
  "pyth-lazer-db-lib",
  "pyth-lazer-metrics-utils",
  "pyth-lazer-protocol",
  "pyth-lazer-task-utils",
  "pyth-lazer-tracing-utils",
- "pyth-lazer-utils",
  "pyth-lazer-version-utils",
  "serde",
  "tokio",
@@ -7476,7 +7561,9 @@ dependencies = [
  "protobuf 3.7.2",
  "pyth-lazer-aggregator",
  "pyth-lazer-api",
+ "pyth-lazer-backoff-utils",
  "pyth-lazer-config-utils",
+ "pyth-lazer-cors-utils",
  "pyth-lazer-db-lib",
  "pyth-lazer-internal-protocol",
  "pyth-lazer-metrics-utils",
@@ -7484,8 +7571,8 @@ dependencies = [
  "pyth-lazer-publisher-sdk",
  "pyth-lazer-task-utils",
  "pyth-lazer-tracing-utils",
- "pyth-lazer-utils",
  "pyth-lazer-version-utils",
+ "pyth-lazer-ws-utils",
  "serde",
  "serde_json",
  "serde_repr",
@@ -7516,13 +7603,15 @@ dependencies = [
  "protobuf 3.7.2",
  "protobuf-json-mapping",
  "pyth-lazer-aggregator",
+ "pyth-lazer-backoff-utils",
  "pyth-lazer-internal-protocol",
  "pyth-lazer-protocol",
  "pyth-lazer-publisher-common",
  "pyth-lazer-publisher-sdk",
+ "pyth-lazer-signature-utils",
  "pyth-lazer-task-utils",
- "pyth-lazer-utils",
  "reqwest",
+ "run_every",
  "serde",
  "serde_json",
  "sqlx",
@@ -7548,7 +7637,7 @@ dependencies = [
  "humantime-serde",
  "pyth-lazer-internal-protocol",
  "pyth-lazer-task-utils",
- "pyth-lazer-utils",
+ "pyth-lazer-ws-utils",
  "reqwest",
  "serde",
  "serde_json",
@@ -7612,15 +7701,16 @@ dependencies = [
  "polars",
  "prometheus",
  "prometheus_exporter",
+ "pyth-lazer-binance-utils",
  "pyth-lazer-client",
  "pyth-lazer-config-utils",
+ "pyth-lazer-consumer-utils",
  "pyth-lazer-hermes-utils",
  "pyth-lazer-internal-protocol",
  "pyth-lazer-metrics-utils",
  "pyth-lazer-protocol",
  "pyth-lazer-task-utils",
  "pyth-lazer-tracing-utils",
- "pyth-lazer-utils",
  "pyth-lazer-version-utils",
  "serde",
  "serde_json",
@@ -7632,6 +7722,17 @@ dependencies = [
  "truncate-integer",
  "url",
  "winnow 0.6.26",
+]
+
+[[package]]
+name = "pyth-lazer-merkle-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "byteorder",
+ "pythnet-sdk",
+ "serde_wormhole 0.1.0 (git+https://github.com/wormhole-foundation/wormhole?tag=v2.17.1)",
+ "wormhole-sdk",
 ]
 
 [[package]]
@@ -7657,7 +7758,6 @@ dependencies = [
  "futures-util",
  "pyth-lazer-protocol",
  "pyth-lazer-publisher-common",
- "pyth-lazer-utils",
  "serde",
  "serde_json",
  "tokio",
@@ -7768,7 +7868,6 @@ dependencies = [
  "pyth-lazer-config-utils",
  "pyth-lazer-protocol",
  "pyth-lazer-task-utils",
- "pyth-lazer-utils",
  "pyth-lazer-version-utils",
  "rand 0.9.2",
  "serde",
@@ -7814,6 +7913,7 @@ dependencies = [
  "prometheus",
  "prometheus_exporter",
  "protobuf 3.7.2",
+ "pyth-lazer-channel-utils",
  "pyth-lazer-client",
  "pyth-lazer-config-utils",
  "pyth-lazer-internal-protocol",
@@ -7822,7 +7922,6 @@ dependencies = [
  "pyth-lazer-publisher-sdk",
  "pyth-lazer-task-utils",
  "pyth-lazer-tracing-utils",
- "pyth-lazer-utils",
  "pyth-lazer-version-utils",
  "rdkafka",
  "scopeguard",
@@ -7837,6 +7936,10 @@ dependencies = [
  "tracing-subscriber",
  "url",
 ]
+
+[[package]]
+name = "pyth-lazer-rolling-buffer"
+version = "0.1.0"
 
 [[package]]
 name = "pyth-lazer-router"
@@ -7878,18 +7981,23 @@ dependencies = [
  "prometheus",
  "prometheus_exporter",
  "pyth-lazer-aggregator",
+ "pyth-lazer-channel-utils",
+ "pyth-lazer-clickhouse-writer-utils",
  "pyth-lazer-config-utils",
+ "pyth-lazer-cors-utils",
  "pyth-lazer-entitlements-sdk",
+ "pyth-lazer-guardian-set-utils",
  "pyth-lazer-internal-protocol",
  "pyth-lazer-metrics-utils",
  "pyth-lazer-protocol",
+ "pyth-lazer-signature-utils",
  "pyth-lazer-task-utils",
  "pyth-lazer-tracing-utils",
- "pyth-lazer-utils",
  "pyth-lazer-version-utils",
  "pythnet-sdk",
  "reqwest",
  "rpassword",
+ "run_every",
  "scopeguard",
  "serde",
  "serde_json",
@@ -7923,7 +8031,6 @@ dependencies = [
  "pyth-lazer-metrics-utils",
  "pyth-lazer-protocol",
  "pyth-lazer-task-utils",
- "pyth-lazer-utils",
  "reqwest",
  "serde",
  "serde_json",
@@ -7954,9 +8061,9 @@ dependencies = [
  "pyth-lazer-metrics-utils",
  "pyth-lazer-protocol",
  "pyth-lazer-publisher-sdk",
+ "pyth-lazer-rolling-buffer",
  "pyth-lazer-task-utils",
  "pyth-lazer-tracing-utils",
- "pyth-lazer-utils",
  "pyth-lazer-version-utils",
  "serde",
  "tokio",
@@ -7964,6 +8071,24 @@ dependencies = [
  "tracing-subscriber",
  "truncate-integer",
  "url",
+]
+
+[[package]]
+name = "pyth-lazer-signature-utils"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "anyhow",
+ "bip32",
+ "bip39",
+ "byteorder",
+ "ed25519-dalek",
+ "k256",
+ "libsecp256k1 0.7.2",
+ "pyth-lazer-merkle-utils",
+ "pyth-lazer-protocol",
+ "pythnet-sdk",
+ "sha3",
 ]
 
 [[package]]
@@ -7994,7 +8119,6 @@ dependencies = [
  "pyth-lazer-protocol",
  "pyth-lazer-task-utils",
  "pyth-lazer-tracing-utils",
- "pyth-lazer-utils",
  "pyth-lazer-version-utils",
  "serde",
  "serde-big-array",
@@ -8009,11 +8133,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "pyth-lazer-snapshot-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "backoff",
+ "derivative",
+ "ed25519-dalek",
+ "futures-util",
+ "http 1.3.1",
+ "humantime-serde",
+ "itertools 0.14.0",
+ "mry",
+ "pyth-lazer-backoff-utils",
+ "pyth-lazer-internal-protocol",
+ "reqwest",
+ "serde",
+ "tracing",
+ "url",
+]
+
+[[package]]
 name = "pyth-lazer-task-utils"
 version = "0.1.0"
 dependencies = [
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "pyth-lazer-test-utils"
+version = "0.1.0"
+dependencies = [
+ "pyth-lazer-protocol",
+ "tokio",
 ]
 
 [[package]]
@@ -8052,8 +8205,8 @@ dependencies = [
  "pyth-lazer-protocol",
  "pyth-lazer-task-utils",
  "pyth-lazer-tracing-utils",
- "pyth-lazer-utils",
  "pyth-lazer-version-utils",
+ "pyth-lazer-ws-utils",
  "scopeguard",
  "serde",
  "serde_json",
@@ -8068,75 +8221,29 @@ dependencies = [
 ]
 
 [[package]]
-name = "pyth-lazer-utils"
-version = "0.1.1"
+name = "pyth-lazer-url-utils"
+version = "0.1.0"
 dependencies = [
- "alloy-primitives",
- "anyhow",
- "async-trait",
- "axum 0.8.3",
- "backoff",
- "bincode 2.0.1",
- "bip32",
- "bip39",
- "byteorder",
- "bytes",
- "clap",
- "clickhouse",
- "config",
- "derivative",
  "derive_more 2.1.1",
- "ed25519-dalek",
- "futures-util",
- "http 1.3.1",
- "http-body-util",
- "humantime-serde",
- "hyper 1.6.0",
- "hyper-util",
- "itertools 0.14.0",
- "k256",
- "lazy_static",
- "libsecp256k1 0.7.2",
- "mry",
- "opentelemetry",
- "opentelemetry-prometheus",
- "opentelemetry_sdk",
- "prometheus",
- "prometheus_exporter",
- "protobuf 3.7.2",
- "pyth-hermes-client-rust",
- "pyth-lazer-client",
- "pyth-lazer-internal-protocol",
- "pyth-lazer-protocol",
- "pyth-lazer-publisher-sdk",
- "pyth-lazer-task-utils",
- "pyth-sdk",
- "pythnet-sdk",
- "rand 0.9.2",
- "reqwest",
- "reqwest-eventsource",
- "rust_decimal",
  "serde",
- "serde_json",
- "serde_wormhole 0.1.0 (git+https://github.com/wormhole-foundation/wormhole?tag=v2.17.1)",
- "sha3",
- "thiserror 2.0.18",
- "tokio",
- "tokio-stream",
- "tokio-tungstenite 0.26.2",
- "tower-http 0.6.6",
- "tracing",
- "tracing-opentelemetry",
- "tracing-subscriber",
- "ttl_cache",
  "url",
- "utoipa",
- "wormhole-sdk",
 ]
 
 [[package]]
 name = "pyth-lazer-version-utils"
 version = "0.1.0"
+
+[[package]]
+name = "pyth-lazer-ws-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum 0.8.3",
+ "bytes",
+ "futures-util",
+ "tokio",
+ "tokio-tungstenite 0.26.2",
+]
 
 [[package]]
 name = "pyth-legacy-solana-sdk"
@@ -8842,6 +8949,12 @@ name = "ruint-macro"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48fd7bd8a6377e15ad9d42a8ec25371b94ddc67abe7c8b9127bec79bebaaae18"
+
+[[package]]
+name = "run_every"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4dab9c58e474ca2bfbd991ad946ddd5cf992ea8340d30d0635f02a79e6175089"
 
 [[package]]
 name = "rust-embed"
