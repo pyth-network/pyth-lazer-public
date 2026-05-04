@@ -23,7 +23,6 @@ borsh = "1.6.1"
 bs58 = "0.5.1"
 byteorder = "1.5.0"
 cadd = "0.2.0"
-chrono = "0.4.41"
 chrono-tz = "0.10.3"
 config = "0.15.11"
 csv = "1.4.0"
@@ -120,6 +119,10 @@ version = "1.10.1"
 [workspace.dependencies.cached]
 features = ["async"]
 version = "0.56.0"
+
+[workspace.dependencies.chrono]
+features = ["serde"]
+version = "0.4.41"
 
 [workspace.dependencies.clap]
 features = ["derive"]
