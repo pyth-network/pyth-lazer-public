@@ -1,0 +1,58 @@
+name: "Solana contract test"
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths-ignore:
+      - "price-terminal/**"
+
+jobs:
+  solana-contract-test:
+    name: Solana contract test
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: contracts/solana
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache-workspaces: "contracts/solana -> target"
+          rustflags: ""
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.9
+      # Libusb is a build requirement for the node-hid package and so bun
+      # install will fail if this isn't in the build environment and if a
+      # precompiled binary isn't found.
+      - name: Install libusb
+        run: sudo apt-get update && sudo apt-get install -y libusb-1.0-0-dev libudev-dev
+      - name: Install dependencies
+        working-directory: .
+        run: bun install --frozen-lockfile
+      - name: Install Solana Cli
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/v2.1.21/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+      - name: Create Solana key
+        run: solana-keygen new --no-bip39-passphrase
+      - name: Cache anchor
+        uses: actions/cache@v4
+        id: cache-anchor
+        with:
+          path: ~/.cargo/bin/anchor
+          key: ${{ runner.os }}-anchor-0.31.1
+      - name: install anchor
+        if: steps.cache-anchor.outputs.cache-hit != 'true'
+        run: cargo install --git https://github.com/coral-xyz/anchor --tag v0.31.1 --locked anchor-cli
+      - name: Build contract
+        run: anchor build
+      - name: Run anchor tests
+        run: bun run test:anchor
+      - name: Format check
+        run: cargo fmt --all -- --check
+      - name: Clippy check
+        run: cargo clippy --all-targets -- --deny warnings
+      - name: test
+        run: cargo test

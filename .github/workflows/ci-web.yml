@@ -1,0 +1,91 @@
+name: Web CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+    paths:
+      - "**.md?"
+      - "**.mjs"
+      - "**.mts"
+      - "**.cjs"
+      - "**.cts"
+      - "**.tsx?"
+      - "**.jsx?"
+      - "**.json"
+      - "**.sol"
+      - "**.html"
+      - "**.css"
+      - "**.scss"
+      - "**.sass"
+      - "**.svg"
+      - "**.png"
+      - "**.jpg"
+      - "**.jpeg"
+      - "**.gif"
+      - "**.webp"
+      - "**.avif"
+      - "**.ico"
+      - "**.woff"
+      - "**.woff2"
+      - "**.ttf"
+      - "**.otf"
+      - "**.eot"
+      - "**/package.json"
+      - "**/bunfig.toml"
+      - "**/bun.lock"
+      - "**/turbo.json"
+      - "**/biome.json"
+      - "**/tsconfig.json"
+      - .github/workflows/ci-web.yml
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  ci-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch base branch
+        if: ${{ github.event_name == 'pull_request' }}
+        run: git fetch origin main --depth=1
+      - uses: jdx/mise-action@v2
+      # Libusb is a build requirement for the node-hid package and so bun
+      # install will fail if this isn't in the build environment and if a
+      # precompiled binary isn't found.
+      - name: Install libusb
+        run: sudo apt-get update && sudo apt-get install -y libusb-1.0-0-dev libudev-dev
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Run Dependency Check
+        run: |
+          echo "## 👁️ JavaScript Dependency Checker" > dependency-check.txt
+          echo "" >> dependency-check.txt
+
+          # Run the script and capture its output
+          OUTPUT=$(bun run dep:check 2>/dev/null || true)
+
+          if [ "$OUTPUT" = "All dependencies are up to date!" ]; then
+            echo "$OUTPUT" >> dependency-check.txt
+          else
+            echo "\`\`\`" >> dependency-check.txt
+            echo "$OUTPUT" >> dependency-check.txt
+            echo "\`\`\`" >> dependency-check.txt
+          fi
+      - name: Post Dependency Check Comment
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: dependency-check
+          path: dependency-check.txt
+
+      - name: Run CI Checks
+        run: |
+          set -o pipefail
+          bun turbo run test:ci --filter='...[origin/main]' 2>&1 | tee ci-output.txt
+          bun turbo run build --filter='...[origin/main]' 2>&1 | tee -a ci-output.txt
