@@ -229,8 +229,8 @@
   "packageManager": "bun@1.3.13",
   "private": true,
   "scripts": {
-    "dep:check": "./scripts/check-outdated.sh",
-    "dep:check:all": "./scripts/check-outdated.sh --all",
+    "dep:check": "bun scripts/check-outdated.ts",
+    "dep:check:all": "bun scripts/check-outdated.ts --all",
     "fix:lint": "biome check --max-diagnostics=none --write",
     "fix:lint:changed": "bun run fix:lint --changed",
     "fix:lint:staged": "bun run fix:lint --staged",
