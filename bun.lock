@@ -44,7 +44,7 @@
     },
     "sdk/js": {
       "name": "@pythnetwork/pyth-lazer-sdk",
-      "version": "6.2.2",
+      "version": "6.2.3",
       "dependencies": {
         "@isaacs/ttlcache": "catalog:",
         "buffer": "catalog:",

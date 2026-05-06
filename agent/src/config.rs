@@ -55,7 +55,7 @@ fn default_legacy_sched_interval() -> Duration {
 
 fn default_history_service_url() -> Url {
     #[allow(clippy::expect_used, reason = "hardcoded URL is always valid")]
-    "https://history.pyth-lazer.dourolabs.app/history/v1/symbols"
+    "https://pyth.dourolabs.app/v1/symbols"
         .parse()
         .expect("hardcoded URL is valid")
 }

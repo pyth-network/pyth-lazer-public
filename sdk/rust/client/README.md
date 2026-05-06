@@ -270,13 +270,13 @@ cargo run --example subscribe_price_feeds
 
 ### Symbol Metadata
 
-Fetch symbol metadata using the history client:
+Fetch symbol metadata using the api client:
 
 ```rust
-use pyth_lazer_client::history_client::{PythLazerHistoryClient, PythLazerHistoryClientConfig};
+use pyth_lazer_client::api_client::{PythLazerApiClient, PythLazerApiClientConfig};
 
-let client = PythLazerHistoryClient::new(
-    PythLazerHistoryClientConfig::default()
+let client = PythLazerApiClient::new(
+    PythLazerApiClientConfig::default()
 );
 
 // Get all symbol metadata
@@ -289,23 +289,23 @@ let symbols = handle.symbols();
 
 See [`examples/symbols.rs`](examples/symbols.rs) and [`examples/symbols_stream.rs`](examples/symbols_stream.rs) for complete examples.
 
-## History Client
+## API Client
 
-The `PythLazerHistoryClient` provides access to symbol metadata and historical price information:
+The `PythLazerApiClient` provides access to symbol metadata and historical price information:
 
 ```rust
-use pyth_lazer_client::history_client::{PythLazerHistoryClient, PythLazerHistoryClientConfig};
+use pyth_lazer_client::api_client::{PythLazerApiClient, PythLazerApiClientConfig};
 use std::time::Duration;
 
-let config = PythLazerHistoryClientConfig {
-    urls: vec!["https://history.pyth-lazer.dourolabs.app/".parse()?],
+let config = PythLazerApiClientConfig {
+    urls: vec!["https://pyth.dourolabs.app/".parse()?],
     update_interval: Duration::from_secs(30),
     request_timeout: Duration::from_secs(15),
     cache_dir: Some("/tmp/pyth-lazer-cache".into()),
     channel_capacity: 1000,
 };
 
-let client = PythLazerHistoryClient::new(config);
+let client = PythLazerApiClient::new(config);
 
 // Fetch symbol metadata once
 let symbols = client.all_symbols_metadata().await?;
@@ -320,7 +320,7 @@ while let Some(symbols) = stream.recv().await {
 }
 ```
 
-The history client supports:
+The API client supports:
 
 - **One-time fetches** - Get current data with `all_symbols_metadata()`
 - **Auto-updating handles** - Background updates with `all_symbols_metadata_handle()`
@@ -334,7 +334,7 @@ The history client supports:
 
 - **`PythLazerStreamClient`** - The main client for streaming price updates
 - **`PythLazerStreamClientBuilder`** - Builder for configuring the stream client
-- **`PythLazerHistoryClient`** - Client for fetching symbol metadata
+- **`PythLazerApiClient`** - Client for fetching symbol metadata
 - **`SubscribeRequest`** - Subscription configuration
 - **`SubscriptionParams`** - Subscription parameters wrapper
 - **`AnyResponse`** - Enum for JSON or binary responses
@@ -347,7 +347,7 @@ The history client supports:
 - `subscribe(request: SubscribeRequest) -> Result<()>` - Subscribe to price feeds
 - `unsubscribe(id: SubscriptionId) -> Result<()>` - Unsubscribe from a feed
 
-#### PythLazerHistoryClient
+#### PythLazerApiClient
 
 - `all_symbols_metadata() -> Result<Vec<SymbolMetadata>>` - Fetch all symbols once
 - `all_symbols_metadata_handle() -> Result<SymbolMetadataHandle>` - Get auto-updating handle

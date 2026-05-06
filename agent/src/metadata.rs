@@ -38,7 +38,7 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn test_fetch_metadata() {
-        let url: Url = "https://history.pyth-lazer.dourolabs.app/history/v1/symbols"
+        let url: Url = "https://pyth.dourolabs.app/v1/symbols"
             .parse()
             .expect("should never fail on valid hardcoded URL");
         println!("{:?}", fetch_metadata(&url).await.unwrap());

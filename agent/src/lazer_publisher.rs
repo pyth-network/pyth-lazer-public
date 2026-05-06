@@ -311,7 +311,7 @@ mod tests {
             authorization_token: None,
             publish_keypair_path: PathBuf::from(signing_key_file.path()),
             publish_interval_duration: Duration::from_millis(25),
-            history_service_url: "https://history.pyth-lazer.dourolabs.app/history/v1/symbols"
+            history_service_url: "https://pyth.dourolabs.app/v1/symbols"
                 .parse()
                 .expect("should never fail on valid hardcoded URL"),
             enable_update_deduplication: false,
