@@ -1,4 +1,3 @@
-use pyth_lazer_agent::{config, http_server, lazer_publisher::LazerPublisher};
 use {
     anyhow::Context,
     clap::Parser,
@@ -29,18 +28,15 @@ async fn main() -> anyhow::Result<()> {
     let args = Cli::parse();
     init_tracing_subscriber(args.log_format);
 
-    let config =
-        config::load_config(args.config.to_string()).context("Failed to read config file")?;
+    let config = pyth_lazer_agent::load_config(args.config.to_string())
+        .context("Failed to read config file")?;
     info!(
         ?config,
         version = env!("CARGO_PKG_VERSION"),
         "starting pyth-lazer-agent"
     );
 
-    let lazer_publisher = LazerPublisher::new(&config).await;
-    http_server::run(config, lazer_publisher).await?;
-
-    Ok(())
+    pyth_lazer_agent::run(config).await
 }
 
 fn init_tracing_subscriber(log_format: LogFormat) {

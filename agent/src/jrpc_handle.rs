@@ -265,7 +265,7 @@ async fn handle_get_metadata<T: AsyncRead + AsyncWrite + Unpin>(
 }
 
 #[cfg(test)]
-pub mod tests {
+mod tests {
     use pyth_lazer_protocol::{PriceFeedId, SymbolState, api::Channel, time::FixedRate};
 
     use super::*;

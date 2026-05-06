@@ -10,9 +10,7 @@ use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::{Response, StatusCode};
 use hyper_util::rt::TokioIo;
-use pyth_lazer_agent::config::Config;
-use pyth_lazer_agent::http_server;
-use pyth_lazer_agent::lazer_publisher::LazerPublisher;
+use pyth_lazer_agent::Config;
 use pyth_lazer_protocol::api::Channel;
 use pyth_lazer_protocol::jrpc::SymbolMetadata;
 use pyth_lazer_protocol::time::FixedRate;
@@ -166,11 +164,8 @@ async fn test_legacy_user_journey() {
         legacy_sched_interval_duration: Duration::from_millis(200),
     };
 
-    let lazer_publisher = LazerPublisher::new(&config).await;
     #[allow(clippy::disallowed_methods, reason = "instrumented")]
-    tokio::spawn(
-        http_server::run(config, lazer_publisher).instrument(info_span!("lazer publisher task")),
-    );
+    tokio::spawn(pyth_lazer_agent::run(config).instrument(info_span!("lazer publisher task")));
 
     tokio::time::sleep(Duration::from_millis(100)).await;
 
@@ -297,11 +292,8 @@ async fn test_update_price_resets_sched_timer() {
         legacy_sched_interval_duration: sched_interval,
     };
 
-    let lazer_publisher = LazerPublisher::new(&config).await;
     #[allow(clippy::disallowed_methods, reason = "instrumented")]
-    tokio::spawn(
-        http_server::run(config, lazer_publisher).instrument(info_span!("lazer publisher task")),
-    );
+    tokio::spawn(pyth_lazer_agent::run(config).instrument(info_span!("lazer publisher task")));
 
     tokio::time::sleep(Duration::from_millis(100)).await;
 
