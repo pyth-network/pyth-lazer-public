@@ -121,8 +121,10 @@ pub enum PriceFeedProperty {
     // More fields may be added later.
 }
 
-#[derive(Debug, Clone, Deserialize, strum::EnumIter)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Debug, Clone, Deserialize, strum::IntoStaticStr, strum::EnumIter)]
 #[serde(rename_all = "kebab-case")]
+#[strum(serialize_all = "kebab-case")]
 pub enum AssetClass {
     Crypto,
     Fx,
@@ -138,19 +140,20 @@ pub enum AssetClass {
 
 impl AssetClass {
     pub fn as_str(&self) -> &'static str {
-        match self {
-            AssetClass::Crypto => "crypto",
-            AssetClass::Fx => "fx",
-            AssetClass::Equity => "equity",
-            AssetClass::Metal => "metal",
-            AssetClass::Rates => "rates",
-            AssetClass::Nav => "nav",
-            AssetClass::Commodity => "commodity",
-            AssetClass::FundingRate => "funding-rate",
-            AssetClass::Eco => "eco",
-            AssetClass::Kalshi => "kalshi",
-        }
+        self.into()
     }
+}
+
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Debug, Clone, Copy, Deserialize, strum::IntoStaticStr)]
+#[serde(rename_all = "kebab-case")]
+#[strum(serialize_all = "kebab-case")]
+pub enum InstrumentType {
+    Spot,
+    Rate,
+    Future,
+    Index,
+    Nav,
 }
 
 // Operation and coefficient for converting value to mantissa.
