@@ -28,6 +28,7 @@ config = "0.15.11"
 csv = "1.4.0"
 derivative = "2.2.0"
 derive_more = "2.0.1"
+displaydoc = "0.2"
 dotenvy = "0.15.7"
 fs-err = "3.1.1"
 futures = "0.3.31"
@@ -48,13 +49,16 @@ opentelemetry = "0.28.0"
 opentelemetry-prometheus = "0.28.0"
 option-inspect-none = "1"
 pin-project = "1"
+proc-macro2 = "1.0"
 prometheus = "0.13.4"
 prometheus_exporter = "0.8.5"
+prost = "0.14.3"
 protobuf = "3.4.0"
 protobuf-json-mapping = "3.4.0"
 pyth-hermes-client-rust = "0.0.1"
 pyth-sdk = "0.8.0"
 pythnet-sdk = "2.3.1"
+quote = "1.0"
 rand = "0.10.1"
 reqwest-eventsource = "0.6.0"
 run_every = "0.1.1"
@@ -191,9 +195,17 @@ version = "0.8.1"
 features = ["derive"]
 version = "0.27.2"
 
+[workspace.dependencies.syn]
+features = ["full"]
+version = "2.0"
+
 [workspace.dependencies.time]
 features = ["macros", "serde-human-readable", "serde-well-known"]
 version = "0.3"
+
+[workspace.dependencies.tinystr]
+features = ["serde"]
+version = "0.8"
 
 [workspace.dependencies.tokio]
 features = ["full"]
