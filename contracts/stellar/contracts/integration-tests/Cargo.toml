@@ -1,0 +1,13 @@
+[package]
+name = "stellar-integration-tests"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+hex-literal = "0.4"
+k256 = { version = "0.13", features = ["ecdsa"] }
+pyth-lazer-stellar = { path = "../pyth-lazer-stellar" }
+soroban-sdk = { workspace = true, features = ["testutils"] }
+tiny-keccak = { version = "2.0", features = ["keccak"] }
+wormhole-executor-stellar = { path = "../wormhole-executor-stellar" }

@@ -182,6 +182,7 @@
     "ts-deepmerge": "^7.0.3",
     "ts-log": "^2.2.7",
     "tsconfig-paths": "^4.2.0",
+    "tsx": "^4.20.6",
     "turbo": "^2.9.6",
     "turbo-ignore": "^2.9.6",
     "tw-animate-css": "^1.4.0",
@@ -215,6 +216,7 @@
     "dayjs": "catalog:",
     "happy-dom": "catalog:",
     "neonctl": "catalog:",
+    "tsx": "catalog:",
     "turbo": "catalog:",
     "turbo-ignore": "catalog:",
     "type-fest": "catalog:",
@@ -282,6 +284,7 @@
   ],
   "workspaces": [
     "contracts/solana",
+    "contracts/stellar/scripts/e2e",
     "sdk/js",
     "sdk/js-solana"
   ]

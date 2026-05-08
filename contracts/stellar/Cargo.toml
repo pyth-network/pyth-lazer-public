@@ -1,0 +1,10 @@
+[workspace]
+resolver = "2"
+members = [
+  "contracts/integration-tests",
+  "contracts/pyth-lazer-stellar",
+  "contracts/wormhole-executor-stellar",
+]
+
+[workspace.dependencies]
+soroban-sdk = "22.0.5"
