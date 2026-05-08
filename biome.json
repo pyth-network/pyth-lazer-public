@@ -32,7 +32,8 @@
       "!ansible/**/*",
       "!scripts/**/*.sh",
       "!scripts/**/*.py",
-      "!**/*.gen.ts"
+      "!**/*.gen.ts",
+      "!**/schemas/*.json"
     ]
   },
   "formatter": {
