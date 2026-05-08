@@ -75,6 +75,9 @@ solana-instruction = "3.2.0"
 thiserror = "2.0.12"
 tokio-stream = "0.1.17"
 toml = "0.8.19"
+tonic-health = "0.14.5"
+tonic-prost = "0.14.5"
+tower = "0.5"
 tracing = "0.1.41"
 tracing-opentelemetry = "0.29.0"
 truncate-integer = "0.5.1"
@@ -223,6 +226,10 @@ version = "0.26.2"
 [workspace.dependencies.tokio-util]
 features = ["compat"]
 version = "0.7.14"
+
+[workspace.dependencies.tonic]
+features = ["router", "transport"]
+version = "0.14.5"
 
 [workspace.dependencies.tower-http]
 features = ["cors", "trace"]
