@@ -129,6 +129,3 @@ storybook-static/
 
 # Claude
 .claude/worktrees
-
-# misc
-LOCAL_VARS_OVERRIDES.json

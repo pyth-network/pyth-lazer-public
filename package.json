@@ -222,8 +222,7 @@
     "type-fest": "catalog:",
     "typescript": "catalog:",
     "vercel": "catalog:",
-    "yargs": "catalog:",
-    "zod": "catalog:"
+    "yargs": "catalog:"
   },
   "engines": {
     "bun": ">=1.3.13"
