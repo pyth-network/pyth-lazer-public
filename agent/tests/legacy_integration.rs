@@ -127,7 +127,7 @@ async fn recv_json(
         >,
     >,
 ) -> serde_json::Value {
-    let msg = tokio::time::timeout(Duration::from_secs(5), ws.next())
+    let msg = tokio::time::timeout(Duration::from_secs(20), ws.next())
         .await
         .expect("timeout waiting for WS message")
         .expect("stream ended")

@@ -55,7 +55,7 @@ protobuf-json-mapping = "3.4.0"
 pyth-hermes-client-rust = "0.0.1"
 pyth-sdk = "0.8.0"
 pythnet-sdk = "2.3.1"
-rand = "0.9.0"
+rand = "0.10.1"
 reqwest-eventsource = "0.6.0"
 run_every = "0.1.1"
 scopeguard = "1.2.0"
@@ -158,7 +158,7 @@ version = "0.28.0"
 
 [workspace.dependencies.polars]
 default-features = false
-version = "0.44.2"
+version = "0.51.0"
 
 [workspace.dependencies.rdkafka]
 version = "0.37.0"
