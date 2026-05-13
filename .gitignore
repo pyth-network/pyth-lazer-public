@@ -129,3 +129,6 @@ storybook-static/
 
 # Claude
 .claude/worktrees
+.claude/settings.local.json
+
+SPECULAR.md
