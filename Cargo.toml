@@ -157,6 +157,10 @@ version = "0.1.10"
 features = ["ecdsa"]
 version = "0.13.4"
 
+[workspace.dependencies.moka]
+features = ["future"]
+version = "0.12.15"
+
 [workspace.dependencies.opentelemetry_sdk]
 features = ["rt-tokio"]
 version = "0.28.0"
