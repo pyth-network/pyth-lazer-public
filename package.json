@@ -117,6 +117,7 @@
     "fumadocs-ui": "^16.8.9",
     "glob": "^13.0.6",
     "globals": "^17.6.0",
+    "gray-matter": "^4.0.3",
     "happy-dom": "^20.9.0",
     "highlight.js": "^11.11.1",
     "http-status-codes": "^2.3.0",
