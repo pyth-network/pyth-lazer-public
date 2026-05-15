@@ -343,6 +343,8 @@ message Feed {
     optional EmaStorage ema_confidence_storage = 205;
     // [optional] Coroporate actions adjustment data
     optional CorporateActionAdjustmentData corporate_actions_adjustment_data = 206;
+    // [optional] Whether a new aggregate needs to be calculated because one of the inputs has changed.
+    optional bool pending_aggregation = 207;
 }
 
 // [optional] Accumulated data for EMA (exponential moving average) price or confidence interval.
