@@ -132,3 +132,5 @@ storybook-static/
 .claude/settings.local.json
 
 SPECULAR.md
+.vercel
+.env*.local
