@@ -1,8 +1,4 @@
 {
-  "exclude": [
-    "dist",
-    "node_modules",
-    "**/__tests__/*"
-  ],
+  "exclude": ["dist", "node_modules", "**/__tests__/*"],
   "extends": "@cprussin/tsconfig/nextjs.json"
 }

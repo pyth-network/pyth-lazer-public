@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
@@ -7,14 +8,13 @@ import {
   sendAndConfirmTransaction,
   Transaction,
 } from "@solana/web3.js";
-import { readFileSync } from "fs";
 import yargs from "yargs/yargs";
 import { createEd25519Instruction } from "../src/ed25519";
 import * as pythLazerSolanaContractIdl from "../target/idl/pyth_lazer_solana_contract.json";
-import { PythLazerSolanaContract } from "../target/types/pyth_lazer_solana_contract";
+import type { PythLazerSolanaContract } from "../target/types/pyth_lazer_solana_contract";
 
 async function main() {
-  let argv = await yargs(process.argv.slice(2))
+  const argv = await yargs(process.argv.slice(2))
     .options({
       "keypair-path": { demandOption: true, type: "string" },
       message: { demandOption: true, type: "string" },
@@ -69,7 +69,9 @@ async function main() {
     console.log("Transaction confirmed with signature:", signature);
   } catch (e) {
     console.log("error", e);
-    console.log(e.getLogs());
+    if (e instanceof SendTransactionError) {
+      console.log(e.getLogs());
+    }
   }
 }
 

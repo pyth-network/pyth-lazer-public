@@ -1,10 +1,10 @@
+import { readFileSync } from "node:fs";
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
-import { readFileSync } from "fs";
 import yargs from "yargs/yargs";
 import * as pythLazerSolanaContractIdl from "../target/idl/pyth_lazer_solana_contract.json";
-import { PythLazerSolanaContract } from "../target/types/pyth_lazer_solana_contract";
+import type { PythLazerSolanaContract } from "../target/types/pyth_lazer_solana_contract";
 
 // Add a trusted signer or change its expiry time.
 //
@@ -13,7 +13,7 @@ import { PythLazerSolanaContract } from "../target/types/pyth_lazer_solana_contr
 //    --keypair-path .../key.json --trusted-signer b8d50f0bae75bf6e03c104903d7c3afc4a6596da \
 //    --expiry-time-seconds 2057930841
 async function main() {
-  let argv = await yargs(process.argv.slice(2))
+  const argv = await yargs(process.argv.slice(2))
     .options({
       "expiry-time-seconds": { demandOption: true, type: "number" },
       "keypair-path": { demandOption: true, type: "string" },

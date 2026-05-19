@@ -244,6 +244,16 @@
         "**/*.spec.tsx",
         "**/*.test.tsx"
       ]
+    },
+    {
+      "includes": ["contracts/solana/scripts/**", "pulumi/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
+          }
+        }
+      }
     }
   ],
   "root": true,
