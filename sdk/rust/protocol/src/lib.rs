@@ -101,7 +101,9 @@ impl ChannelId {
 }
 
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, FromRepr)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, FromRepr, strum::EnumIter,
+)]
 #[serde(rename_all = "camelCase")]
 #[repr(u8)]
 pub enum PriceFeedProperty {

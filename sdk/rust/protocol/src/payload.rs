@@ -1,6 +1,6 @@
 use {
     crate::{
-        api::MarketSession,
+        api::{MarketSession, ParsedFeedPayload},
         price::Price,
         rate::Rate,
         time::{DurationUs, TimestampUs},
@@ -49,6 +49,38 @@ pub enum PayloadPropertyValue {
     EmaPrice(Option<Price>),
     EmaConfidence(Option<Price>),
     FeedUpdateTimestamp(Option<TimestampUs>),
+}
+
+impl TryFrom<(PriceFeedProperty, &ParsedFeedPayload)> for PayloadPropertyValue {
+    type Error = anyhow::Error;
+
+    fn try_from((property, feed): (PriceFeedProperty, &ParsedFeedPayload)) -> anyhow::Result<Self> {
+        let missing =
+            || anyhow::anyhow!("ParsedFeedPayload is missing required property: {property:?}");
+        Ok(match property {
+            PriceFeedProperty::Price => Self::Price(feed.price),
+            PriceFeedProperty::BestBidPrice => Self::BestBidPrice(feed.best_bid_price),
+            PriceFeedProperty::BestAskPrice => Self::BestAskPrice(feed.best_ask_price),
+            PriceFeedProperty::PublisherCount => {
+                Self::PublisherCount(feed.publisher_count.ok_or_else(missing)?)
+            }
+            PriceFeedProperty::Exponent => Self::Exponent(feed.exponent.ok_or_else(missing)?),
+            PriceFeedProperty::Confidence => Self::Confidence(feed.confidence),
+            PriceFeedProperty::FundingRate => Self::FundingRate(feed.funding_rate),
+            PriceFeedProperty::FundingTimestamp => Self::FundingTimestamp(feed.funding_timestamp),
+            PriceFeedProperty::FundingRateInterval => {
+                Self::FundingRateInterval(feed.funding_rate_interval)
+            }
+            PriceFeedProperty::MarketSession => {
+                Self::MarketSession(feed.market_session.ok_or_else(missing)?)
+            }
+            PriceFeedProperty::EmaPrice => Self::EmaPrice(feed.ema_price),
+            PriceFeedProperty::EmaConfidence => Self::EmaConfidence(feed.ema_confidence),
+            PriceFeedProperty::FeedUpdateTimestamp => {
+                Self::FeedUpdateTimestamp(feed.feed_update_timestamp)
+            }
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
