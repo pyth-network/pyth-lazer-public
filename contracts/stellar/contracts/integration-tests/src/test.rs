@@ -134,7 +134,6 @@ fn build_ptgm_upgrade(
     chain_id: u16,
     executor_contract: &Address,
     target_contract: &Address,
-    version: u64,
     wasm_digest: &[u8; 32],
 ) -> alloc::vec::Vec<u8> {
     let mut data = alloc::vec::Vec::new();
@@ -148,7 +147,27 @@ fn build_ptgm_upgrade(
     let target = address_to_payload_bytes(target_contract);
     data.push(target.len() as u8);
     data.extend_from_slice(&target);
-    data.extend_from_slice(&version.to_be_bytes());
+    data.extend_from_slice(wasm_digest);
+    data
+}
+
+fn build_ptgm_upgrade_executor(
+    chain_id: u16,
+    executor_contract: &Address,
+    target_contract: &Address,
+    wasm_digest: &[u8; 32],
+) -> alloc::vec::Vec<u8> {
+    let mut data = alloc::vec::Vec::new();
+    data.extend_from_slice(&PTGM_MAGIC);
+    data.push(3); // module = Lazer
+    data.push(2); // action = upgrade_executor
+    data.extend_from_slice(&chain_id.to_be_bytes());
+    let executor = address_to_payload_bytes(executor_contract);
+    data.push(executor.len() as u8);
+    data.extend_from_slice(&executor);
+    let target = address_to_payload_bytes(target_contract);
+    data.push(target.len() as u8);
+    data.extend_from_slice(&target);
     data.extend_from_slice(wasm_digest);
     data
 }
@@ -486,7 +505,6 @@ fn test_governance_upgrade_dispatched_to_lazer() {
         CHAIN_ID as u16,
         &te.executor_client.address,
         &te.lazer_client.address,
-        1,
         &wasm_digest,
     );
     let vaa_raw = build_governance_vaa(&te, 1, &ptgm);
@@ -976,4 +994,118 @@ fn test_verify_update_no_signers_configured() {
     let update = test_lazer_update_bytes(&te.env);
     let result = te.lazer_client.try_verify_update(&update);
     assert_eq!(result.err().unwrap(), Ok(LazerError::SignerNotTrusted));
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Executor self-upgrade tests
+// ──────────────────────────────────────────────────────────────────────
+
+/// Happy path: owner sends an upgrade-executor governance VAA and the
+/// executor upgrades itself.
+#[test]
+fn test_upgrade_executor_happy_path() {
+    let te = setup(1);
+
+    // Upload a wasm blob so update_current_contract_wasm succeeds.
+    let wasm_hash = te.env.deployer().upload_contract_wasm(Bytes::new(&te.env));
+    let wasm_digest: [u8; 32] = wasm_hash.into();
+
+    let ptgm = build_ptgm_upgrade_executor(
+        CHAIN_ID as u16,
+        &te.executor_client.address,
+        &te.executor_client.address, // target = executor (self-upgrade)
+        &wasm_digest,
+    );
+    let vaa_raw = build_governance_vaa(&te, 1, &ptgm);
+    let vaa_bytes = Bytes::from_slice(&te.env, &vaa_raw);
+
+    let result = te.executor_client.try_execute_governance_action(&vaa_bytes);
+    assert!(result.is_ok());
+}
+
+/// Adversarial: an upgrade-executor VAA from the guardian-set-upgrade
+/// emitter must be rejected — only the owner emitter may issue PTGM
+/// governance actions (including self-upgrades).
+#[test]
+fn test_upgrade_executor_from_gs_upgrade_emitter_rejected() {
+    let te = setup(1);
+
+    let wasm_hash = te.env.deployer().upload_contract_wasm(Bytes::new(&te.env));
+    let wasm_digest: [u8; 32] = wasm_hash.into();
+
+    let ptgm = build_ptgm_upgrade_executor(
+        CHAIN_ID as u16,
+        &te.executor_client.address,
+        &te.executor_client.address,
+        &wasm_digest,
+    );
+    // Use the guardian-set-upgrade emitter instead of the owner emitter.
+    let body = build_body(
+        1000,
+        0,
+        GS_UPGRADE_EMITTER_CHAIN as u16,
+        &te.gs_upgrade_emitter_address,
+        1,
+        0,
+        &ptgm,
+    );
+    let signers: alloc::vec::Vec<(u8, [u8; 32])> = te
+        .guardian_secrets
+        .iter()
+        .enumerate()
+        .map(|(i, s)| (i as u8, *s))
+        .collect();
+    let vaa_raw = build_signed_vaa(0, &signers, &body);
+    let vaa_bytes = Bytes::from_slice(&te.env, &vaa_raw);
+
+    let result = te.executor_client.try_execute_governance_action(&vaa_bytes);
+    assert!(result.is_err());
+}
+
+/// Adversarial: an upgrade-executor VAA targeting a different contract
+/// (not the executor itself) must be rejected.
+#[test]
+fn test_upgrade_executor_wrong_target_rejected() {
+    let te = setup(1);
+
+    let wasm_hash = te.env.deployer().upload_contract_wasm(Bytes::new(&te.env));
+    let wasm_digest: [u8; 32] = wasm_hash.into();
+
+    // Target is the lazer contract, not the executor itself.
+    let ptgm = build_ptgm_upgrade_executor(
+        CHAIN_ID as u16,
+        &te.executor_client.address,
+        &te.lazer_client.address,
+        &wasm_digest,
+    );
+    let vaa_raw = build_governance_vaa(&te, 1, &ptgm);
+    let vaa_bytes = Bytes::from_slice(&te.env, &vaa_raw);
+
+    let result = te.executor_client.try_execute_governance_action(&vaa_bytes);
+    assert!(result.is_err());
+}
+
+/// Adversarial: replay protection applies to upgrade-executor VAAs.
+#[test]
+fn test_upgrade_executor_replay_rejected() {
+    let te = setup(1);
+
+    let wasm_hash = te.env.deployer().upload_contract_wasm(Bytes::new(&te.env));
+    let wasm_digest: [u8; 32] = wasm_hash.into();
+
+    let ptgm = build_ptgm_upgrade_executor(
+        CHAIN_ID as u16,
+        &te.executor_client.address,
+        &te.executor_client.address,
+        &wasm_digest,
+    );
+    let vaa_raw = build_governance_vaa(&te, 1, &ptgm);
+    let vaa_bytes = Bytes::from_slice(&te.env, &vaa_raw);
+
+    // First execution succeeds.
+    te.executor_client.execute_governance_action(&vaa_bytes);
+
+    // Replay with the same sequence must fail.
+    let result = te.executor_client.try_execute_governance_action(&vaa_bytes);
+    assert!(result.is_err());
 }

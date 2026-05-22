@@ -48,4 +48,6 @@ pub enum ContractError {
     InvalidRecoveryId = 20,
     /// The governance payload's module identifier does not match the expected module.
     InvalidGovernanceModule = 21,
+    /// The PTGM target contract does not match the executor for a self-upgrade action.
+    InvalidTargetContract = 22,
 }

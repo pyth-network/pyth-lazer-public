@@ -243,10 +243,12 @@ impl WormholeExecutor {
                     args,
                 );
             }
+            GovernanceAction::UpgradeExecutor(payload) => {
+                let wasm_hash = BytesN::from_array(&env, &payload.wasm_digest);
+                env.deployer().update_current_contract_wasm(wasm_hash);
+            }
         }
 
         Ok(())
     }
-
-    // TODO: this contract needs upgradability
 }

@@ -15,6 +15,9 @@ pub const ACTION_UPGRADE: u8 = 0;
 /// Governance action: update a trusted signer on the target contract.
 pub const ACTION_UPDATE_TRUSTED_SIGNER: u8 = 1;
 
+/// Governance action: upgrade the executor contract itself.
+pub const ACTION_UPGRADE_EXECUTOR: u8 = 2;
+
 /// PTGM fixed header size: 4 (magic) + 1 (module) + 1 (action) + 2 (chain_id) = 8 bytes.
 const HEADER_SIZE: usize = 8;
 
@@ -37,7 +40,13 @@ pub struct UpdateTrustedSignerPayload {
 #[derive(Clone, Debug, PartialEq)]
 pub struct UpgradePayload {
     pub target_contract: Address,
-    pub version: u64,
+    pub wasm_digest: [u8; 32],
+}
+
+/// Parsed upgrade-executor payload (self-upgrade).
+#[derive(Clone, Debug, PartialEq)]
+pub struct UpgradeExecutorPayload {
+    pub target_contract: Address,
     pub wasm_digest: [u8; 32],
 }
 
@@ -46,6 +55,7 @@ pub struct UpgradePayload {
 pub enum GovernanceAction {
     Upgrade(UpgradePayload),
     UpdateTrustedSigner(UpdateTrustedSignerPayload),
+    UpgradeExecutor(UpgradeExecutorPayload),
 }
 
 /// Parse a PTGM from a VAA payload.
@@ -150,23 +160,39 @@ pub fn parse_ptgm(
             ))
         }
         ACTION_UPGRADE => {
-            // 8 (version) + 32 (wasm_digest) = 40 bytes after header.
-            if len < offset + 40 {
+            // 32 (wasm_digest) bytes after header.
+            if len < offset + 32 {
                 return Err(ContractError::TruncatedData);
             }
 
-            let ver_offset = offset;
-            let version = read_be_u64(payload, ver_offset as u32)?;
-
-            let digest_offset = offset + 8;
             let mut wasm_digest = [0u8; 32];
             for (i, slot) in wasm_digest.iter_mut().enumerate() {
-                *slot = get_byte(payload, (digest_offset + i) as u32)?;
+                *slot = get_byte(payload, (offset + i) as u32)?;
             }
 
             Ok(GovernanceAction::Upgrade(UpgradePayload {
                 target_contract,
-                version,
+                wasm_digest,
+            }))
+        }
+        ACTION_UPGRADE_EXECUTOR => {
+            // Self-upgrade: target contract must be the executor itself.
+            if &target_contract != expected_executor_contract {
+                return Err(ContractError::InvalidTargetContract);
+            }
+
+            // 32 (wasm_digest) bytes after header.
+            if len < offset + 32 {
+                return Err(ContractError::TruncatedData);
+            }
+
+            let mut wasm_digest = [0u8; 32];
+            for (i, slot) in wasm_digest.iter_mut().enumerate() {
+                *slot = get_byte(payload, (offset + i) as u32)?;
+            }
+
+            Ok(GovernanceAction::UpgradeExecutor(UpgradeExecutorPayload {
+                target_contract,
                 wasm_digest,
             }))
         }
@@ -234,7 +260,6 @@ mod tests {
         chain_id: u16,
         executor_contract: &Address,
         target_contract: &Address,
-        version: u64,
         wasm_digest: &[u8; 32],
     ) -> alloc::vec::Vec<u8> {
         let mut data = build_ptgm_header(
@@ -244,7 +269,6 @@ mod tests {
             executor_contract,
             target_contract,
         );
-        data.extend_from_slice(&version.to_be_bytes());
         data.extend_from_slice(wasm_digest);
         data
     }
@@ -282,23 +306,15 @@ mod tests {
         let env = Env::default();
         let executor = Address::generate(&env);
         let target = Address::generate(&env);
-        let version = 42u64;
         let wasm_digest = [0xBB; 32];
 
-        let raw = build_upgrade_ptgm(
-            TEST_CHAIN_ID as u16,
-            &executor,
-            &target,
-            version,
-            &wasm_digest,
-        );
+        let raw = build_upgrade_ptgm(TEST_CHAIN_ID as u16, &executor, &target, &wasm_digest);
         let payload = Bytes::from_slice(&env, &raw);
 
         let result = parse_ptgm(&payload, TEST_CHAIN_ID, &executor).unwrap();
         match result {
             GovernanceAction::Upgrade(p) => {
                 assert_eq!(p.target_contract, target);
-                assert_eq!(p.version, version);
                 assert_eq!(p.wasm_digest, wasm_digest);
             }
             _ => panic!("expected Upgrade"),
@@ -416,7 +432,7 @@ mod tests {
             &executor,
             &target,
         );
-        raw.extend_from_slice(&[0u8; 10]); // not enough for 8 + 32 = 40 bytes
+        raw.extend_from_slice(&[0u8; 10]); // not enough for 32 bytes
         let payload = Bytes::from_slice(&env, &raw);
 
         assert_eq!(
@@ -451,31 +467,6 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_max_version() {
-        let env = Env::default();
-        let executor = Address::generate(&env);
-        let target = Address::generate(&env);
-        let raw = build_upgrade_ptgm(
-            TEST_CHAIN_ID as u16,
-            &executor,
-            &target,
-            u64::MAX,
-            &[0xFF; 32],
-        );
-        let payload = Bytes::from_slice(&env, &raw);
-
-        let result = parse_ptgm(&payload, TEST_CHAIN_ID, &executor).unwrap();
-        match result {
-            GovernanceAction::Upgrade(p) => {
-                assert_eq!(p.target_contract, target);
-                assert_eq!(p.version, u64::MAX);
-                assert_eq!(p.wasm_digest, [0xFF; 32]);
-            }
-            _ => panic!("expected Upgrade"),
-        }
-    }
-
-    #[test]
     fn test_invalid_executor_address() {
         let env = Env::default();
         let executor = Address::generate(&env);
@@ -493,6 +484,85 @@ mod tests {
         assert_eq!(
             parse_ptgm(&payload, TEST_CHAIN_ID, &wrong_executor).err(),
             Some(ContractError::InvalidExecutorAddress)
+        );
+    }
+
+    fn build_upgrade_executor_ptgm(
+        chain_id: u16,
+        executor_contract: &Address,
+        target_contract: &Address,
+        wasm_digest: &[u8; 32],
+    ) -> alloc::vec::Vec<u8> {
+        let mut data = build_ptgm_header(
+            LAZER_MODULE,
+            ACTION_UPGRADE_EXECUTOR,
+            chain_id,
+            executor_contract,
+            target_contract,
+        );
+        data.extend_from_slice(wasm_digest);
+        data
+    }
+
+    #[test]
+    fn test_parse_upgrade_executor() {
+        let env = Env::default();
+        let executor = Address::generate(&env);
+        let wasm_digest = [0xCC; 32];
+
+        // Target contract == executor (self-upgrade).
+        let raw =
+            build_upgrade_executor_ptgm(TEST_CHAIN_ID as u16, &executor, &executor, &wasm_digest);
+        let payload = Bytes::from_slice(&env, &raw);
+
+        let result = parse_ptgm(&payload, TEST_CHAIN_ID, &executor).unwrap();
+        match result {
+            GovernanceAction::UpgradeExecutor(p) => {
+                assert_eq!(p.target_contract, executor);
+                assert_eq!(p.wasm_digest, wasm_digest);
+            }
+            _ => panic!("expected UpgradeExecutor"),
+        }
+    }
+
+    #[test]
+    fn test_upgrade_executor_wrong_target() {
+        let env = Env::default();
+        let executor = Address::generate(&env);
+        let other_contract = Address::generate(&env);
+
+        // Target contract != executor — must be rejected.
+        let raw = build_upgrade_executor_ptgm(
+            TEST_CHAIN_ID as u16,
+            &executor,
+            &other_contract,
+            &[0xDD; 32],
+        );
+        let payload = Bytes::from_slice(&env, &raw);
+
+        assert_eq!(
+            parse_ptgm(&payload, TEST_CHAIN_ID, &executor).err(),
+            Some(ContractError::InvalidTargetContract)
+        );
+    }
+
+    #[test]
+    fn test_truncated_upgrade_executor_payload() {
+        let env = Env::default();
+        let executor = Address::generate(&env);
+        let mut raw = build_ptgm_header(
+            LAZER_MODULE,
+            ACTION_UPGRADE_EXECUTOR,
+            TEST_CHAIN_ID as u16,
+            &executor,
+            &executor,
+        );
+        raw.extend_from_slice(&[0u8; 10]); // not enough for 32 bytes
+        let payload = Bytes::from_slice(&env, &raw);
+
+        assert_eq!(
+            parse_ptgm(&payload, TEST_CHAIN_ID, &executor).err(),
+            Some(ContractError::TruncatedData)
         );
     }
 }
