@@ -148,6 +148,10 @@ async fn connect_through_proxy(
         "Authorization",
         HeaderValue::from_str(&format!("Bearer {token}"))?,
     );
+    headers.insert(
+        "X-Agent-Version",
+        HeaderValue::from_str(env!("CARGO_PKG_VERSION"))?,
+    );
 
     let maybe_tls_stream = if target_url.scheme() == "wss" {
         let tls_connector = tokio_native_tls::native_tls::TlsConnector::builder()
@@ -191,6 +195,10 @@ async fn connect_to_relayer(
         headers.insert(
             "Authorization",
             HeaderValue::from_str(&format!("Bearer {token}"))?,
+        );
+        headers.insert(
+            "X-Agent-Version",
+            HeaderValue::from_str(env!("CARGO_PKG_VERSION"))?,
         );
         let (ws_stream, _) = connect_async_with_config(req, None, true).await?;
         tracing::info!("connected to the relayer at {}", url);
