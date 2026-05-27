@@ -156,6 +156,7 @@ pub enum InstrumentType {
     Future,
     Index,
     Nav,
+    InterestRate,
 }
 
 // Operation and coefficient for converting value to mantissa.
