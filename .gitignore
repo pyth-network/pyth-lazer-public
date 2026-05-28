@@ -50,6 +50,7 @@ config.env
 *.swo
 *~
 .cursor/
+.vscode/settings.json
 
 # Jupyter Notebooks
 .ipynb_checkpoints
