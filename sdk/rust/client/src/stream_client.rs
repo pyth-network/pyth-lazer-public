@@ -55,8 +55,9 @@ use crate::{
 use anyhow::{Result, bail};
 use backoff::ExponentialBackoff;
 use pyth_lazer_protocol::api::{SubscribeRequest, SubscriptionId};
+use tokio::select;
 use tokio::sync::mpsc::{self, error::TrySendError};
-use tracing::{error, warn};
+use tracing::warn;
 use ttl_cache::TtlCache;
 use url::Url;
 
@@ -183,23 +184,27 @@ impl PythLazerStreamClient {
         #[allow(clippy::disallowed_methods, reason = "instrumented")]
         tokio::spawn(
             async move {
-                while let Some(response) = ws_connection_receiver.recv().await {
-                    let cache_key = response.cache_key();
-                    if seen_updates.contains_key(&cache_key) {
-                        continue;
-                    }
-                    seen_updates.insert(cache_key, true, DEDUP_TTL);
-
-                    match sender.try_send(response) {
-                        Ok(_) => (),
-                        Err(TrySendError::Full(r)) => {
-                            warn!("Sender channel is full, responses will be delayed");
-                            if sender.send(r).await.is_err() {
-                                error!("Sender channel is closed, stopping client");
+                loop {
+                    select! {
+                        _ = sender.closed() => return,
+                        msg = ws_connection_receiver.recv() => {
+                            let Some(response) = msg else { return };
+                            let cache_key = response.cache_key();
+                            if seen_updates.contains_key(&cache_key) {
+                                continue;
                             }
-                        }
-                        Err(TrySendError::Closed(_)) => {
-                            error!("Sender channel is closed, stopping client");
+                            seen_updates.insert(cache_key, true, DEDUP_TTL);
+
+                            match sender.try_send(response) {
+                                Ok(_) => (),
+                                Err(TrySendError::Full(r)) => {
+                                    warn!("Sender channel is full, responses will be delayed");
+                                    if sender.send(r).await.is_err() {
+                                        return;
+                                    }
+                                }
+                                Err(TrySendError::Closed(_)) => return,
+                            }
                         }
                     }
                 }

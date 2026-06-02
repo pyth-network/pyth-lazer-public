@@ -109,8 +109,17 @@ impl PythLazerResilientWSConnectionTask {
         request_receiver: &mut mpsc::Receiver<WsRequest>,
     ) -> Result<()> {
         loop {
+            // Downstream forwarder exited (user dropped their receiver)
+            // nothing left to deliver to.
+            if response_sender.is_closed() {
+                return Ok(());
+            }
+
             let start_time = Instant::now();
             if let Err(e) = self.start(response_sender.clone(), request_receiver).await {
+                if response_sender.is_closed() {
+                    return Ok(());
+                }
                 // If a connection was working for BACKOFF_RESET_DURATION
                 // and timeout + 1sec, it was considered successful therefore reset the backoff
                 if start_time.elapsed() > BACKOFF_RESET_DURATION
@@ -123,7 +132,11 @@ impl PythLazerResilientWSConnectionTask {
                 match delay {
                     Some(d) => {
                         info!("WebSocket connection failed: {}. Retrying in {:?}", e, d);
-                        tokio::time::sleep(d).await;
+
+                        select! {
+                            _ = response_sender.closed() => return Ok(()),
+                            _ = tokio::time::sleep(d) => {}
+                        }
                     }
                     None => {
                         bail!(
@@ -155,6 +168,8 @@ impl PythLazerResilientWSConnectionTask {
             let timeout_response = tokio::time::timeout(self.timeout, stream.next());
 
             select! {
+                // Exit promptly when the downstream consumer is gone
+                _ = sender.closed() => return Ok(()),
                 response = timeout_response => {
                     match response {
                         Ok(Some(response)) => match response {
