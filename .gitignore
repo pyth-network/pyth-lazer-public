@@ -129,8 +129,7 @@ ansible/playbooks/roles/lazer/vars/stress_test_generated.yaml
 storybook-static/
 
 # Claude
-.claude/worktrees
-.claude/settings.local.json
+.claude/
 
 SPECULAR.md
 .vercel
