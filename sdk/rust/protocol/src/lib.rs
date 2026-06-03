@@ -138,6 +138,7 @@ pub enum AssetClass {
     FundingRate,
     Eco,
     Kalshi,
+    InterestRate,
 }
 
 impl AssetClass {
@@ -156,7 +157,6 @@ pub enum InstrumentType {
     Future,
     Index,
     Nav,
-    InterestRate,
 }
 
 // Operation and coefficient for converting value to mantissa.
