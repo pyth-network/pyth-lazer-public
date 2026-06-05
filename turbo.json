@@ -63,6 +63,7 @@
     "VERCEL_ENV",
     "VERCEL_URL",
     "VERCEL_ENV_OVERRIDE",
+    "VERCEL_LOG_DRAIN_SECRET",
     "WORDMARK_URL"
   ],
   "globalPassThroughEnv": [
