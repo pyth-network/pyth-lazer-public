@@ -123,8 +123,8 @@ pub enum PriceFeedProperty {
     // More fields may be added later.
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, strum::IntoStaticStr, strum::EnumIter)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Debug, Clone, Deserialize, strum::IntoStaticStr, strum::EnumIter)]
 #[serde(rename_all = "kebab-case")]
 #[strum(serialize_all = "kebab-case")]
 pub enum AssetClass {
@@ -148,7 +148,7 @@ impl AssetClass {
 }
 
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Debug, Clone, Copy, Deserialize, strum::IntoStaticStr)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, strum::IntoStaticStr)]
 #[serde(rename_all = "kebab-case")]
 #[strum(serialize_all = "kebab-case")]
 pub enum InstrumentType {
