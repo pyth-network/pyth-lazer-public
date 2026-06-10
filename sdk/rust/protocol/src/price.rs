@@ -135,6 +135,24 @@ impl Price {
         Self::from_mantissa(mantissa).map_err(|_| PriceError::ZeroPriceUnsupported)
     }
 
+    /// Returns true if `other` has moved beyond `threshold_ppm` parts per million
+    /// relative to `self`, comparing raw mantissa values.
+    pub fn has_moved_with_same_exponent(self, other: Price, threshold_ppm: u64) -> bool {
+        let self_mantissa = self.mantissa_i64();
+        let diff = self_mantissa.abs_diff(other.mantissa_i64());
+        let self_abs = self_mantissa.unsigned_abs();
+        let lhs = diff.checked_mul(1_000_000);
+        let rhs = self_abs.checked_mul(threshold_ppm);
+        match (lhs, rhs) {
+            (Some(l), Some(r)) => l > r,
+            (None, Some(_)) => true,
+            (Some(_), None) => false,
+            (None, None) => {
+                u128::from(diff) * 1_000_000 > u128::from(self_abs) * u128::from(threshold_ppm)
+            }
+        }
+    }
+
     pub fn mul_decimal(self, mantissa: i64, exponent: i16) -> Result<Self, PriceError> {
         let left_mantissa = i128::from(self.0.get());
         let right_mantissa = i128::from(mantissa);

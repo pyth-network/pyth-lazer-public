@@ -250,6 +250,24 @@ message FeedMarketSchedule {
     // Only applies when market_schedule is absent (i.e. the schedule is inherited).
     // Ignored when an explicit market_schedule is set.
     optional ScheduleOverrides schedule_overrides = 6;
+    // [optional] Configuration for filtering stale publisher prices at session start.
+    optional StalePriceFilterConfig stale_price_filter = 7;
+}
+
+// Configuration for filtering stale publisher prices when a market session begins.
+// When a session starts, publishers whose price has not moved beyond the threshold
+// for longer than the staleness duration are excluded from aggregation
+// during the initial window of the session.
+message StalePriceFilterConfig {
+    // [optional] Duration (seconds) after session start during which stale publisher
+    // prices are excluded from aggregation.
+    optional uint32 window_secs = 1;
+    // [optional] Price movement threshold in parts per million (PPM).
+    // Publishers whose price has not moved by at least this amount are considered stale.
+    optional uint64 moved_price_threshold_ppm = 2;
+    // [optional] Duration (seconds) a publisher price must be non-moving to be
+    // considered stale.
+    optional uint32 staleness_threshold_secs = 3;
 }
 
 // Feed-level schedule overrides for modifying an inherited exchange schedule.
@@ -345,6 +363,9 @@ message Feed {
     optional CorporateActionAdjustmentData corporate_actions_adjustment_data = 206;
     // [optional] Whether a new aggregate needs to be calculated because one of the inputs has changed.
     optional bool pending_aggregation = 207;
+    // [optional] Per-publisher snapshot of the latest price update where the price moved
+    // beyond the configured basis-point threshold relative to the previous moved price.
+    repeated FeedPublisherState publisher_latest_moved_price = 208;
 }
 
 // [optional] Accumulated data for EMA (exponential moving average) price or confidence interval.

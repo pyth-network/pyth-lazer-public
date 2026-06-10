@@ -1,4 +1,4 @@
-use {super::Price, assert_float_eq::assert_float_absolute_eq};
+use {super::Price, assert_float_eq::assert_float_absolute_eq, std::num::NonZeroI64};
 
 #[test]
 fn price_constructs() {
@@ -150,4 +150,79 @@ fn price_ops() {
         price2.mul_decimal(3456, -2).unwrap().to_f64(3).unwrap(),
         (42_000_f64 * 34.56 / 1000.).floor() * 1000.
     );
+}
+
+#[test]
+fn has_moved_with_same_exponent_basic() {
+    // 50 ppm = 0.5 bps
+    let threshold_ppm = 50;
+    let base = Price::from_mantissa(1_000_000).unwrap();
+
+    // Exactly at threshold: 1_000_000 * 50 / 1_000_000 = 50 → not moved
+    let at_threshold = Price::from_mantissa(1_000_050).unwrap();
+    assert!(!base.has_moved_with_same_exponent(at_threshold, threshold_ppm));
+
+    // Just above threshold
+    let above = Price::from_mantissa(1_000_051).unwrap();
+    assert!(base.has_moved_with_same_exponent(above, threshold_ppm));
+
+    // No movement
+    let same = Price::from_mantissa(1_000_000).unwrap();
+    assert!(!base.has_moved_with_same_exponent(same, threshold_ppm));
+}
+
+#[test]
+fn has_moved_with_same_exponent_negative_prices() {
+    let threshold_ppm = 50;
+    let base = Price::from_mantissa(-1_000_000).unwrap();
+
+    let moved = Price::from_mantissa(-1_000_051).unwrap();
+    assert!(base.has_moved_with_same_exponent(moved, threshold_ppm));
+
+    let not_moved = Price::from_mantissa(-1_000_050).unwrap();
+    assert!(!base.has_moved_with_same_exponent(not_moved, threshold_ppm));
+}
+
+#[test]
+fn has_moved_with_same_exponent_zero_threshold() {
+    let base = Price::from_mantissa(1_000_000).unwrap();
+
+    // Any difference should count as moved with 0 ppm threshold
+    let different = Price::from_mantissa(1_000_001).unwrap();
+    assert!(base.has_moved_with_same_exponent(different, 0));
+
+    // Same price should not count as moved even with 0 threshold
+    let same = Price::from_mantissa(1_000_000).unwrap();
+    assert!(!base.has_moved_with_same_exponent(same, 0));
+}
+
+#[test]
+fn has_moved_with_same_exponent_lhs_overflows_rhs_does_not() {
+    // diff * 1_000_000 overflows u64, old_abs * threshold_ppm does not → true
+    let base = Price::from_nonzero_mantissa(NonZeroI64::new(1).unwrap());
+    // diff = i64::MAX - 1, diff * 1_000_000 overflows
+    let far = Price::from_nonzero_mantissa(NonZeroI64::new(i64::MAX).unwrap());
+    // old_abs * threshold = 1 * 50 = 50, fits in u64
+    assert!(base.has_moved_with_same_exponent(far, 50));
+}
+
+#[test]
+fn has_moved_with_same_exponent_rhs_overflows_lhs_does_not() {
+    // diff * 1_000_000 does not overflow, old_abs * threshold_ppm overflows → false
+    let base = Price::from_nonzero_mantissa(NonZeroI64::new(i64::MAX).unwrap());
+    // diff = 1, diff * 1_000_000 = 1_000_000 fits
+    let near = Price::from_nonzero_mantissa(NonZeroI64::new(i64::MAX - 1).unwrap());
+    // old_abs * threshold = i64::MAX * 50, overflows u64
+    assert!(!base.has_moved_with_same_exponent(near, 50));
+}
+
+#[test]
+fn has_moved_with_same_exponent_both_overflow() {
+    // Both sides overflow → falls through to u128
+    let base = Price::from_nonzero_mantissa(NonZeroI64::new(i64::MAX / 2).unwrap());
+    // diff = i64::MAX / 2 - 1, diff * 1_000_000 overflows
+    let far = Price::from_nonzero_mantissa(NonZeroI64::new(1).unwrap());
+    // old_abs * 50 also overflows for i64::MAX / 2
+    // actual: diff ≈ 4.6e18, diff * 1e6 ≈ 4.6e24 vs old_abs * 50 ≈ 2.3e20 → moved
+    assert!(base.has_moved_with_same_exponent(far, 50));
 }
