@@ -231,6 +231,12 @@ message CorporateActionAdjustmentData {
     optional int64 pre_adjustment_price = 2;
 }
 
+message StalenessStorageData {
+    // [optional] End timestamp of the current stale-price filtering window.
+    // Absent when no window is active.
+    optional google.protobuf.Timestamp stale_window_end = 1;
+}
+
 message FeedMarketSchedule {
     // [required] Which session this applies to
     optional MarketSession session = 1;
@@ -366,6 +372,8 @@ message Feed {
     // [optional] Per-publisher snapshot of the latest price update where the price moved
     // beyond the configured basis-point threshold relative to the previous moved price.
     repeated FeedPublisherState publisher_latest_moved_price = 208;
+    // [optional] Persisted staleness window state for stale-price filtering.
+    optional StalenessStorageData staleness_storage_data = 209;
 }
 
 // [optional] Accumulated data for EMA (exponential moving average) price or confidence interval.
