@@ -10,14 +10,21 @@ members = [
 ]
 
 [workspace.dependencies]
+alloy-primitives = "0.8.5"
 anyhow = "1.0.98"
 arc-swap = "1.7.1"
+assert_float_eq = "1.1.4"
 async-nats = "0.49.0"
 async-stream = "0.3.6"
+async-stripe = "=1.0.0-rc.6"
+async-stripe-shared = "=1.0.0-rc.6"
 async-trait = "0.1.88"
+atomicwrites = "0.4.4"
 aws-config = "1.8.17"
 aws-sdk-s3 = "1.124.0"
+axum-otel-metrics = "0.10.0"
 base64 = "0.22.1"
+bimap = "0.6.3"
 bip32 = "0.5.2"
 borsh = "1.6.1"
 bs58 = "0.5.1"
@@ -25,26 +32,36 @@ byteorder = "1.5.0"
 cadd = "0.2.0"
 chrono-tz = "0.10.3"
 config = "0.15.11"
+crossbeam-skiplist = "0.1.3"
 csv = "1.4.0"
 dashmap = "6.1.0"
 derivative = "2.2.0"
-derive_more = "2.0.1"
 displaydoc = "0.2"
 dotenvy = "0.15.7"
+fefix = "0.7"
+flate2 = "1.1"
 fs-err = "3.1.1"
 futures = "0.3.31"
 futures-util = "0.3.31"
 governor = "0.10.0"
 headers = "0.4.0"
+hmac = "0.12.1"
 http = "1.3.1"
+http-body = "1"
 http-body-util = "0.1.3"
+httpmock = "0.7"
+humantime = "2.2.0"
 humantime-serde = "1.1.1"
 itertools = "0.14.0"
+json = "0.12.4"
 json-pretty-compact = "0.1.2"
+jsonwebtoken = "9.3.1"
 lazy_static = "1.5.0"
 libsecp256k1 = "0.7.1"
 mockall = "0.13.1"
+mollusk-svm = "0.11.0"
 mry = "0.13.0"
+native-tls = "0.2"
 nuid = "0.5.0"
 num-traits = "0.2.19"
 opentelemetry = "0.28.0"
@@ -58,15 +75,19 @@ prometheus_exporter = "0.8.5"
 proptest = "1.11.0"
 prost = "0.14.3"
 protobuf = "3.4.0"
+protobuf-codegen = "3.7.2"
 protobuf-json-mapping = "3.4.0"
 pyth-hermes-client-rust = "0.0.1"
 pyth-sdk = "0.8.0"
 pythnet-sdk = "2.3.1"
 quote = "1.0"
 rand = "0.10.1"
+replace_with = "0.1.8"
 reqwest-eventsource = "0.6.0"
+rpassword = "7.3.1"
 run_every = "0.1.1"
 scopeguard = "1.2.0"
+serde-big-array = "0.5.1"
 serde_bytes = "0.11.17"
 serde_json = "1.0.140"
 serde_plain = "1.0.2"
@@ -77,9 +98,14 @@ sha3 = "0.10.8"
 solana-account = "3.4.0"
 solana-address = "2.2.0"
 solana-instruction = "3.2.0"
+solana-pubkey = "3.0.0"
+solana-sdk-ids = "3.1.0"
+solana-system-interface = "3"
 sqlx = "0.8.1"
 stream_generator = "0.1.0"
+tempfile = "3.23.0"
 thiserror = "2.0.12"
+tokio-native-tls = "0.3"
 tokio-stream = "0.1.17"
 toml = "0.8.19"
 tonic-health = "0.14.5"
@@ -103,6 +129,14 @@ version = "0.43.0"
 [workspace.dependencies.pyth-lazer-publisher-sdk]
 path = "publisher_sdk/rust"
 version = "0.43.0"
+
+[workspace.dependencies.async-stripe-core]
+features = ["customer"]
+version = "=1.0.0-rc.6"
+
+[workspace.dependencies.async-stripe-misc]
+features = ["entitlements_active_entitlement", "entitlements_feature"]
+version = "=1.0.0-rc.6"
 
 [workspace.dependencies.axum]
 features = ["ws"]
@@ -153,6 +187,10 @@ default-features = false
 features = ["cargo_bench_support"]
 version = "0.5"
 
+[workspace.dependencies.derive_more]
+features = ["full"]
+version = "2.0.1"
+
 [workspace.dependencies.ed25519-dalek]
 features = ["rand_core"]
 version = "2.1.1"
@@ -181,6 +219,10 @@ version = "0.13.4"
 features = ["future"]
 version = "0.12.15"
 
+[workspace.dependencies.opentelemetry-otlp]
+features = ["grpc-tonic"]
+version = "0.28.0"
+
 [workspace.dependencies.opentelemetry_sdk]
 features = ["rt-tokio"]
 version = "0.28.0"
@@ -193,7 +235,15 @@ version = "0.51.0"
 version = "0.37.0"
 
 [workspace.dependencies.reqwest]
-features = ["json", "multipart"]
+default-features = false
+features = [
+  "charset",
+  "http2",
+  "json",
+  "multipart",
+  "rustls-tls",
+  "system-proxy",
+]
 version = "0.12.23"
 
 [workspace.dependencies.rust_decimal]
@@ -211,6 +261,10 @@ version = "3.10.0"
 [workspace.dependencies.serde_wormhole]
 git = "https://github.com/wormhole-foundation/wormhole"
 tag = "v2.17.1"
+
+[workspace.dependencies.signature]
+features = ["rand_core"]
+version = "2.2.0"
 
 [workspace.dependencies.soketto]
 features = ["http"]
@@ -271,6 +325,10 @@ version = "6"
 [workspace.dependencies.utoipa-swagger-ui]
 features = ["axum"]
 version = "9.0.0"
+
+[workspace.dependencies.uuid]
+features = ["serde", "v4"]
+version = "1"
 
 [workspace.dependencies.winnow]
 version = "0.7.6"

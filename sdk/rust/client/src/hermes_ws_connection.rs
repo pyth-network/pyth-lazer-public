@@ -84,7 +84,7 @@ impl PythLazerHermesWSConnection {
     pub async fn send_message(&mut self, message: &HermesWsClientMessage) -> Result<()> {
         if let Some(sender) = &mut self.ws_sender {
             let msg = serde_json::to_string(message)?;
-            sender.send(Message::Text(msg)).await?;
+            sender.send(Message::Text(msg.into())).await?;
             Ok(())
         } else {
             anyhow::bail!("Hermes WebSocket connection not started")

@@ -108,7 +108,7 @@ impl PythLazerWSConnection {
     pub async fn send_request(&mut self, request: WsRequest) -> Result<()> {
         if let Some(sender) = &mut self.ws_sender {
             let msg = serde_json::to_string(&request)?;
-            sender.send(Message::Text(msg)).await?;
+            sender.send(Message::Text(msg.into())).await?;
             Ok(())
         } else {
             anyhow::bail!("WebSocket connection not started")

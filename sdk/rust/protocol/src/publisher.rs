@@ -106,10 +106,15 @@ fn price_feed_data_v1_serde() {
         )),
     };
     assert_eq!(
-        bincode::deserialize::<PriceFeedDataV1>(&data).unwrap(),
+        bincode::serde::decode_from_slice::<PriceFeedDataV1, _>(&data, bincode::config::legacy())
+            .unwrap()
+            .0,
         expected
     );
-    assert_eq!(bincode::serialize(&expected).unwrap(), data);
+    assert_eq!(
+        bincode::serde::encode_to_vec(&expected, bincode::config::legacy()).unwrap(),
+        data
+    );
 
     let data2 = [
         1, 0, 0, 0, // price_feed_id
@@ -128,10 +133,15 @@ fn price_feed_data_v1_serde() {
         best_ask_price: None,
     };
     assert_eq!(
-        bincode::deserialize::<PriceFeedDataV1>(&data2).unwrap(),
+        bincode::serde::decode_from_slice::<PriceFeedDataV1, _>(&data2, bincode::config::legacy())
+            .unwrap()
+            .0,
         expected2
     );
-    assert_eq!(bincode::serialize(&expected2).unwrap(), data2);
+    assert_eq!(
+        bincode::serde::encode_to_vec(&expected2, bincode::config::legacy()).unwrap(),
+        data2
+    );
 }
 
 #[test]
@@ -158,10 +168,15 @@ fn price_feed_data_v2_serde() {
         funding_rate: None,
     };
     assert_eq!(
-        bincode::deserialize::<PriceFeedDataV2>(&data).unwrap(),
+        bincode::serde::decode_from_slice::<PriceFeedDataV2, _>(&data, bincode::config::legacy())
+            .unwrap()
+            .0,
         expected
     );
-    assert_eq!(bincode::serialize(&expected).unwrap(), data);
+    assert_eq!(
+        bincode::serde::encode_to_vec(&expected, bincode::config::legacy()).unwrap(),
+        data
+    );
 
     let data2 = [
         1, 0, 0, 0, // price_feed_id
@@ -182,8 +197,13 @@ fn price_feed_data_v2_serde() {
         funding_rate: Some(Rate::from_mantissa(3 * 256 + 7)),
     };
     assert_eq!(
-        bincode::deserialize::<PriceFeedDataV2>(&data2).unwrap(),
+        bincode::serde::decode_from_slice::<PriceFeedDataV2, _>(&data2, bincode::config::legacy())
+            .unwrap()
+            .0,
         expected2
     );
-    assert_eq!(bincode::serialize(&expected2).unwrap(), data2);
+    assert_eq!(
+        bincode::serde::encode_to_vec(&expected2, bincode::config::legacy()).unwrap(),
+        data2
+    );
 }

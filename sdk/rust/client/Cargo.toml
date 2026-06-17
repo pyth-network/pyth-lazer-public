@@ -10,34 +10,34 @@ repository = "https://github.com/pyth-network/pyth-lazer-public"
 pyth-lazer-protocol = { workspace = true }
 pyth-lazer-publisher-sdk = { workspace = true }
 
-anyhow = "1.0"
+anyhow = { workspace = true }
 arc-swap = { workspace = true }
-async-trait = "0.1.89"
-atomicwrites = "0.4.4"
-backoff = { version = "0.4.0", features = ["futures", "tokio"] }
+async-trait = { workspace = true }
+atomicwrites = { workspace = true }
+backoff = { workspace = true }
 base64 = { workspace = true }
 derivative = { workspace = true }
-derive_more = { version = "1.0.0", features = ["from"] }
+derive_more = { workspace = true, features = ["from"] }
 fs-err = { workspace = true }
 futures = { workspace = true }
-futures-util = "0.3"
+futures-util = { workspace = true }
 humantime-serde = { workspace = true }
 protobuf-json-mapping = { workspace = true }
 reqwest = { workspace = true, features = ["json"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-serde_with = "3.15.1"
-tokio = { version = "1", features = ["full"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_with = { workspace = true }
+tokio = { workspace = true }
 tokio-stream = { workspace = true }
-tokio-tungstenite = { version = "0.20", features = ["native-tls"] }
-tracing = "0.1"
-ttl_cache = "0.5.1"
-url = { version = "2.4", features = ["serde"] }
+tokio-tungstenite = { workspace = true }
+tracing = { workspace = true }
+ttl_cache = { workspace = true }
+url = { workspace = true }
 
 [dev-dependencies]
-httpmock = "0.7"
-ed25519-dalek = { version = "2.1.1", features = ["rand_core"] }
-hex = "0.4.3"
-libsecp256k1 = "0.7.1"
-alloy-primitives = "0.8.19"
+httpmock = { workspace = true }
+ed25519-dalek = { workspace = true }
+hex = { workspace = true }
+libsecp256k1 = { workspace = true }
+alloy-primitives = { workspace = true }
 tracing-subscriber = { workspace = true }
