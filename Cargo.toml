@@ -148,6 +148,11 @@ version = "4.5.32"
 features = ["inserter", "native-tls", "uuid"]
 version = "0.13.2"
 
+[workspace.dependencies.criterion]
+default-features = false
+features = ["cargo_bench_support"]
+version = "0.5"
+
 [workspace.dependencies.ed25519-dalek]
 features = ["rand_core"]
 version = "2.1.1"
@@ -163,6 +168,10 @@ version = "1.6.0"
 [workspace.dependencies.hyper-util]
 features = ["tokio"]
 version = "0.1.10"
+
+[workspace.dependencies.insta]
+features = ["yaml"]
+version = "1.41"
 
 [workspace.dependencies.k256]
 features = ["ecdsa"]
