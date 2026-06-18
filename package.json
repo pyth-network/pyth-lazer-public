@@ -219,6 +219,7 @@
     "@npmcli/map-workspaces": "catalog:",
     "@pythnetwork/logger": "workspace:",
     "@testing-library/react": "catalog:",
+    "@testing-library/user-event": "catalog:",
     "@types/bun": "catalog:",
     "@types/node": "catalog:",
     "@types/yargs": "catalog:",
