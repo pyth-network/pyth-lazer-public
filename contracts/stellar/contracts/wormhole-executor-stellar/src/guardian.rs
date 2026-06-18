@@ -7,14 +7,26 @@ const TTL_THRESHOLD: u32 = 100_000;
 /// TTL extension target: extend to this value (~29 days in ledgers at ~5s/ledger).
 const TTL_EXTEND_TO: u32 = 500_000;
 
+/// 24-hour expiration window in seconds for old guardian sets after an upgrade.
+const GUARDIAN_SET_EXPIRY: u64 = 86400;
+
+/// A guardian set stored with an optional expiration timestamp.
+///
+/// When `expiration_time` is `None`, the set never expires (it is the current set).
+/// When `Some(t)`, the set is rejected once the ledger timestamp reaches `t`.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct StoredGuardianSet {
+    pub keys: Vec<BytesN<20>>,
+    pub expiration_time: Option<u64>,
+}
+
 /// Storage keys for the executor contract.
 #[contracttype]
 #[derive(Clone, Debug)]
 pub enum DataKey {
     /// Whether the contract has been initialized.
     Initialized,
-    /// The current guardian set: Vec<BytesN<20>> (Ethereum addresses).
-    GuardianSet,
     /// The current guardian set index (u32).
     GuardianSetIndex,
     /// The Wormhole chain ID for this chain (u16 stored as u32).
@@ -32,6 +44,8 @@ pub enum DataKey {
     GsUpgradeEmitterAddress,
     /// The last executed governance sequence number (u64).
     LastExecutedSequence,
+    /// A guardian set stored by its index: StoredGuardianSet.
+    GuardianSetByIndex(u32),
 }
 
 /// Store the initial contract configuration.
@@ -58,9 +72,14 @@ pub fn initialize(
     }
 
     env.storage().instance().set(&DataKey::Initialized, &true);
-    env.storage()
-        .persistent()
-        .set(&DataKey::GuardianSet, &initial_guardian_set);
+    let stored_set = StoredGuardianSet {
+        keys: initial_guardian_set,
+        expiration_time: None, // current set never expires
+    };
+    env.storage().persistent().set(
+        &DataKey::GuardianSetByIndex(guardian_set_index),
+        &stored_set,
+    );
     env.storage()
         .persistent()
         .set(&DataKey::GuardianSetIndex, &guardian_set_index);
@@ -83,7 +102,8 @@ pub fn initialize(
         .set(&DataKey::LastExecutedSequence, &0u64);
 
     // Extend TTL for all persistent entries.
-    extend_guardian_set_ttl(env);
+    extend_guardian_set_by_index_ttl(env, guardian_set_index);
+    extend_persistent_ttl(env);
     extend_instance_ttl(env);
 
     Ok(())
@@ -97,13 +117,23 @@ pub fn require_initialized(env: &Env) -> Result<(), ContractError> {
     Ok(())
 }
 
-/// Get the current guardian set.
+/// Get the current guardian set keys.
 pub fn get_guardian_set(env: &Env) -> Result<Vec<BytesN<20>>, ContractError> {
-    extend_guardian_set_ttl(env);
+    let index = get_guardian_set_index(env)?;
+    let stored = get_guardian_set_by_index(env, index)?;
+    Ok(stored.keys)
+}
+
+/// Get a guardian set by its index.
+pub fn get_guardian_set_by_index(
+    env: &Env,
+    index: u32,
+) -> Result<StoredGuardianSet, ContractError> {
+    extend_guardian_set_by_index_ttl(env, index);
     env.storage()
         .persistent()
-        .get(&DataKey::GuardianSet)
-        .ok_or(ContractError::NotInitialized)
+        .get(&DataKey::GuardianSetByIndex(index))
+        .ok_or(ContractError::GuardianSetNotFound)
 }
 
 /// Get the current guardian set index.
@@ -169,15 +199,35 @@ pub fn set_last_executed_sequence(env: &Env, sequence: u64) {
         .set(&DataKey::LastExecutedSequence, &sequence);
 }
 
-/// Update the guardian set. Stores the new set and increments the index.
+/// Update the guardian set. Expires the old set (24h window) and stores the new one.
 pub fn store_guardian_set(env: &Env, new_guardian_set: Vec<BytesN<20>>, new_index: u32) {
+    // Expire the old guardian set with a 24-hour grace window.
+    let old_index = new_index - 1;
+    if let Some(mut old_set) = env
+        .storage()
+        .persistent()
+        .get::<_, StoredGuardianSet>(&DataKey::GuardianSetByIndex(old_index))
+    {
+        old_set.expiration_time = Some(env.ledger().timestamp() + GUARDIAN_SET_EXPIRY);
+        env.storage()
+            .persistent()
+            .set(&DataKey::GuardianSetByIndex(old_index), &old_set);
+        extend_guardian_set_by_index_ttl(env, old_index);
+    }
+
+    // Store the new guardian set (None expiration means it never expires while current).
+    let stored_set = StoredGuardianSet {
+        keys: new_guardian_set,
+        expiration_time: None,
+    };
     env.storage()
         .persistent()
-        .set(&DataKey::GuardianSet, &new_guardian_set);
+        .set(&DataKey::GuardianSetByIndex(new_index), &stored_set);
     env.storage()
         .persistent()
         .set(&DataKey::GuardianSetIndex, &new_index);
-    extend_guardian_set_ttl(env);
+    extend_guardian_set_by_index_ttl(env, new_index);
+    extend_persistent_ttl(env);
 }
 
 /// Derive an Ethereum address from an uncompressed secp256k1 public key.
@@ -204,11 +254,23 @@ pub fn quorum(num_guardians: u32) -> u32 {
     (((num_guardians * 10) / 3) * 2) / 10 + 1
 }
 
-/// Extend TTL on guardian set persistent storage entries.
-fn extend_guardian_set_ttl(env: &Env) {
-    env.storage()
+/// Extend TTL on a specific guardian set entry by index.
+fn extend_guardian_set_by_index_ttl(env: &Env, index: u32) {
+    if env
+        .storage()
         .persistent()
-        .extend_ttl(&DataKey::GuardianSet, TTL_THRESHOLD, TTL_EXTEND_TO);
+        .has(&DataKey::GuardianSetByIndex(index))
+    {
+        env.storage().persistent().extend_ttl(
+            &DataKey::GuardianSetByIndex(index),
+            TTL_THRESHOLD,
+            TTL_EXTEND_TO,
+        );
+    }
+}
+
+/// Extend TTL on non-guardian-set persistent storage entries.
+fn extend_persistent_ttl(env: &Env) {
     env.storage()
         .persistent()
         .extend_ttl(&DataKey::GuardianSetIndex, TTL_THRESHOLD, TTL_EXTEND_TO);

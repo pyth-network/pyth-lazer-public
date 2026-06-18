@@ -50,4 +50,8 @@ pub enum ContractError {
     InvalidGovernanceModule = 21,
     /// The PTGM target contract does not match the executor for a self-upgrade action.
     InvalidTargetContract = 22,
+    /// The guardian set for the given index was not found in storage.
+    GuardianSetNotFound = 23,
+    /// The guardian set has expired (past the 24-hour grace window after upgrade).
+    GuardianSetExpired = 24,
 }

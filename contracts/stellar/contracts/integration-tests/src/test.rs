@@ -8,6 +8,7 @@ use tiny_keccak::{Hasher, Keccak};
 use pyth_lazer_stellar::{
     payload, ContractError as LazerError, PythLazerContract, PythLazerContractClient,
 };
+use wormhole_executor_stellar::error::ContractError as ExecutorError;
 use wormhole_executor_stellar::{WormholeExecutor, WormholeExecutorClient};
 
 // ──────────────────────────────────────────────────────────────────────
@@ -1108,4 +1109,334 @@ fn test_upgrade_executor_replay_rejected() {
     // Replay with the same sequence must fail.
     let result = te.executor_client.try_execute_governance_action(&vaa_bytes);
     assert!(result.is_err());
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Guardian set 24-hour expiration window tests
+// ──────────────────────────────────────────────────────────────────────
+
+/// Helper: upgrade guardian set and return the new secret.
+fn do_guardian_set_upgrade(
+    te: &TestEnv,
+    old_guardian_set_index: u32,
+    new_index: u32,
+    old_signers: &[(u8, [u8; 32])],
+    new_guardians: &[[u8; 20]],
+) {
+    let upgrade_payload = build_guardian_set_upgrade_payload(0, new_index, new_guardians);
+    let body = build_body(
+        1000 + new_index,
+        0,
+        GS_UPGRADE_EMITTER_CHAIN as u16,
+        &te.gs_upgrade_emitter_address,
+        new_index as u64,
+        0,
+        &upgrade_payload,
+    );
+    let vaa_raw = build_signed_vaa(old_guardian_set_index, old_signers, &body);
+    te.executor_client
+        .update_guardian_set(&Bytes::from_slice(&te.env, &vaa_raw));
+}
+
+/// After a guardian set upgrade, VAAs signed by the old guardian set should
+/// still be accepted during the 24-hour grace window.
+#[test]
+fn test_old_guardian_set_accepted_during_24h_window() {
+    let te = setup(1);
+
+    // Set an initial timestamp.
+    te.env.ledger().with_mut(|li| {
+        li.timestamp = 100_000;
+    });
+
+    // Upgrade guardian set 0 -> 1.
+    let new_secret = test_secret(10);
+    let new_addr = eth_address_from_secret(&new_secret);
+    do_guardian_set_upgrade(&te, 0, 1, &[(0u8, te.guardian_secrets[0])], &[new_addr]);
+
+    // Add a trusted signer via governance using the NEW guardian set (index 1).
+    let pubkey = test_trusted_signer_pubkey();
+    let ptgm = build_ptgm_update_signer(
+        CHAIN_ID as u16,
+        &te.executor_client.address,
+        &te.lazer_client.address,
+        &pubkey,
+        2_000_000_000,
+    );
+    let gov_body = build_body(
+        2000,
+        0,
+        OWNER_EMITTER_CHAIN as u16,
+        &te.owner_emitter_address,
+        2,
+        0,
+        &ptgm,
+    );
+    let gov_vaa = build_signed_vaa(1, &[(0u8, new_secret)], &gov_body);
+    te.executor_client
+        .execute_governance_action(&Bytes::from_slice(&te.env, &gov_vaa));
+
+    // Now use the OLD guardian set (index 0) to execute another governance action
+    // within the 24h window. Advance time by 12 hours (< 24h).
+    te.env.ledger().with_mut(|li| {
+        li.timestamp = 100_000 + 43_200; // 12 hours later
+    });
+
+    let ptgm2 = build_ptgm_update_signer(
+        CHAIN_ID as u16,
+        &te.executor_client.address,
+        &te.lazer_client.address,
+        &pubkey,
+        3_000_000_000,
+    );
+    let gov_body2 = build_body(
+        3000,
+        0,
+        OWNER_EMITTER_CHAIN as u16,
+        &te.owner_emitter_address,
+        3,
+        0,
+        &ptgm2,
+    );
+    // Sign with the OLD guardian set (index 0).
+    let gov_vaa2 = build_signed_vaa(0, &[(0u8, te.guardian_secrets[0])], &gov_body2);
+    let result = te
+        .executor_client
+        .try_execute_governance_action(&Bytes::from_slice(&te.env, &gov_vaa2));
+    assert!(
+        result.is_ok(),
+        "Old guardian set should be accepted within 24h window"
+    );
+}
+
+/// After the 24-hour grace window expires, VAAs signed by the old guardian set
+/// should be rejected.
+#[test]
+fn test_old_guardian_set_rejected_after_24h_window() {
+    let te = setup(1);
+
+    te.env.ledger().with_mut(|li| {
+        li.timestamp = 100_000;
+    });
+
+    // Upgrade guardian set 0 -> 1.
+    let new_secret = test_secret(10);
+    let new_addr = eth_address_from_secret(&new_secret);
+    do_guardian_set_upgrade(&te, 0, 1, &[(0u8, te.guardian_secrets[0])], &[new_addr]);
+
+    // Advance time past 24 hours.
+    te.env.ledger().with_mut(|li| {
+        li.timestamp = 100_000 + 86_400; // exactly 24h (expiration is >=)
+    });
+
+    // Try governance with the OLD guardian set (index 0) — should fail.
+    let pubkey = test_trusted_signer_pubkey();
+    let ptgm = build_ptgm_update_signer(
+        CHAIN_ID as u16,
+        &te.executor_client.address,
+        &te.lazer_client.address,
+        &pubkey,
+        2_000_000_000,
+    );
+    let gov_body = build_body(
+        2000,
+        0,
+        OWNER_EMITTER_CHAIN as u16,
+        &te.owner_emitter_address,
+        1,
+        0,
+        &ptgm,
+    );
+    let gov_vaa = build_signed_vaa(0, &[(0u8, te.guardian_secrets[0])], &gov_body);
+    let result = te
+        .executor_client
+        .try_execute_governance_action(&Bytes::from_slice(&te.env, &gov_vaa));
+    assert_eq!(
+        result.err().unwrap().unwrap(),
+        ExecutorError::GuardianSetExpired
+    );
+}
+
+/// Multiple sequential upgrades: each old set gets its own 24h window.
+/// The most recently retired set should be valid, while an older one
+/// that has timed out should be rejected.
+#[test]
+fn test_multiple_sequential_upgrades_with_overlapping_windows() {
+    let te = setup(1);
+
+    te.env.ledger().with_mut(|li| {
+        li.timestamp = 100_000;
+    });
+
+    // Upgrade 0 -> 1
+    let secret_1 = test_secret(10);
+    let addr_1 = eth_address_from_secret(&secret_1);
+    do_guardian_set_upgrade(&te, 0, 1, &[(0u8, te.guardian_secrets[0])], &[addr_1]);
+
+    // Advance 12 hours, then upgrade 1 -> 2
+    te.env.ledger().with_mut(|li| {
+        li.timestamp = 100_000 + 43_200; // 12h after first upgrade
+    });
+
+    let secret_2 = test_secret(20);
+    let addr_2 = eth_address_from_secret(&secret_2);
+    do_guardian_set_upgrade(&te, 1, 2, &[(0u8, secret_1)], &[addr_2]);
+
+    // First, add a trusted signer using current set (index 2) so we can test governance.
+    let pubkey = test_trusted_signer_pubkey();
+    let ptgm_setup = build_ptgm_update_signer(
+        CHAIN_ID as u16,
+        &te.executor_client.address,
+        &te.lazer_client.address,
+        &pubkey,
+        2_000_000_000,
+    );
+    let gov_body_setup = build_body(
+        3000,
+        0,
+        OWNER_EMITTER_CHAIN as u16,
+        &te.owner_emitter_address,
+        3,
+        0,
+        &ptgm_setup,
+    );
+    let gov_vaa_setup = build_signed_vaa(2, &[(0u8, secret_2)], &gov_body_setup);
+    te.executor_client
+        .execute_governance_action(&Bytes::from_slice(&te.env, &gov_vaa_setup));
+
+    // Now at T=143200: set 0 expires at T=186400, set 1 expires at T=229600.
+    // Both old sets should still be valid.
+
+    // Advance to T=190000 (set 0 has expired, set 1 still valid).
+    te.env.ledger().with_mut(|li| {
+        li.timestamp = 190_000;
+    });
+
+    // Set 1 (expired at T=229600) should still work.
+    let ptgm_1 = build_ptgm_update_signer(
+        CHAIN_ID as u16,
+        &te.executor_client.address,
+        &te.lazer_client.address,
+        &pubkey,
+        3_000_000_000,
+    );
+    let gov_body_1 = build_body(
+        4000,
+        0,
+        OWNER_EMITTER_CHAIN as u16,
+        &te.owner_emitter_address,
+        4,
+        0,
+        &ptgm_1,
+    );
+    let gov_vaa_1 = build_signed_vaa(1, &[(0u8, secret_1)], &gov_body_1);
+    let result = te
+        .executor_client
+        .try_execute_governance_action(&Bytes::from_slice(&te.env, &gov_vaa_1));
+    assert!(result.is_ok(), "Set 1 should still be valid at T=190000");
+
+    // Set 0 (expired at T=186400) should be rejected.
+    let ptgm_0 = build_ptgm_update_signer(
+        CHAIN_ID as u16,
+        &te.executor_client.address,
+        &te.lazer_client.address,
+        &pubkey,
+        4_000_000_000,
+    );
+    let gov_body_0 = build_body(
+        5000,
+        0,
+        OWNER_EMITTER_CHAIN as u16,
+        &te.owner_emitter_address,
+        5,
+        0,
+        &ptgm_0,
+    );
+    let gov_vaa_0 = build_signed_vaa(0, &[(0u8, te.guardian_secrets[0])], &gov_body_0);
+    let result = te
+        .executor_client
+        .try_execute_governance_action(&Bytes::from_slice(&te.env, &gov_vaa_0));
+    assert_eq!(
+        result.err().unwrap().unwrap(),
+        ExecutorError::GuardianSetExpired
+    );
+}
+
+/// Adversarial: replaying a VAA with a very old guardian set index that was
+/// never stored should fail with GuardianSetNotFound.
+#[test]
+fn test_replay_with_unknown_guardian_set_index() {
+    let te = setup(1);
+
+    // Try to verify a VAA with guardian_set_index = 99 (never existed).
+    let pubkey = test_trusted_signer_pubkey();
+    let ptgm = build_ptgm_update_signer(
+        CHAIN_ID as u16,
+        &te.executor_client.address,
+        &te.lazer_client.address,
+        &pubkey,
+        2_000_000_000,
+    );
+    let body = build_body(
+        1000,
+        0,
+        OWNER_EMITTER_CHAIN as u16,
+        &te.owner_emitter_address,
+        1,
+        0,
+        &ptgm,
+    );
+    // Sign with a valid secret but claim guardian_set_index = 99.
+    let vaa_raw = build_signed_vaa(99, &[(0u8, te.guardian_secrets[0])], &body);
+    let result = te
+        .executor_client
+        .try_execute_governance_action(&Bytes::from_slice(&te.env, &vaa_raw));
+    assert_eq!(
+        result.err().unwrap().unwrap(),
+        ExecutorError::GuardianSetNotFound
+    );
+}
+
+/// Current guardian set should always be accepted regardless of time elapsed.
+#[test]
+fn test_current_guardian_set_always_accepted() {
+    let te = setup(1);
+
+    te.env.ledger().with_mut(|li| {
+        li.timestamp = 100_000;
+    });
+
+    // Upgrade guardian set 0 -> 1.
+    let new_secret = test_secret(10);
+    let new_addr = eth_address_from_secret(&new_secret);
+    do_guardian_set_upgrade(&te, 0, 1, &[(0u8, te.guardian_secrets[0])], &[new_addr]);
+
+    // Advance far into the future.
+    te.env.ledger().with_mut(|li| {
+        li.timestamp = 100_000_000;
+    });
+
+    // Current set (index 1) should always work.
+    let pubkey = test_trusted_signer_pubkey();
+    let ptgm = build_ptgm_update_signer(
+        CHAIN_ID as u16,
+        &te.executor_client.address,
+        &te.lazer_client.address,
+        &pubkey,
+        2_000_000_000,
+    );
+    let gov_body = build_body(
+        2000,
+        0,
+        OWNER_EMITTER_CHAIN as u16,
+        &te.owner_emitter_address,
+        2,
+        0,
+        &ptgm,
+    );
+    let gov_vaa = build_signed_vaa(1, &[(0u8, new_secret)], &gov_body);
+    let result = te
+        .executor_client
+        .try_execute_governance_action(&Bytes::from_slice(&te.env, &gov_vaa));
+    assert!(result.is_ok(), "Current guardian set should never expire");
 }

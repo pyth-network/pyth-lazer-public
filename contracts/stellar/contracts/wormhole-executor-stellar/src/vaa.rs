@@ -149,20 +149,26 @@ pub fn parse_vaa(env: &Env, data: &Bytes) -> Result<Vaa, ContractError> {
 /// Verify a parsed VAA against the stored guardian set.
 ///
 /// This function:
-/// 1. Checks the guardian_set_index matches the stored index.
-/// 2. Computes the Wormhole double-hash: `keccak256(keccak256(body))`.
-/// 3. For each signature, recovers the signer via `secp256k1_recover`.
-/// 4. Derives the Ethereum address from the recovered public key.
-/// 5. Checks the address matches the stored guardian at the given index.
-/// 6. Verifies quorum (2/3 + 1 of guardians have valid signatures).
-/// 7. Checks for duplicate guardian indices.
+/// 1. Looks up the guardian set by the VAA's `guardian_set_index`.
+/// 2. Checks whether it has expired (the current set has no expiration).
+/// 3. Computes the Wormhole double-hash: `keccak256(keccak256(body))`.
+/// 4. For each signature, recovers the signer via `secp256k1_recover`.
+/// 5. Derives the Ethereum address from the recovered public key.
+/// 6. Checks the address matches the stored guardian at the given index.
+/// 7. Verifies quorum (2/3 + 1 of guardians have valid signatures).
+/// 8. Checks for duplicate guardian indices.
 pub fn verify_vaa(env: &Env, vaa: &Vaa) -> Result<(), ContractError> {
-    let stored_index = guardian::get_guardian_set_index(env)?;
-    if vaa.guardian_set_index != stored_index {
-        return Err(ContractError::InvalidGuardianSetIndex);
+    // Look up the guardian set by the VAA's index. The current set has no
+    // expiration; retired sets carry an expiration timestamp set at upgrade.
+    let stored_set = guardian::get_guardian_set_by_index(env, vaa.guardian_set_index)?;
+
+    if let Some(expiration_time) = stored_set.expiration_time {
+        if env.ledger().timestamp() >= expiration_time {
+            return Err(ContractError::GuardianSetExpired);
+        }
     }
 
-    let guardian_set = guardian::get_guardian_set(env)?;
+    let guardian_set = stored_set.keys;
     let num_guardians = guardian_set.len();
     let required = guardian::quorum(num_guardians);
 

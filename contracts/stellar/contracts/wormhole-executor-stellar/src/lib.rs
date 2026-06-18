@@ -79,9 +79,8 @@ impl WormholeExecutor {
     ///   [20 bytes] Ethereum address
     /// ```
     ///
-    /// FIXME: the handling of the guardian sets here is wrong. It needs to expire the current guardian set
-    /// and update to the next guardian set, creating the 24h period where both guardian sets are accepted.
-    /// Look at the ethereum wormhole contract implementation for a guide to how this should work.
+    /// When upgraded, the old guardian set is given a 24-hour expiration window
+    /// during which VAAs signed by either set are accepted.
     pub fn update_guardian_set(env: Env, vaa_bytes: Bytes) -> Result<(), ContractError> {
         guardian::require_initialized(&env)?;
         guardian::extend_instance_ttl(&env);

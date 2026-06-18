@@ -305,7 +305,7 @@ fn test_verify_vaa_wrong_guardian_set_index() {
     let vaa = parse_vaa(&env, &vaa_bytes).unwrap();
     env.as_contract(&contract_id, || {
         let result = verify_vaa(&env, &vaa);
-        assert_eq!(result.err(), Some(ContractError::InvalidGuardianSetIndex));
+        assert_eq!(result.err(), Some(ContractError::GuardianSetNotFound));
     });
 }
 
