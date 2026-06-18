@@ -10,6 +10,6 @@ crate-type = ["cdylib", "rlib"]
 soroban-sdk = { workspace = true }
 
 [dev-dependencies]
-soroban-sdk = { workspace = true, features = ["testutils"] }
+soroban-sdk = { workspace = true, features = ["testutils", "alloc"] }
 k256 = { version = "0.13", features = ["ecdsa"] }
 tiny-keccak = { version = "2.0", features = ["keccak"] }

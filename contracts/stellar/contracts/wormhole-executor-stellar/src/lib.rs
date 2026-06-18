@@ -9,11 +9,13 @@ pub mod vaa;
 #[cfg(test)]
 mod test;
 
-use soroban_sdk::{contract, contractimpl, Bytes, BytesN, Env, IntoVal, Symbol, Vec};
+use soroban_sdk::{
+    contract, contractimpl, xdr::FromXdr, Bytes, BytesN, Env, Symbol, TryFromVal, Val, Vec,
+};
 
 use crate::bytes::{get_byte, read_be_u16, read_be_u32};
 use crate::error::ContractError;
-use crate::governance::{parse_ptgm, GovernanceAction};
+use crate::governance::{parse_ptgm, GovernanceAction, MAX_SYMBOL_LEN};
 use crate::vaa::{parse_vaa, verify_vaa};
 
 /// Wormhole core governance module identifier ("Core" right-aligned in 32 bytes).
@@ -210,37 +212,23 @@ impl WormholeExecutor {
         // Update last executed sequence.
         guardian::set_last_executed_sequence(&env, vaa.body.sequence);
 
-        // Parse the PTGM governance instruction.
+        // Parse the PTGM governance instruction. The payload carries a fully
+        // generic call descriptor (target contract, function name, args) so
+        // the executor can dispatch to any governance-protected function
+        // without code changes per action.
         let our_chain = guardian::get_chain_id(&env)?;
-        // TODO: we should use a more generic encoding of function calls so we're not hardcoding the
-        // target function names here. The result of parse_ptgm should enable us to call *any* function
-        // on the contract. I.e., we have something like the string name of the function and a generic
-        // arg encoding in the payload.
         let action = parse_ptgm(
             &vaa.body.payload,
             our_chain,
             &env.current_contract_address(),
         )?;
 
-        // Dispatch cross-contract call to the target.
         match action {
-            GovernanceAction::UpdateTrustedSigner(payload) => {
-                let pubkey = BytesN::from_array(&env, &payload.pubkey);
-                let args = (pubkey, payload.expires_at).into_val(&env);
-                env.invoke_contract::<()>(
-                    &payload.target_contract,
-                    &Symbol::new(&env, "update_trusted_signer"),
-                    args,
-                );
-            }
-            GovernanceAction::Upgrade(payload) => {
-                let wasm_hash = BytesN::from_array(&env, &payload.wasm_digest);
-                let args = (wasm_hash,).into_val(&env);
-                env.invoke_contract::<()>(
-                    &payload.target_contract,
-                    &Symbol::new(&env, "upgrade"),
-                    args,
-                );
+            GovernanceAction::Call(payload) => {
+                let func = decode_function_symbol(&env, &payload.function_name)?;
+                let args = Vec::<Val>::from_xdr(&env, &payload.args_xdr)
+                    .map_err(|_| ContractError::InvalidArgsEncoding)?;
+                env.invoke_contract::<()>(&payload.target_contract, &func, args);
             }
             GovernanceAction::UpgradeExecutor(payload) => {
                 let wasm_hash = BytesN::from_array(&env, &payload.wasm_digest);
@@ -250,4 +238,22 @@ impl WormholeExecutor {
 
         Ok(())
     }
+}
+
+/// Decode raw UTF-8 bytes from a PTGM call payload into a Soroban `Symbol`.
+///
+/// Length is re-checked here even though `parse_ptgm` already gates it, so
+/// any future call site that builds a `CallPayload` differently still gets a
+/// safe conversion.
+fn decode_function_symbol(env: &Env, name: &Bytes) -> Result<Symbol, ContractError> {
+    let len = name.len() as usize;
+    if len == 0 || len > MAX_SYMBOL_LEN {
+        return Err(ContractError::InvalidFunctionName);
+    }
+    let mut buf = [0u8; MAX_SYMBOL_LEN];
+    for (i, slot) in buf.iter_mut().take(len).enumerate() {
+        *slot = get_byte(name, i as u32)?;
+    }
+    let s = core::str::from_utf8(&buf[..len]).map_err(|_| ContractError::InvalidFunctionName)?;
+    Symbol::try_from_val(env, &s).map_err(|_| ContractError::InvalidFunctionName)
 }

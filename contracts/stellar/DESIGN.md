@@ -77,22 +77,31 @@ All governance messages use the PTGM (Pyth Governance Message) header:
 ```
 [4 bytes]  magic = "PTGM" (0x5054474d)
 [1 byte]   module (3 = Lazer)
-[1 byte]   action (0 = upgrade contract, 1 = update trusted signer)
+[1 byte]   action (0 = upgrade executor, 1 = generic call)
 [2 bytes]  target_chain_id (BE u16)
+[1 byte]   executor strkey length
+[N bytes]  executor strkey      (must equal the executor contract)
+[1 byte]   target strkey length
+[M bytes]  target strkey        (the contract to invoke / self for upgrade)
 [variable] action-specific payload
 ```
 
-For `update_trusted_signer` (action=1):
+For `generic_call` (action=1) — dispatches `function_name(args…)` to `target`:
 ```
-[33 bytes] compressed secp256k1 public key
-[8 bytes]  expires_at (BE u64, 0 = remove)
+[1 byte]   function_name length (1..=32; Soroban Symbol limit)
+[F bytes]  function_name (UTF-8, valid Symbol characters `a-zA-Z0-9_`)
+[remainder] XDR-encoded ScVec of call arguments
 ```
 
-For `upgrade_contract` (action=0):
+Existing flows (`update_trusted_signer`, `upgrade`) are issued as generic calls
+with the corresponding function name and argument vector; the executor does
+not hardcode any per-action dispatch logic for target contracts.
+
+For `upgrade_executor` (action=0) — the executor upgrades its own WASM:
 ```
-[8 bytes]  version (BE u64)
 [32 bytes] wasm digest/hash
 ```
+The `target` field must equal the executor's own address.
 
 ## Proposed Approach
 

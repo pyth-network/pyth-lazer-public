@@ -54,4 +54,8 @@ pub enum ContractError {
     GuardianSetNotFound = 23,
     /// The guardian set has expired (past the 24-hour grace window after upgrade).
     GuardianSetExpired = 24,
+    /// The PTGM generic-call function name is empty, too long, or not a valid Symbol.
+    InvalidFunctionName = 25,
+    /// The PTGM generic-call args XDR did not decode into a vector of values.
+    InvalidArgsEncoding = 26,
 }
