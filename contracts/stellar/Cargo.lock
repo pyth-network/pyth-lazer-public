@@ -925,6 +925,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "pyth-lazer-stellar-sdk"
+version = "0.1.0"
+dependencies = [
+ "hex-literal",
+ "soroban-sdk",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1387,6 +1395,7 @@ dependencies = [
  "hex-literal",
  "k256",
  "pyth-lazer-stellar",
+ "pyth-lazer-stellar-sdk",
  "soroban-sdk",
  "tiny-keccak",
  "wormhole-executor-stellar",

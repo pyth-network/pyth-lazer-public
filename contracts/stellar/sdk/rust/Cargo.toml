@@ -1,0 +1,14 @@
+[package]
+name = "pyth-lazer-stellar-sdk"
+version = "0.1.0"
+edition = "2021"
+description = "Rust SDK for consuming Pyth Lazer price updates in Soroban (Stellar) contracts."
+license = "Apache-2.0"
+repository = "https://github.com/pyth-network/pyth-lazer"
+
+[dependencies]
+soroban-sdk = { workspace = true, features = ["alloc"] }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
+hex-literal = "0.4"

@@ -1,16 +1,14 @@
-extern crate alloc;
-
 use alloc::vec::Vec;
 use soroban_sdk::Bytes;
 
-use crate::bytes::get_byte;
-use crate::error::ContractError;
-
-// TODO: this payload parsing code needs to be a library or something that users can integrate
-// in their contract. We should also use the type definitions in the existing lazer protocol crate.
+use crate::error::ParseError;
 
 /// Payload magic number (LE u32 = 0x93C7D375 = 2479346549).
 const PAYLOAD_MAGIC: u32 = 2_479_346_549;
+
+fn get_byte(data: &Bytes, index: u32) -> Result<u8, ParseError> {
+    data.get(index).ok_or(ParseError::TruncatedData)
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Channel {
@@ -80,22 +78,22 @@ impl<'a> Reader<'a> {
         self.data.len().saturating_sub(self.offset)
     }
 
-    fn read_u8(&mut self) -> Result<u8, ContractError> {
+    fn read_u8(&mut self) -> Result<u8, ParseError> {
         if self.offset >= self.data.len() {
-            return Err(ContractError::TruncatedData);
+            return Err(ParseError::TruncatedData);
         }
         let val = get_byte(self.data, self.offset)?;
         self.offset += 1;
         Ok(val)
     }
 
-    fn read_bool(&mut self) -> Result<bool, ContractError> {
+    fn read_bool(&mut self) -> Result<bool, ParseError> {
         Ok(self.read_u8()? != 0)
     }
 
-    fn read_le_u16(&mut self) -> Result<u16, ContractError> {
+    fn read_le_u16(&mut self) -> Result<u16, ParseError> {
         if self.remaining() < 2 {
-            return Err(ContractError::TruncatedData);
+            return Err(ParseError::TruncatedData);
         }
         let b0 = get_byte(self.data, self.offset)? as u16;
         let b1 = get_byte(self.data, self.offset + 1)? as u16;
@@ -103,9 +101,9 @@ impl<'a> Reader<'a> {
         Ok(b0 | (b1 << 8))
     }
 
-    fn read_le_u32(&mut self) -> Result<u32, ContractError> {
+    fn read_le_u32(&mut self) -> Result<u32, ParseError> {
         if self.remaining() < 4 {
-            return Err(ContractError::TruncatedData);
+            return Err(ParseError::TruncatedData);
         }
         let b0 = get_byte(self.data, self.offset)? as u32;
         let b1 = get_byte(self.data, self.offset + 1)? as u32;
@@ -115,9 +113,9 @@ impl<'a> Reader<'a> {
         Ok(b0 | (b1 << 8) | (b2 << 16) | (b3 << 24))
     }
 
-    fn read_le_u64(&mut self) -> Result<u64, ContractError> {
+    fn read_le_u64(&mut self) -> Result<u64, ParseError> {
         if self.remaining() < 8 {
-            return Err(ContractError::TruncatedData);
+            return Err(ParseError::TruncatedData);
         }
         let mut val = 0u64;
         for i in 0..8u32 {
@@ -128,30 +126,30 @@ impl<'a> Reader<'a> {
     }
 }
 
-fn parse_channel(value: u8) -> Result<Channel, ContractError> {
+fn parse_channel(value: u8) -> Result<Channel, ParseError> {
     match value {
         1 => Ok(Channel::RealTime),
         2 => Ok(Channel::FixedRate50ms),
         3 => Ok(Channel::FixedRate200ms),
         4 => Ok(Channel::FixedRate1000ms),
-        _ => Err(ContractError::InvalidChannel),
+        _ => Err(ParseError::InvalidChannel),
     }
 }
 
-fn parse_market_session(value: u16) -> Result<MarketSession, ContractError> {
+fn parse_market_session(value: u16) -> Result<MarketSession, ParseError> {
     match value {
         0 => Ok(MarketSession::Regular),
         1 => Ok(MarketSession::PreMarket),
         2 => Ok(MarketSession::PostMarket),
         3 => Ok(MarketSession::OverNight),
         4 => Ok(MarketSession::Closed),
-        _ => Err(ContractError::InvalidMarketSession),
+        _ => Err(ParseError::InvalidMarketSession),
     }
 }
 
 /// Read a u64 from the wire and reinterpret as i64 (two's complement).
 /// Returns None if the raw value is 0 (convention for absent values).
-fn read_optional_i64(reader: &mut Reader) -> Result<Option<i64>, ContractError> {
+fn read_optional_i64(reader: &mut Reader) -> Result<Option<i64>, ParseError> {
     let raw = reader.read_le_u64()?;
     if raw == 0 {
         Ok(None)
@@ -160,7 +158,7 @@ fn read_optional_i64(reader: &mut Reader) -> Result<Option<i64>, ContractError> 
     }
 }
 
-fn parse_feed(reader: &mut Reader) -> Result<Feed, ContractError> {
+fn parse_feed(reader: &mut Reader) -> Result<Feed, ParseError> {
     let feed_id = reader.read_le_u32()?;
     let num_properties = reader.read_u8()?;
 
@@ -248,7 +246,7 @@ fn parse_feed(reader: &mut Reader) -> Result<Feed, ContractError> {
                 }
             }
             _ => {
-                return Err(ContractError::InvalidProperty);
+                return Err(ParseError::InvalidProperty);
             }
         }
     }
@@ -267,12 +265,12 @@ fn parse_feed(reader: &mut Reader) -> Result<Feed, ContractError> {
 ///   - 4 bytes: feed_id (u32)
 ///   - 1 byte: number of properties
 ///   - For each property: 1 byte property_id, then type-specific value bytes
-pub fn parse_payload(payload: &Bytes) -> Result<Update, ContractError> {
+pub fn parse_payload(payload: &Bytes) -> Result<Update, ParseError> {
     let mut reader = Reader::new(payload);
 
     let magic = reader.read_le_u32()?;
     if magic != PAYLOAD_MAGIC {
-        return Err(ContractError::InvalidPayloadMagic);
+        return Err(ParseError::InvalidPayloadMagic);
     }
 
     let timestamp = reader.read_le_u64()?;
@@ -288,7 +286,7 @@ pub fn parse_payload(payload: &Bytes) -> Result<Update, ContractError> {
     }
 
     if reader.remaining() != 0 {
-        return Err(ContractError::InvalidPayloadLength);
+        return Err(ParseError::InvalidPayloadLength);
     }
 
     Ok(Update {
@@ -424,7 +422,7 @@ mod tests {
 
         assert_eq!(
             parse_payload(&payload),
-            Err(ContractError::InvalidPayloadMagic)
+            Err(ParseError::InvalidPayloadMagic)
         );
     }
 
@@ -437,7 +435,7 @@ mod tests {
             &[0x75, 0xd3, 0xc7, 0x93, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
         );
 
-        assert_eq!(parse_payload(&payload), Err(ContractError::TruncatedData));
+        assert_eq!(parse_payload(&payload), Err(ParseError::TruncatedData));
     }
 
     #[test]
@@ -458,7 +456,7 @@ mod tests {
             ),
         );
 
-        assert_eq!(parse_payload(&payload), Err(ContractError::InvalidProperty));
+        assert_eq!(parse_payload(&payload), Err(ParseError::InvalidProperty));
     }
 
     #[test]
@@ -474,7 +472,7 @@ mod tests {
             ),
         );
 
-        assert_eq!(parse_payload(&payload), Err(ContractError::InvalidChannel));
+        assert_eq!(parse_payload(&payload), Err(ParseError::InvalidChannel));
     }
 
     #[test]
@@ -493,7 +491,7 @@ mod tests {
 
         assert_eq!(
             parse_payload(&payload),
-            Err(ContractError::InvalidPayloadLength)
+            Err(ParseError::InvalidPayloadLength)
         );
     }
 

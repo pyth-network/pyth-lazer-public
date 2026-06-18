@@ -8,9 +8,8 @@ use soroban_sdk::{
 };
 use tiny_keccak::{Hasher, Keccak};
 
-use pyth_lazer_stellar::{
-    payload, ContractError as LazerError, PythLazerContract, PythLazerContractClient,
-};
+use pyth_lazer_stellar::{ContractError as LazerError, PythLazerContract, PythLazerContractClient};
+use pyth_lazer_stellar_sdk::{parse_payload, Channel, MarketSession};
 use wormhole_executor_stellar::error::ContractError as ExecutorError;
 use wormhole_executor_stellar::{WormholeExecutor, WormholeExecutorClient};
 
@@ -501,10 +500,10 @@ fn test_full_verification_and_payload_parsing() {
     let verified_payload = te.lazer_client.verify_update(&update);
 
     // Parse the verified payload off-chain.
-    let parsed = payload::parse_payload(&verified_payload).unwrap();
+    let parsed = parse_payload(&verified_payload).unwrap();
 
     assert_eq!(parsed.timestamp, 1_771_252_161_800_000);
-    assert_eq!(parsed.channel, payload::Channel::FixedRate200ms);
+    assert_eq!(parsed.channel, Channel::FixedRate200ms);
     assert_eq!(parsed.feeds.len(), 3);
 
     // Feed 1: BTC/USD
@@ -512,7 +511,7 @@ fn test_full_verification_and_payload_parsing() {
     assert_eq!(btc.feed_id, 1);
     assert_eq!(btc.price, Some(6_828_284_601_313));
     assert_eq!(btc.exponent, Some(-8));
-    assert_eq!(btc.market_session, Some(payload::MarketSession::Regular));
+    assert_eq!(btc.market_session, Some(MarketSession::Regular));
 
     // Feed 2: ETH/USD
     let eth = &parsed.feeds[1];

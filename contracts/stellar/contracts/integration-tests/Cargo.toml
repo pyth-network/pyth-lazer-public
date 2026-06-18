@@ -8,6 +8,7 @@ publish = false
 hex-literal = "0.4"
 k256 = { version = "0.13", features = ["ecdsa"] }
 pyth-lazer-stellar = { path = "../pyth-lazer-stellar" }
+pyth-lazer-stellar-sdk = { workspace = true }
 soroban-sdk = { workspace = true, features = ["testutils"] }
 tiny-keccak = { version = "2.0", features = ["keccak"] }
 wormhole-executor-stellar = { path = "../wormhole-executor-stellar" }
