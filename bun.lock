@@ -47,7 +47,7 @@
     "contracts/stellar/scripts/e2e": {
       "name": "@pythnetwork/pyth-lazer-stellar-e2e",
       "dependencies": {
-        "@pythnetwork/pyth-lazer-sdk": "catalog:",
+        "@pythnetwork/pyth-lazer-sdk": "workspace:",
         "@stellar/stellar-sdk": "^13.0.0",
       },
       "devDependencies": {

@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@pythnetwork/pyth-lazer-sdk": "catalog:",
+    "@pythnetwork/pyth-lazer-sdk": "workspace:",
     "@stellar/stellar-sdk": "^13.0.0"
   },
   "description": "End-to-end tests for the Pyth Lazer Stellar contracts",
@@ -17,7 +17,8 @@
   "name": "@pythnetwork/pyth-lazer-stellar-e2e",
   "private": true,
   "scripts": {
-    "test:e2e": "tsx src/test_real_update.ts"
+    "test:e2e": "tsx src/test_real_update.ts",
+    "test:types": "tsc --noEmit"
   },
   "type": "module"
 }

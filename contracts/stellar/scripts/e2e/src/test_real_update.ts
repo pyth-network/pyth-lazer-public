@@ -1,14 +1,25 @@
 /** biome-ignore-all lint/suspicious/noConsole: e2e test script */
 
-import { execSync } from "node:child_process";
+import assert from "node:assert/strict";
 import process from "node:process";
 
 import { PythLazerClient } from "@pythnetwork/pyth-lazer-sdk";
+import {
+  BASE_FEE,
+  Contract,
+  Keypair,
+  Networks,
+  nativeToScVal,
+  scValToNative,
+  TransactionBuilder,
+} from "@stellar/stellar-sdk";
+import { Api, Server } from "@stellar/stellar-sdk/rpc";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 
-const NETWORK = "testnet";
+const RPC_URL = "https://soroban-testnet.stellar.org";
 const PAYLOAD_MAGIC = 0x93_c7_d3_75;
+const BTC_USD_FEED_ID = 1;
 
 const CHANNEL_NAMES: Record<number, string> = {
   1: "RealTime",
@@ -42,17 +53,6 @@ if (!PYTH_LAZER_TOKEN) {
   );
 }
 
-function stellarCmd(args: string): string {
-  const cmd = `stellar ${args}`;
-  console.log(`  $ ${cmd}`);
-  const out = execSync(cmd, {
-    encoding: "utf-8",
-    timeout: 120_000,
-  }).trim();
-  if (out) console.log(`  ${out}`);
-  return out;
-}
-
 function readLeU16(buf: Buffer, offset: number): number {
   return buf.readUInt16LE(offset);
 }
@@ -69,9 +69,11 @@ function readLeU64(buf: Buffer, offset: number): bigint {
   return buf.readBigUInt64LE(offset);
 }
 
-/** Parse the verified payload and print price feed data. */
-function parseAndPrintPayload(hexPayload: string): void {
-  const buf = Buffer.from(hexPayload, "hex");
+type ParsedFeed = { id: number; price?: bigint };
+type ParsedPayload = { magic: number; channelId: number; feeds: ParsedFeed[] };
+
+/** Parse the verified payload, printing feed data and returning structured fields. */
+function parsePayload(buf: Buffer): ParsedPayload {
   let offset = 0;
 
   // Magic
@@ -93,30 +95,30 @@ function parseAndPrintPayload(hexPayload: string): void {
   );
 
   // Channel
-  const channelId = buf[offset];
+  const channelId = buf.readUInt8(offset);
   offset += 1;
   console.log(
     `  Channel: ${channelId} (${CHANNEL_NAMES[channelId] ?? "Unknown"})`,
   );
 
   // Number of feeds
-  const numFeeds = buf[offset];
+  const numFeeds = buf.readUInt8(offset);
   offset += 1;
   console.log(`  Number of feeds: ${numFeeds}`);
 
-  if (numFeeds === 0) {
-    throw new Error("Payload contains zero feeds");
-  }
+  const feeds: ParsedFeed[] = [];
 
   for (let f = 0; f < numFeeds; f++) {
     const feedId = readLeU32(buf, offset);
     offset += 4;
-    const numProps = buf[offset];
+    const numProps = buf.readUInt8(offset);
     offset += 1;
     console.log(`\n  Feed #${f}: id=${feedId}, properties=${numProps}`);
 
+    const feed: ParsedFeed = { id: feedId };
+
     for (let p = 0; p < numProps; p++) {
-      const propId = buf[offset];
+      const propId = buf.readUInt8(offset);
       offset += 1;
 
       switch (propId) {
@@ -124,6 +126,7 @@ function parseAndPrintPayload(hexPayload: string): void {
           // Price (i64)
           const price = readLeI64(buf, offset);
           offset += 8;
+          feed.price = price;
           console.log(
             `    [${propId}] Price: ${price}${price === 0n ? " (absent)" : ""}`,
           );
@@ -166,7 +169,7 @@ function parseAndPrintPayload(hexPayload: string): void {
         }
         case 6: {
           // FundingRate (bool + i64)
-          const exists = buf[offset];
+          const exists = buf.readUInt8(offset);
           offset += 1;
           if (exists) {
             const val = readLeI64(buf, offset);
@@ -179,7 +182,7 @@ function parseAndPrintPayload(hexPayload: string): void {
         }
         case 7: {
           // FundingTimestamp (bool + u64)
-          const exists = buf[offset];
+          const exists = buf.readUInt8(offset);
           offset += 1;
           if (exists) {
             const val = readLeU64(buf, offset);
@@ -192,7 +195,7 @@ function parseAndPrintPayload(hexPayload: string): void {
         }
         case 8: {
           // FundingRateInterval (bool + u64)
-          const exists = buf[offset];
+          const exists = buf.readUInt8(offset);
           offset += 1;
           if (exists) {
             const val = readLeU64(buf, offset);
@@ -233,7 +236,7 @@ function parseAndPrintPayload(hexPayload: string): void {
         }
         case 12: {
           // FeedUpdateTimestamp (bool + u64)
-          const exists = buf[offset];
+          const exists = buf.readUInt8(offset);
           offset += 1;
           if (exists) {
             const val = readLeU64(buf, offset);
@@ -248,38 +251,30 @@ function parseAndPrintPayload(hexPayload: string): void {
           console.log(`    [${propId}] Unknown property`);
       }
     }
+
+    feeds.push(feed);
   }
+
+  return { channelId, feeds, magic };
 }
 
 // --- Step 1: Set up Stellar keypair ---
-let stellarSecret: string;
-let accountId: string;
+const server = new Server(RPC_URL);
+let keypair: Keypair;
 if (secret) {
-  stellarSecret = secret;
+  keypair = Keypair.fromSecret(secret);
   console.log("=== Using provided keypair ===");
-  const { Keypair } = await import("@stellar/stellar-sdk");
-  accountId = Keypair.fromSecret(stellarSecret).publicKey();
-  console.log(`  Account: ${accountId}`);
+  console.log(`  Account: ${keypair.publicKey()}`);
 } else {
-  const { Keypair } = await import("@stellar/stellar-sdk");
+  keypair = Keypair.random();
   console.log("=== Generating Stellar test keypair ===");
-  const kp = Keypair.random();
-  stellarSecret = kp.secret();
-  accountId = kp.publicKey();
-  console.log(`  Account: ${accountId}`);
+  console.log(`  Account: ${keypair.publicKey()}`);
 
   console.log("\n=== Funding account via Stellar friendbot ===");
-  const fundResp = await fetch(
-    `https://friendbot.stellar.org?addr=${accountId}`,
-  );
-  if (fundResp.ok) {
-    console.log("  Account funded.");
-  } else {
-    console.log(
-      `  Friendbot returned ${fundResp.status} (account may already be funded).`,
-    );
-  }
+  await server.requestAirdrop(keypair.publicKey());
+  console.log("  Account funded.");
 }
+const accountId = keypair.publicKey();
 
 // --- Step 2: Use the provided contract ID ---
 const contractId = contractIdArg;
@@ -287,15 +282,18 @@ console.log(`\n=== Using Lazer contract: ${contractId} ===`);
 
 // --- Step 3: Fetch real price update from Pyth Lazer ---
 console.log("\n=== Fetching real price update from Pyth Lazer ===");
-const lazer = await PythLazerClient.create({ token: PYTH_LAZER_TOKEN });
-let updateHex: string;
+const lazer = await PythLazerClient.create({
+  token: PYTH_LAZER_TOKEN,
+  webSocketPoolConfig: {},
+});
+let update: Buffer;
 
 try {
   const response = await lazer.getLatestPrice({
     channel: "fixed_rate@200ms",
     formats: ["leEcdsa"],
     jsonBinaryEncoding: "hex",
-    priceFeedIds: [1],
+    priceFeedIds: [BTC_USD_FEED_ID],
     properties: ["price"],
   });
 
@@ -304,85 +302,81 @@ try {
     console.error("  Response:", JSON.stringify(response, null, 2));
     throw new Error("No leEcdsa data in response");
   }
-  updateHex = hex;
+  update = Buffer.from(hex, "hex");
 
-  const update = Buffer.from(updateHex, "hex");
   console.log(`  Update size: ${update.length} bytes`);
-  console.log(`  Update hex (first 80 chars): ${updateHex.slice(0, 80)}...`);
+  console.log(`  Update hex (first 80 chars): ${hex.slice(0, 80)}...`);
 } finally {
-  lazer.close?.();
+  lazer.shutdown();
 }
 
 // --- Step 4: Verify the real update on-chain ---
 console.log("\n=== Calling verify_update with real Lazer payload ===");
-const result = stellarCmd(
-  `contract invoke --id ${contractId} --network ${NETWORK} --source ${stellarSecret} --send=yes -- verify_update --data ${updateHex}`,
+const account = await server.getAccount(accountId);
+const contract = new Contract(contractId);
+const tx = new TransactionBuilder(account, {
+  fee: BASE_FEE,
+  networkPassphrase: Networks.TESTNET,
+})
+  .addOperation(
+    contract.call("verify_update", nativeToScVal(update, { type: "bytes" })),
+  )
+  .setTimeout(30)
+  .build();
+
+const prepared = await server.prepareTransaction(tx);
+prepared.sign(keypair);
+
+const sendResult = await server.sendTransaction(prepared);
+console.log(`  Transaction hash: ${sendResult.hash}`);
+console.log(
+  `  Stellar Explorer: https://stellar.expert/explorer/testnet/tx/${sendResult.hash}`,
 );
-
-// --- Step 5: Validate the result ---
-console.log("\n=== Validating verify_update result ===");
-if (!result || result.length === 0) {
-  console.error("ERROR: verify_update returned empty result");
-  process.exit(1);
+if (sendResult.status === "ERROR") {
+  console.error("  Send error:", JSON.stringify(sendResult.errorResult));
+  throw new Error(`Transaction submission failed: ${sendResult.status}`);
 }
 
-// The result from stellar CLI for a Bytes return type is typically a hex string or JSON.
-// Strip any surrounding quotes if present.
-let payloadHex = result.replace(/^["']|["']$/g, "");
-// If the result looks like a JSON string, parse it
-if (payloadHex.startsWith('"')) {
-  payloadHex = JSON.parse(payloadHex) as string;
+const txResult = await server.pollTransaction(sendResult.hash);
+if (txResult.status !== Api.GetTransactionStatus.SUCCESS) {
+  throw new Error(`Transaction did not succeed: ${txResult.status}`);
 }
 
-console.log(`  Result length: ${payloadHex.length} hex chars`);
-console.log(`  Result (first 80 chars): ${payloadHex.slice(0, 80)}...`);
-
-if (payloadHex.length < 28) {
-  // Minimum: 4 (magic) + 8 (timestamp) + 1 (channel) + 1 (num_feeds) = 14 bytes = 28 hex chars
-  console.error(
-    `ERROR: Payload too short (${payloadHex.length} hex chars, need at least 28)`,
-  );
-  process.exit(1);
+const { returnValue } = txResult;
+if (!returnValue) {
+  throw new Error("verify_update returned no value");
 }
 
-// --- Step 6: Parse and print payload data ---
+// verify_update returns soroban_sdk::Bytes; decode the ScVal directly to a Buffer.
+const payload = scValToNative(returnValue) as Buffer;
+console.log(`  Verified payload: ${payload.length} bytes`);
+
+// --- Step 5: Parse the verified payload ---
 console.log("\n=== Parsing verified payload ===");
-parseAndPrintPayload(payloadHex);
+const parsed = parsePayload(payload);
 
-// --- Step 7: Get transaction hash from Horizon ---
-console.log("\n=== Fetching transaction hash from Horizon ===");
-try {
-  const horizonUrl = `https://horizon-testnet.stellar.org/accounts/${accountId}/transactions?order=desc&limit=1`;
-  const txResp = await fetch(horizonUrl);
-  if (txResp.ok) {
-    const txData = (await txResp.json()) as {
-      _embedded?: { records?: Array<{ hash?: string }> };
-    };
-    const records = txData._embedded?.records;
-    if (records && records.length > 0) {
-      const txHash = records[0].hash;
-      console.log(`  Transaction hash: ${txHash}`);
-      console.log(
-        `  Stellar Explorer: https://stellar.expert/explorer/testnet/tx/${txHash}`,
-      );
-    } else {
-      console.log("  Warning: No transactions found for account on Horizon");
-    }
-  } else {
-    console.log(
-      `  Warning: Horizon returned ${txResp.status} when fetching transactions`,
-    );
-  }
-} catch (err) {
-  console.log(`  Warning: Could not fetch transaction hash: ${err}`);
-}
+// --- Step 6: Structured assertions ---
+console.log("\n=== Asserting verified payload ===");
+assert.equal(parsed.magic, PAYLOAD_MAGIC, "payload magic mismatch");
+assert.ok(
+  CHANNEL_NAMES[parsed.channelId] !== undefined,
+  `unexpected channel id: ${parsed.channelId}`,
+);
+assert.ok(parsed.feeds.length > 0, "payload contains zero feeds");
+assert.ok(
+  parsed.feeds.some((feed) => feed.price !== undefined && feed.price !== 0n),
+  "no feed reported a non-zero price",
+);
+assert.ok(
+  parsed.feeds.some((feed) => feed.id === BTC_USD_FEED_ID),
+  `BTC/USD feed (id ${BTC_USD_FEED_ID}) not present`,
+);
 
 // --- Done ---
 console.log("\n=========================================");
 console.log("=== END-TO-END TEST PASSED ===");
 console.log("=========================================");
 console.log(`\nLazer contract: ${contractId}`);
-console.log(`Verified payload (hex): ${payloadHex}`);
 console.log(
   "\nThe real Pyth Lazer price update was successfully verified on Stellar testnet!",
 );
