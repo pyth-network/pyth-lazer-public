@@ -154,6 +154,7 @@ async fn test_legacy_user_journey() {
     let config = Config {
         listen_address: format!("127.0.0.1:{agent_port}").parse().unwrap(),
         relayer_urls: vec![],
+        relayer_connections: None,
         authorization_token: None,
         publish_keypair_path: PathBuf::from(signing_key_file.path()),
         publish_interval_duration: Duration::from_millis(25),
@@ -282,6 +283,7 @@ async fn test_update_price_resets_sched_timer() {
     let config = Config {
         listen_address: format!("127.0.0.1:{agent_port}").parse().unwrap(),
         relayer_urls: vec![],
+        relayer_connections: None,
         authorization_token: None,
         publish_keypair_path: PathBuf::from(signing_key_file.path()),
         publish_interval_duration: Duration::from_millis(25),

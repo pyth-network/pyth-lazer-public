@@ -1,4 +1,4 @@
-use crate::relayer_session::RelayerSessionTask;
+use crate::relayer_session::{RelayerPool, RelayerSessionTask, RelayerSlot};
 use anyhow::{Context, Result, bail};
 use base64::Engine;
 use base64::prelude::BASE64_STANDARD;
@@ -77,18 +77,46 @@ impl LazerPublisher {
 
         let (relayer_sender, _) = broadcast::channel(CHANNEL_CAPACITY);
         let is_ready = Arc::new(AtomicBool::new(false));
-        for url in config.relayer_urls.iter() {
-            let mut task = RelayerSessionTask {
-                url: url.clone(),
+
+        let num_relayers = config.relayer_urls.len();
+        let num_connections = resolve_num_connections(config.relayer_connections, num_relayers);
+        if config
+            .relayer_connections
+            .is_some_and(|n| n != num_connections)
+        {
+            tracing::warn!(
+                "relayer_connections clamped to {num_connections} for {num_relayers} relayer url(s)"
+            );
+        }
+        tracing::info!(
+            "maintaining {num_connections} relayer connection(s) across {num_relayers} relayer url(s)"
+        );
+
+        let relayer_pool: RelayerPool = Arc::new(
+            config
+                .relayer_urls
+                .iter()
+                .cloned()
+                .map(RelayerSlot::new)
+                .collect(),
+        );
+        for worker_index in 0..num_connections {
+            let task = RelayerSessionTask {
+                pool: relayer_pool.clone(),
                 token: authorization_token.clone(),
-                receiver: relayer_sender.subscribe(),
                 is_ready: is_ready.clone(),
                 proxy_url: config.proxy_url.clone(),
             };
+
+            let receiver = relayer_sender.subscribe();
             #[allow(clippy::disallowed_methods, reason = "instrumented")]
-            tokio::spawn(async move { task.run().await }.instrument(
-                info_span!("relayer session task", %url, proxy_url = ?config.proxy_url),
-            ));
+            tokio::spawn(
+                async move { task.run(receiver).await }.instrument(info_span!(
+                    "relayer session task",
+                    worker_index,
+                    proxy_url = ?config.proxy_url
+                )),
+            );
         }
 
         let (sender, receiver) = mpsc::channel(CHANNEL_CAPACITY);
@@ -204,6 +232,17 @@ impl LazerPublisherTask {
     }
 }
 
+/// Resolve how many simultaneous relayer connections to maintain. Defaults to
+/// all relayers, clamped to `1..=num_relayers` (or 0 when there are none).
+fn resolve_num_connections(requested: Option<usize>, num_relayers: usize) -> usize {
+    match requested {
+        Some(requested) => requested
+            .min(num_relayers)
+            .max(usize::from(num_relayers > 0)),
+        None => num_relayers,
+    }
+}
+
 /// For each feed, keep the latest data. Among updates with the same data, keep the one with the earliest timestamp.
 /// Assumes the input is sorted by timestamp ascending.
 fn deduplicate_feed_updates_in_tx(
@@ -245,9 +284,11 @@ fn deduplicate_feed_updates(
 #[cfg(test)]
 mod tests {
     use crate::lazer_publisher::{
-        DEDUP_CACHE_SIZE, LazerPublisherTask, deduplicate_feed_updates_in_tx,
+        DEDUP_CACHE_SIZE, LazerPublisher, LazerPublisherTask, deduplicate_feed_updates_in_tx,
+        resolve_num_connections,
     };
     use ed25519_dalek::SigningKey;
+    use futures_util::StreamExt;
     use protobuf::well_known_types::timestamp::Timestamp;
     use protobuf::{Message, MessageField};
     use pyth_lazer_protocol::time::TimestampUs;
@@ -256,8 +297,11 @@ mod tests {
     use pyth_lazer_publisher_sdk::transaction::{LazerTransaction, lazer_transaction};
     use std::io::Write;
     use std::path::PathBuf;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::time::Duration;
     use tempfile::NamedTempFile;
+    use tokio::net::TcpListener;
     use tokio::sync::broadcast::error::TryRecvError;
     use tokio::sync::{broadcast, mpsc};
     use ttl_cache::TtlCache;
@@ -308,6 +352,7 @@ mod tests {
         let config = Config {
             listen_address: "0.0.0.0:12345".parse().unwrap(),
             relayer_urls: vec![Url::parse("http://127.0.0.1:12346").unwrap()],
+            relayer_connections: None,
             authorization_token: None,
             publish_keypair_path: PathBuf::from(signing_key_file.path()),
             publish_interval_duration: Duration::from_millis(25),
@@ -371,6 +416,136 @@ mod tests {
             }
             _ => panic!("channel should have a transaction waiting"),
         }
+    }
+
+    #[test]
+    fn test_resolve_num_connections() {
+        assert_eq!(resolve_num_connections(None, 3), 3); // default: all relayers
+        assert_eq!(resolve_num_connections(Some(2), 3), 2); // N-of-M
+        assert_eq!(resolve_num_connections(Some(5), 3), 3); // clamp to available
+        assert_eq!(resolve_num_connections(Some(0), 3), 1); // at least one
+        assert_eq!(resolve_num_connections(None, 0), 0); // no relayers
+        assert_eq!(resolve_num_connections(Some(2), 0), 0); // no relayers
+    }
+
+    /// A relayer that accepts one agent connection at a time and counts the
+    /// transactions it receives. Aborting `handle` drops the listener and the
+    /// live socket, simulating the relayer going down.
+    struct MockRelayer {
+        url: Url,
+        received: Arc<AtomicUsize>,
+        handle: tokio::task::JoinHandle<()>,
+    }
+
+    impl MockRelayer {
+        async fn start() -> Self {
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let url = Url::parse(&format!(
+                "ws://{}/v1/transaction",
+                listener.local_addr().unwrap()
+            ))
+            .unwrap();
+            let received = Arc::new(AtomicUsize::new(0));
+            let task_received = received.clone();
+            #[allow(clippy::disallowed_methods, reason = "instrumented")]
+            let handle = tokio::spawn(
+                async move {
+                    while let Ok((stream, _)) = listener.accept().await {
+                        let Ok(ws) = tokio_tungstenite::accept_async(stream).await else {
+                            continue;
+                        };
+                        let (_writer, mut reader) = ws.split();
+                        while let Some(Ok(msg)) = reader.next().await {
+                            if msg.is_binary() {
+                                task_received.fetch_add(1, Ordering::Relaxed);
+                            }
+                        }
+                    }
+                }
+                .instrument(info_span!("mock relayer")),
+            );
+            Self {
+                url,
+                received,
+                handle,
+            }
+        }
+
+        fn count(&self) -> usize {
+            self.received.load(Ordering::Relaxed)
+        }
+
+        fn kill(&self) {
+            self.handle.abort();
+        }
+    }
+
+    /// With three relayers and `relayer_connections = 2`, two are active and one
+    /// is a warm standby. Killing an active relayer should fail the worker over
+    /// to the standby.
+    #[tokio::test]
+    async fn test_relayer_failover_to_standby() {
+        // Print the agent's own failover logs when run with `--nocapture`.
+        let _ = tracing_subscriber::fmt()
+            .with_env_filter("pyth_lazer_agent=info")
+            .with_test_writer()
+            .try_init();
+
+        let relayers = [
+            MockRelayer::start().await,
+            MockRelayer::start().await,
+            MockRelayer::start().await,
+        ];
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        let keypair_file = get_private_key_file();
+        let config = Config {
+            listen_address: "127.0.0.1:0".parse().unwrap(),
+            relayer_urls: relayers.iter().map(|r| r.url.clone()).collect(),
+            relayer_connections: Some(2),
+            authorization_token: None,
+            publish_keypair_path: PathBuf::from(keypair_file.path()),
+            publish_interval_duration: Duration::from_millis(25),
+            history_service_url: "http://localhost:1/".parse().unwrap(),
+            enable_update_deduplication: false,
+            update_deduplication_ttl: Default::default(),
+            proxy_url: None,
+            legacy_sched_interval_duration: Duration::from_millis(500),
+        };
+        let publisher = LazerPublisher::new(&config).await;
+
+        // Continuously publish so every batch has data to forward.
+        #[allow(clippy::disallowed_methods, reason = "instrumented")]
+        let feeder = tokio::spawn(
+            async move {
+                let mut ts_ms: u64 = 1;
+                loop {
+                    let update =
+                        test_feed_update(1, TimestampUs::from_millis(ts_ms).unwrap(), 100_000);
+                    let _ = publisher.push_feed_update(update).await;
+                    ts_ms += 1;
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+            }
+            .instrument(info_span!("feeder")),
+        );
+
+        // Two relayers active, the third standby.
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        assert!(relayers[0].count() > 0, "relayer 0 should be active");
+        assert!(relayers[1].count() > 0, "relayer 1 should be active");
+        assert_eq!(relayers[2].count(), 0, "relayer 2 should be standby");
+
+        // Kill an active relayer; the worker fails over to the standby.
+        relayers[0].kill();
+        let standby_before = relayers[2].count();
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        assert!(
+            relayers[2].count() > standby_before,
+            "standby relayer 2 should take over after relayer 0 dies"
+        );
+
+        feeder.abort();
     }
 
     #[test]

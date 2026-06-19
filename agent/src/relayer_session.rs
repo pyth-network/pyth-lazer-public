@@ -1,24 +1,25 @@
 use anyhow::{Context, Result, bail};
-use backoff::ExponentialBackoffBuilder;
 use backoff::backoff::Backoff;
+use backoff::{ExponentialBackoff, ExponentialBackoffBuilder};
 use base64::Engine;
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
 use http::HeaderValue;
 use protobuf::Message;
 use pyth_lazer_publisher_sdk::transaction::SignedLazerTransaction;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::select;
-use tokio::sync::broadcast;
+use tokio::sync::{Semaphore, SemaphorePermit, broadcast};
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::{
     MaybeTlsStream, WebSocketStream, client_async, connect_async_with_config,
     tungstenite::Message as TungsteniteMessage,
 };
+use tracing::Instrument;
 use url::Url;
 
 type RelayerWsSender = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, TungsteniteMessage>;
@@ -228,86 +229,187 @@ impl RelayerWsSession {
     }
 }
 
+const INITIAL_BACKOFF: Duration = Duration::from_millis(100);
+const MAX_BACKOFF: Duration = Duration::from_secs(5);
+/// A connection that stayed up at least this long is treated as healthy, so the
+/// next reconnect skips backoff (the drop was likely a relayer restart).
+const STABLE_CONNECTION: Duration = Duration::from_secs(30);
+/// Cap on how long a single connect attempt may block before we give up and let
+/// the worker move on to another relayer.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+
+enum ConnectionOutcome {
+    /// Never established a connection.
+    ConnectFailed,
+    /// Connected, then the connection ended after being up for `uptime`.
+    Disconnected { uptime: Duration },
+}
+
+struct SlotState {
+    backoff: ExponentialBackoff,
+    /// Earliest instant this relayer may be attempted again.
+    ready_at: Instant,
+}
+
+/// One relayer in the pool. `permit` (capacity 1) is held by the worker
+/// currently using this relayer, so at most one worker connects to it at a time.
+pub struct RelayerSlot {
+    url: Url,
+    permit: Semaphore,
+    state: Mutex<SlotState>,
+}
+
+impl RelayerSlot {
+    pub fn new(url: Url) -> Self {
+        Self {
+            url,
+            permit: Semaphore::new(1),
+            state: Mutex::new(SlotState {
+                backoff: ExponentialBackoffBuilder::new()
+                    .with_initial_interval(INITIAL_BACKOFF)
+                    .with_max_interval(MAX_BACKOFF)
+                    .with_max_elapsed_time(None)
+                    .build(),
+                ready_at: Instant::now(),
+            }),
+        }
+    }
+
+    fn ready_at(&self) -> Instant {
+        self.state
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .ready_at
+    }
+
+    /// Update this relayer's backoff/deadline from how its last attempt went.
+    fn record_outcome(&self, outcome: ConnectionOutcome) {
+        let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+        match outcome {
+            ConnectionOutcome::Disconnected { uptime } if uptime >= STABLE_CONNECTION => {
+                state.backoff.reset();
+                state.ready_at = Instant::now();
+                drop(state);
+                tracing::info!(
+                    "relayer {} disconnected after {uptime:?}; reconnecting",
+                    self.url
+                );
+            }
+            _ => {
+                let next = state.backoff.next_backoff().unwrap_or(MAX_BACKOFF);
+                state.ready_at = Instant::now() + next;
+                drop(state);
+                tracing::warn!("relayer {} unavailable; next attempt in {next:?}", self.url);
+            }
+        }
+    }
+}
+
+/// Fixed set of relayer slots shared by all worker tasks.
+pub type RelayerPool = Arc<Vec<RelayerSlot>>;
+
 pub struct RelayerSessionTask {
-    pub url: Url,
+    pub pool: RelayerPool,
     pub token: String,
-    pub receiver: broadcast::Receiver<SignedLazerTransaction>,
     pub is_ready: Arc<AtomicBool>,
     pub proxy_url: Option<Url>,
 }
 
 impl RelayerSessionTask {
-    pub async fn run(&mut self) {
-        let initial_interval = Duration::from_millis(100);
-        let max_interval = Duration::from_secs(5);
-        let mut backoff = ExponentialBackoffBuilder::new()
-            .with_initial_interval(initial_interval)
-            .with_max_interval(max_interval)
-            .with_max_elapsed_time(None)
-            .build();
-
-        const FAILURE_RESET_TIME: Duration = Duration::from_secs(300);
-        let mut first_failure_time = Instant::now();
-        let mut failure_count = 0;
-
+    pub async fn run(&self, mut receiver: broadcast::Receiver<SignedLazerTransaction>) {
         loop {
-            match self.run_relayer_connection().await {
-                Ok(()) => {
-                    tracing::info!("relayer session graceful shutdown");
-                    return;
-                }
-                Err(e) => {
-                    if first_failure_time.elapsed() > FAILURE_RESET_TIME {
-                        failure_count = 0;
-                        first_failure_time = Instant::now();
-                        backoff.reset();
-                    }
+            let Some((permit, slot)) = self.reserve_slot().await else {
+                // Every relayer is currently held by another worker.
+                tokio::time::sleep(INITIAL_BACKOFF).await;
+                continue;
+            };
 
-                    failure_count += 1;
-                    let next_backoff = backoff.next_backoff().unwrap_or(max_interval);
-                    tracing::warn!(
-                        "relayer session url: {} ended with error: {:?}, failure_count: {}; retrying in {:?}",
-                        self.url,
-                        e,
-                        failure_count,
-                        next_backoff
-                    );
-                    tokio::time::sleep(next_backoff).await;
-                }
+            // Respect this relayer's backoff deadline before attempting.
+            let wait = slot.ready_at().saturating_duration_since(Instant::now());
+            if !wait.is_zero() {
+                tokio::time::sleep(wait).await;
             }
+
+            let outcome = self
+                .run_relayer_connection(&slot.url, &mut receiver)
+                .instrument(tracing::info_span!("relayer_connection", url = %slot.url))
+                .await;
+            slot.record_outcome(outcome);
+            drop(permit);
         }
     }
 
-    pub async fn run_relayer_connection(&mut self) -> Result<()> {
-        let (relayer_ws_sender, mut relayer_ws_receiver) =
-            connect_to_relayer(self.url.clone(), &self.token, self.proxy_url.as_ref()).await?;
+    /// Reserve the unheld relayer whose backoff deadline is soonest, returning
+    /// the held permit and the slot. `None` if every relayer is already held.
+    async fn reserve_slot(&self) -> Option<(SemaphorePermit<'_>, &RelayerSlot)> {
+        loop {
+            let mut best: Option<(usize, Instant)> = None;
+            for (i, slot) in self.pool.iter().enumerate() {
+                if slot.permit.available_permits() == 0 {
+                    continue; // held by another worker
+                }
+                let ready_at = slot.ready_at();
+                if best.is_none_or(|(_, best_ready)| ready_at < best_ready) {
+                    best = Some((i, ready_at));
+                }
+            }
+
+            let (idx, _) = best?;
+            let slot = self.pool.get(idx)?;
+            if let Ok(permit) = slot.permit.try_acquire() {
+                return Some((permit, slot));
+            }
+            // Another worker claimed it between the scan and acquire; re-scan.
+            tokio::task::yield_now().await;
+        }
+    }
+
+    async fn run_relayer_connection(
+        &self,
+        url: &Url,
+        receiver: &mut broadcast::Receiver<SignedLazerTransaction>,
+    ) -> ConnectionOutcome {
+        let connect = tokio::time::timeout(
+            CONNECT_TIMEOUT,
+            connect_to_relayer(url.clone(), &self.token, self.proxy_url.as_ref()),
+        )
+        .await;
+
+        let (relayer_ws_sender, mut relayer_ws_receiver) = match connect {
+            Ok(Ok(conn)) => conn,
+            Ok(Err(e)) => {
+                tracing::warn!("failed to connect to relayer {url}: {e:?}");
+                return ConnectionOutcome::ConnectFailed;
+            }
+            Err(_) => {
+                tracing::warn!("timed out connecting to relayer {url} after {CONNECT_TIMEOUT:?}");
+                return ConnectionOutcome::ConnectFailed;
+            }
+        };
         let mut relayer_ws_session = RelayerWsSession {
             ws_sender: relayer_ws_sender,
         };
 
         // If we have at least one successful connection, mark as ready.
         self.is_ready.store(true, Ordering::Relaxed);
+        let connected_at = Instant::now();
 
         loop {
             select! {
-                recv_result = self.receiver.recv() => {
+                recv_result = receiver.recv() => {
                     match recv_result {
                         Ok(transaction) => {
                             if let Err(e) = relayer_ws_session.send_transaction(transaction).await {
-                                tracing::error!("Error publishing transaction to Lazer relayer: {e:?}");
-                                bail!("Failed to publish transaction to Lazer relayer: {e:?}");
+                                tracing::error!("Error publishing transaction to relayer {url}: {e:?}");
+                                break;
                             }
                         },
-                        Err(e) => {
-                            match e {
-                                broadcast::error::RecvError::Closed => {
-                                    tracing::error!("transaction broadcast channel closed");
-                                    bail!("transaction broadcast channel closed");
-                                }
-                                broadcast::error::RecvError::Lagged(skipped_count) => {
-                                    tracing::warn!("transaction broadcast channel lagged by {skipped_count} messages");
-                                }
-                            }
+                        Err(broadcast::error::RecvError::Closed) => {
+                            tracing::error!("transaction broadcast channel closed");
+                            break;
+                        }
+                        Err(broadcast::error::RecvError::Lagged(skipped_count)) => {
+                            tracing::warn!("transaction broadcast channel lagged by {skipped_count} messages");
                         }
                     }
                 }
@@ -318,15 +420,19 @@ impl RelayerSessionTask {
                             tracing::debug!("Received a message from relayer: {msg:?}");
                         }
                         Some(Err(e)) => {
-                            tracing::error!("Error receiving message from at relayer: {e:?}");
+                            tracing::error!("Error receiving message from relayer {url}: {e:?}");
                         }
                         None => {
-                            tracing::warn!("relayer connection closed url: {}", self.url);
-                            bail!("relayer connection closed");
+                            tracing::warn!("relayer connection closed url: {url}");
+                            break;
                         }
                     }
                 }
             }
+        }
+
+        ConnectionOutcome::Disconnected {
+            uptime: connected_at.elapsed(),
         }
     }
 }
@@ -348,11 +454,14 @@ mod tests {
     use std::net::SocketAddr;
     use std::sync::Arc;
     use std::sync::atomic::AtomicBool;
+    use std::time::{Duration, Instant};
     use tokio::net::TcpListener;
     use tokio::sync::{broadcast, mpsc};
     use url::Url;
     use {
-        crate::relayer_session::RelayerSessionTask,
+        crate::relayer_session::{
+            ConnectionOutcome, RelayerPool, RelayerSessionTask, RelayerSlot, STABLE_CONNECTION,
+        },
         tracing::{Instrument, info_span},
     };
 
@@ -409,18 +518,21 @@ mod tests {
         run_mock_relayer(relayer_addr, back_sender).await;
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
-        let (relayer_sender, relayer_receiver) = broadcast::channel(RELAYER_CHANNEL_CAPACITY);
+        let (relayer_sender, _) = broadcast::channel(RELAYER_CHANNEL_CAPACITY);
+        let pool: RelayerPool = Arc::new(vec![RelayerSlot::new(
+            Url::parse("ws://127.0.0.1:12346").unwrap(),
+        )]);
 
-        let mut relayer_session_task = RelayerSessionTask {
-            url: Url::parse("ws://127.0.0.1:12346").unwrap(),
+        let relayer_session_task = RelayerSessionTask {
+            pool,
             token: "token1".to_string(),
-            receiver: relayer_receiver,
             is_ready: Arc::new(AtomicBool::new(false)),
             proxy_url: None,
         };
+        let receiver = relayer_sender.subscribe();
         #[allow(clippy::disallowed_methods, reason = "instrumented")]
         tokio::spawn(
-            async move { relayer_session_task.run().await }
+            async move { relayer_session_task.run(receiver).await }
                 .instrument(info_span!("relayer session task")),
         );
         tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
@@ -435,6 +547,67 @@ mod tests {
             .await
             .expect("back_receiver.recv failed");
         assert_eq!(transaction, received_transaction);
+    }
+
+    fn set_ready_at(slot: &RelayerSlot, at: Instant) {
+        slot.state.lock().unwrap().ready_at = at;
+    }
+
+    #[test]
+    fn test_slot_backoff_schedule() {
+        let slot = RelayerSlot::new(Url::parse("ws://relayer").unwrap());
+        // A fresh slot is attemptable immediately.
+        assert!(slot.ready_at() <= Instant::now());
+
+        // A failed connect pushes the deadline into the future.
+        slot.record_outcome(ConnectionOutcome::ConnectFailed);
+        assert!(slot.ready_at() > Instant::now());
+
+        // A flapping (short-lived) connection also backs off.
+        slot.record_outcome(ConnectionOutcome::Disconnected {
+            uptime: Duration::from_millis(1),
+        });
+        assert!(slot.ready_at() > Instant::now());
+
+        // A stable connection that drops resets backoff: retry promptly.
+        slot.record_outcome(ConnectionOutcome::Disconnected {
+            uptime: STABLE_CONNECTION,
+        });
+        assert!(slot.ready_at() <= Instant::now() + Duration::from_millis(50));
+    }
+
+    #[tokio::test]
+    async fn test_reserve_slot_prefers_soonest_and_excludes_held() {
+        let url_a = Url::parse("ws://relayer-a").unwrap();
+        let url_b = Url::parse("ws://relayer-b").unwrap();
+        let pool: RelayerPool = Arc::new(vec![
+            RelayerSlot::new(url_a.clone()),
+            RelayerSlot::new(url_b.clone()),
+        ]);
+        // B is ready now; A is parked far in the future.
+        set_ready_at(&pool[0], Instant::now() + Duration::from_secs(60));
+        set_ready_at(&pool[1], Instant::now());
+
+        let task = RelayerSessionTask {
+            pool: pool.clone(),
+            token: "token".to_string(),
+            is_ready: Arc::new(AtomicBool::new(false)),
+            proxy_url: None,
+        };
+
+        // Soonest deadline wins.
+        let (permit_b, slot) = task.reserve_slot().await.expect("should reserve B");
+        assert_eq!(slot.url, url_b);
+
+        // B is held, so the only remaining choice is A.
+        let (permit_a, slot) = task.reserve_slot().await.expect("should reserve A");
+        assert_eq!(slot.url, url_a);
+
+        // Both held: nothing left to reserve.
+        assert!(task.reserve_slot().await.is_none());
+
+        drop(permit_b);
+        drop(permit_a);
     }
 
     fn get_signed_lazer_transaction() -> SignedLazerTransaction {

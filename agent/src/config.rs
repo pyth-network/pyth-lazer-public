@@ -13,6 +13,8 @@ use url::Url;
 pub struct Config {
     pub listen_address: SocketAddr,
     pub relayer_urls: Vec<Url>,
+    #[serde(default)]
+    pub relayer_connections: Option<usize>,
     pub authorization_token: Option<AuthorizationToken>,
     #[derivative(Debug = "ignore")]
     pub publish_keypair_path: PathBuf,

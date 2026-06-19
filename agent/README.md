@@ -51,6 +51,7 @@ The agent takes a single `--config` CLI option, pointing at
 
 ```toml
 relayer_urls = ["wss://relayer-0.pyth-lazer.dourolabs.app/v1/transaction", "wss://relayer-1.pyth-lazer.dourolabs.app/v1/transaction"]
+# relayer_connections = 2
 publish_keypair_path = "/path/to/keypair.json"
 authorization_token = "your_token"
 listen_address = "0.0.0.0:8910"
@@ -62,6 +63,7 @@ enable_update_deduplication = false
 ```
 
 - `relayers_urls`: The Lazer team will provide these.
+- `relayer_connections` (optional): How many of the `relayer_urls` to stay connected to at once. Defaults to all. When fewer than the number of URLs, the extras are kept as warm standbys and a connection fails over to the next relayer when one drops.
 - `publish_keypair_path`: The keypair file generated with `solana-keygen` or similar.
 - `authorization_token`: The Lazer team will provide this or instruct that it can be omitted.
 - `listen_address`: The local port the agent will be listening on; can be anything you want.
