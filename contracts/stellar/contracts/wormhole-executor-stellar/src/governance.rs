@@ -134,6 +134,14 @@ pub fn parse_ptgm(
     if executor_len == 0 || len < offset + executor_len {
         return Err(ContractError::TruncatedData);
     }
+    // `from_string_bytes` traps on malformed strkey rather than returning a
+    // typed error. soroban-sdk exposes no fallible variant (the strkey host
+    // functions are infallible from guest code, so any error unwinds the VM),
+    // and we deliberately do not hand-roll a strkey validator as a workaround.
+    // Safe to trap here: these bytes are only reachable inside a
+    // guardian-quorum- and owner/emitter-verified VAA, so an operator typo in
+    // an already-signed payload fails closed rather than executing. Same
+    // applies to the target address below.
     let executor_contract =
         Address::from_string_bytes(&payload.slice(offset as u32..(offset + executor_len) as u32));
     offset += executor_len;
