@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+  "contracts/example",
   "contracts/integration-tests",
   "contracts/pyth-lazer-stellar",
   "contracts/wormhole-executor-stellar",

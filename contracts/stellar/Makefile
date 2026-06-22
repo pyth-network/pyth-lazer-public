@@ -6,7 +6,8 @@ WASM_DIR = $(CURDIR)/target/wasm32-unknown-unknown/release
 # Requires `rustup target add wasm32-unknown-unknown`.
 build:
 	cd $(CURDIR) && cargo build --release --target wasm32-unknown-unknown \
-		-p pyth-lazer-stellar -p wormhole-executor-stellar -p pyth-lazer-stellar-sdk
+		-p pyth-lazer-stellar -p wormhole-executor-stellar -p pyth-lazer-stellar-sdk \
+		-p pyth-lazer-stellar-example
 
 optimize: build
 	wasm-opt -Oz --disable-reference-types \
