@@ -81,8 +81,12 @@ impl WormholeExecutor {
     ///   [20 bytes] Ethereum address
     /// ```
     ///
-    /// When upgraded, the old guardian set is given a 24-hour expiration window
-    /// during which VAAs signed by either set are accepted.
+    /// Guardian set upgrades are governance actions and require the *current*
+    /// guardian set: the VAA's `guardian_set_index` must equal the stored
+    /// index, otherwise it is rejected with `InvalidGuardianSetIndex`. The
+    /// 24-hour grace window in `verify_vaa` — during which a retired set's VAAs
+    /// are still accepted — applies to non-governance message VAAs only and
+    /// does not extend to this function.
     pub fn update_guardian_set(env: Env, vaa_bytes: Bytes) -> Result<(), ContractError> {
         guardian::require_initialized(&env)?;
         guardian::extend_instance_ttl(&env);
@@ -90,6 +94,15 @@ impl WormholeExecutor {
         // Parse and verify the VAA with current guardian set.
         let vaa = parse_vaa(&env, &vaa_bytes)?;
         verify_vaa(&env, &vaa)?;
+
+        // Governance actions require the *current* guardian set. The 24-hour
+        // grace window in `verify_vaa` applies to non-governance message VAAs
+        // only; allowing a retired-but-in-window set to authorize a guardian
+        // set upgrade would let a quorum of the old keys install a malicious
+        // set N+1 for up to 24 hours after any rotation.
+        if vaa.guardian_set_index != guardian::get_guardian_set_index(&env)? {
+            return Err(ContractError::InvalidGuardianSetIndex);
+        }
 
         // Validate emitter chain matches the stored guardian-set-upgrade
         // emitter. Without this check, any guardian-signed VAA from any
@@ -183,6 +196,12 @@ impl WormholeExecutor {
     /// enforces replay protection via strictly increasing sequence numbers,
     /// parses the PTGM governance instruction, and dispatches a cross-contract
     /// call to the target contract.
+    ///
+    /// Like Pyth's other governance receivers, this relies on the generic
+    /// `verify_vaa` path and so accepts a retired guardian set within its
+    /// 24-hour grace window — it does *not* additionally require the current
+    /// set. (The self-referential `update_guardian_set` upgrade path does
+    /// require the current set; see its docs.)
     pub fn execute_governance_action(env: Env, vaa_bytes: Bytes) -> Result<(), ContractError> {
         guardian::require_initialized(&env)?;
         guardian::extend_instance_ttl(&env);

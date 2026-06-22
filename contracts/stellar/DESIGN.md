@@ -143,6 +143,12 @@ Since there is no existing Wormhole core bridge deployed on Stellar, the executo
 
 The guardian set (list of guardian public keys) is stored in the contract and updated via guardian set upgrade VAAs (a self-referential governance mechanism built into Wormhole).
 
+When a guardian set is rotated, the retired set is kept for a 24-hour grace window during which `verify_vaa` still accepts VAAs signed by it. This window applies to the generic verification helper only — it is intended for regular (non-governance) message VAAs that may still be in flight at rotation time.
+
+**Guardian set upgrades require the *current* guardian set.** `update_guardian_set` additionally requires `vaa.guardian_set_index == guardian_set_index` (the current stored index) and rejects anything else with `InvalidGuardianSetIndex`, *before* the emitter checks. This matches canonical Wormhole *core* governance (`verifyGovernanceVM`), which gates guardian-set and core-contract upgrades on the current set: without this gate, for up to 24 hours after any rotation a quorum of the *old* guardian keys could install a malicious guardian set N+1 — a self-referential escalation of the trust root itself.
+
+**Application governance (`execute_governance_action`) tolerates the grace window.** It relies on the generic `verify_vaa` path and does *not* require the current set, so a retired set's VAA is accepted within its 24-hour window. This deliberately matches every shipped Pyth governance receiver (EVM `PythGovernance.verifyGovernanceVM`, Aptos, Sui, CosmWasm, Near), all of which verify governance VAAs via the generic Wormhole path rather than re-requiring the current guardian set. The escalation risk that motivates the stricter `update_guardian_set` gate (compromising the trust root) does not apply to ordinary PTGM actions like `update_trusted_signer` / `upgrade`, which remain bounded by the owner-emitter and replay checks.
+
 #### 1b. Wormhole VAA Format
 
 ```
@@ -183,12 +189,14 @@ Storage (persistent):
 - `execute_governance_action(env, vaa_bytes: Bytes)` - Verify VAA against the owner emitter, parse PTGM, dispatch cross-contract call
 - `update_guardian_set(env, vaa_bytes: Bytes)` - Process guardian set upgrade VAA from the guardian-set-upgrade emitter (Wormhole self-governance)
 
-The execution flow:
-1. Parse and verify the Wormhole VAA (guardian signatures, quorum)
+The execution flow for `execute_governance_action`:
+1. Parse and verify the Wormhole VAA (guardian signatures, quorum) via `verify_vaa` — a retired set is accepted within its 24-hour window, matching Pyth's other governance receivers
 2. Check emitter chain/address matches the authorized governance source
 3. Check sequence > last_executed_sequence (replay protection)
 4. Parse the PTGM header from the VAA payload
 5. Based on the PTGM module and action, dispatch a cross-contract call to the appropriate target (e.g., Lazer contract's `update_trusted_signer` or `upgrade`)
+
+`update_guardian_set` follows the same first step but then additionally requires the VAA's `guardian_set_index` to equal the current stored index before its emitter checks (see above).
 
 #### 1e. Dispatch Model
 

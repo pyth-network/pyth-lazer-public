@@ -1191,10 +1191,14 @@ fn do_guardian_set_upgrade(
         .update_guardian_set(&Bytes::from_slice(&te.env, &vaa_raw));
 }
 
-/// After a guardian set upgrade, VAAs signed by the old guardian set should
-/// still be accepted during the 24-hour grace window.
+/// Application governance (`execute_governance_action`) tolerates the 24-hour
+/// grace window, matching Pyth's other governance receivers: a VAA signed by
+/// the retired set is accepted while that set is still in-window. (The stricter
+/// current-set requirement applies only to the self-referential
+/// `update_guardian_set` upgrade path — see
+/// `test_guardian_set_upgrade_requires_current_set_within_window`.)
 #[test]
-fn test_old_guardian_set_accepted_during_24h_window() {
+fn test_old_guardian_set_accepted_for_governance_within_24h_window() {
     let te = setup(1);
 
     // Set an initial timestamp.
@@ -1253,19 +1257,22 @@ fn test_old_guardian_set_accepted_during_24h_window() {
         0,
         &ptgm2,
     );
-    // Sign with the OLD guardian set (index 0).
+    // Sign with the OLD guardian set (index 0). Within the grace window this
+    // is accepted for application governance.
     let gov_vaa2 = build_signed_vaa(0, &[(0u8, te.guardian_secrets[0])], &gov_body2);
     let result = te
         .executor_client
         .try_execute_governance_action(&Bytes::from_slice(&te.env, &gov_vaa2));
     assert!(
         result.is_ok(),
-        "Old guardian set should be accepted within 24h window"
+        "Old guardian set should be accepted for governance within 24h window"
     );
 }
 
-/// After the 24-hour grace window expires, VAAs signed by the old guardian set
-/// should be rejected.
+/// Once the 24-hour grace window elapses, even application governance rejects
+/// the retired set: `verify_vaa`'s expiration check fires and the error is
+/// `GuardianSetExpired`. (Within the window it is accepted — see
+/// `test_old_guardian_set_accepted_for_governance_within_24h_window`.)
 #[test]
 fn test_old_guardian_set_rejected_after_24h_window() {
     let te = setup(1);
@@ -1313,11 +1320,59 @@ fn test_old_guardian_set_rejected_after_24h_window() {
     );
 }
 
-/// Multiple sequential upgrades: each old set gets its own 24h window.
-/// The most recently retired set should be valid, while an older one
-/// that has timed out should be rejected.
+/// The self-referential guardian-set upgrade path requires the *current*
+/// guardian set. Immediately after a rotation, an upgrade VAA signed by the
+/// now-retired set is rejected with `InvalidGuardianSetIndex` — even one
+/// second into its 24h grace window — preventing a quorum of old keys from
+/// installing a malicious set N+1.
 #[test]
-fn test_multiple_sequential_upgrades_with_overlapping_windows() {
+fn test_guardian_set_upgrade_requires_current_set_within_window() {
+    let te = setup(1);
+
+    te.env.ledger().with_mut(|li| {
+        li.timestamp = 100_000;
+    });
+
+    // Rotate guardian set 0 -> 1, authorized by the current set (index 0).
+    let secret_1 = test_secret(10);
+    let addr_1 = eth_address_from_secret(&secret_1);
+    do_guardian_set_upgrade(&te, 0, 1, &[(0u8, te.guardian_secrets[0])], &[addr_1]);
+
+    // One second into the retired set's 24h window — `verify_vaa` still passes
+    // for set 0, but the upgrade path requires the current set.
+    te.env.ledger().with_mut(|li| {
+        li.timestamp = 100_000 + 1;
+    });
+
+    // The now-retired set 0 attempts to install a malicious set 2.
+    let secret_2 = test_secret(20);
+    let addr_2 = eth_address_from_secret(&secret_2);
+    let upgrade_payload = build_guardian_set_upgrade_payload(0, 2, &[addr_2]);
+    let body = build_body(
+        1002,
+        0,
+        GS_UPGRADE_EMITTER_CHAIN as u16,
+        &te.gs_upgrade_emitter_address,
+        2,
+        0,
+        &upgrade_payload,
+    );
+    let vaa_raw = build_signed_vaa(0, &[(0u8, te.guardian_secrets[0])], &body);
+    let result = te
+        .executor_client
+        .try_update_guardian_set(&Bytes::from_slice(&te.env, &vaa_raw));
+    assert_eq!(
+        result.err().unwrap().unwrap(),
+        ExecutorError::InvalidGuardianSetIndex
+    );
+}
+
+/// Multiple sequential upgrades exercise the application-governance grace
+/// window: a retired set still inside its 24h window is accepted for
+/// `execute_governance_action`, while a set whose window has already elapsed is
+/// rejected by `verify_vaa`'s expiration check (`GuardianSetExpired`).
+#[test]
+fn test_multiple_sequential_upgrades_governance_grace_window() {
     let te = setup(1);
 
     te.env.ledger().with_mut(|li| {
@@ -1361,15 +1416,12 @@ fn test_multiple_sequential_upgrades_with_overlapping_windows() {
     te.executor_client
         .execute_governance_action(&Bytes::from_slice(&te.env, &gov_vaa_setup));
 
-    // Now at T=143200: set 0 expires at T=186400, set 1 expires at T=229600.
-    // Both old sets should still be valid.
-
-    // Advance to T=190000 (set 0 has expired, set 1 still valid).
+    // Advance to T=190000. Set 0's window has elapsed; set 1's has not.
     te.env.ledger().with_mut(|li| {
         li.timestamp = 190_000;
     });
 
-    // Set 1 (expired at T=229600) should still work.
+    // Set 1 (still within its window) is accepted for application governance.
     let ptgm_1 = build_ptgm_update_signer(
         &te.env,
         CHAIN_ID as u16,
@@ -1391,9 +1443,13 @@ fn test_multiple_sequential_upgrades_with_overlapping_windows() {
     let result = te
         .executor_client
         .try_execute_governance_action(&Bytes::from_slice(&te.env, &gov_vaa_1));
-    assert!(result.is_ok(), "Set 1 should still be valid at T=190000");
+    assert!(
+        result.is_ok(),
+        "Set 1 should be accepted for governance within its 24h window"
+    );
 
-    // Set 0 (expired at T=186400) should be rejected.
+    // Set 0 (window already elapsed) is rejected earlier, by verify_vaa's
+    // expiration check.
     let ptgm_0 = build_ptgm_update_signer(
         &te.env,
         CHAIN_ID as u16,
