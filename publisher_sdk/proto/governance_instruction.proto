@@ -195,8 +195,8 @@ message AddPublisher {
     repeated bytes public_keys = 3;
     // [required] If true, the publisher is active, i.e. it's allowed to publish updates.
     optional bool is_active = 4;
-    // IDs of the feeds for which the publisher's price will be included in the aggregate.
-    repeated uint32 allowed_feed_ids = 5;
+    reserved 5;
+    reserved "allowed_feed_ids";
     // Publisher access token configuration. Will become required in the future.
     optional PublisherAccessToken access_token = 6;
     // Publisher key type. Will become required in the future.
@@ -206,6 +206,8 @@ message AddPublisher {
 message UpdatePublisher {
     // [required] ID of the publisher that is being updated. Rejects if there is no such publisher.
     optional uint32 publisher_id = 1;
+    reserved 106, 107, 108;
+    reserved "add_publisher_allowed_feed_ids", "remove_publisher_allowed_feed_ids", "set_publisher_allowed_feed_ids";
     // [required]
     // Note: when adding a new variant here, update `Permissions` as well.
     oneof action {
@@ -214,9 +216,6 @@ message UpdatePublisher {
         RemovePublisherPublicKeys remove_publisher_public_keys = 103;
         SetPublisherPublicKeys set_publisher_public_keys = 104;
         SetPublisherActive set_publisher_active = 105;
-        AddPublisherAllowedFeedIds add_publisher_allowed_feed_ids = 106;
-        RemovePublisherAllowedFeedIds remove_publisher_allowed_feed_ids = 107;
-        SetPublisherAllowedFeedIds set_publisher_allowed_feed_ids = 108;
         SetPublisherAccessToken set_publisher_access_token = 109;
         SetPublisherKeyType set_publisher_key_type = 110;
     }
@@ -249,22 +248,25 @@ message SetPublisherPublicKeys {
     repeated bytes public_keys = 1;
 }
 
-// Allow publisher to publish for the specified feeds.
+// Deprecated: allowed_feed_ids has been removed from the publisher state.
 message AddPublisherAllowedFeedIds {
-    // Must not be empty.
-    repeated uint32 allowed_feed_ids_to_add = 1;
+    option deprecated = true;
+    reserved 1;
+    reserved "allowed_feed_ids_to_add";
 }
 
-// Disallow publisher to publish for the specified feeds.
+// Deprecated: allowed_feed_ids has been removed from the publisher state.
 message RemovePublisherAllowedFeedIds {
-    // Must not be empty.
-    repeated uint32 allowed_feed_ids_to_remove = 1;
+    option deprecated = true;
+    reserved 1;
+    reserved "allowed_feed_ids_to_remove";
 }
 
-// Allow publisher to publish for only the specified feeds.
-// Remove all previous allowances.
+// Deprecated: allowed_feed_ids has been removed from the publisher state.
 message SetPublisherAllowedFeedIds {
-    repeated uint32 allowed_feed_ids = 1;
+    option deprecated = true;
+    reserved 1;
+    reserved "allowed_feed_ids";
 }
 
 message SetPublisherActive {

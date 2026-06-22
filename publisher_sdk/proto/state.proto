@@ -66,8 +66,8 @@ message Publisher {
     repeated bytes public_keys = 3;
     // [required] If true, the publisher is active, i.e. it's allowed to publish updates.
     optional bool is_active = 4;
-    // IDs of the feeds for which the publisher's price will be included in the aggregate.
-    repeated uint32 allowed_feed_ids = 5;
+    reserved 5;
+    reserved "allowed_feed_ids";
     // Publisher access token configuration. Will become required in the future.
     optional PublisherAccessToken access_token = 6;
     // Publisher key type. Will become required in the future.
@@ -536,9 +536,8 @@ message Permissions {
         REMOVE_PUBLISHER_PUBLIC_KEYS = 103;
         SET_PUBLISHER_PUBLIC_KEYS = 104;
         SET_PUBLISHER_ACTIVE = 105;
-        ADD_PUBLISHER_ALLOWED_FEED_IDS = 106;
-        REMOVE_PUBLISHER_ALLOWED_FEED_IDS = 107;
-        SET_PUBLISHER_ALLOWED_FEED_IDS = 108;
+        reserved 106, 107, 108;
+        reserved "ADD_PUBLISHER_ALLOWED_FEED_IDS", "REMOVE_PUBLISHER_ALLOWED_FEED_IDS", "SET_PUBLISHER_ALLOWED_FEED_IDS";
         SET_PUBLISHER_ACCESS_TOKEN = 109;
         SET_PUBLISHER_KEY_TYPE = 110;
     }
