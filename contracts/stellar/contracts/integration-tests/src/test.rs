@@ -120,7 +120,7 @@ fn build_ptgm_call(
 ) -> alloc::vec::Vec<u8> {
     let mut data = alloc::vec::Vec::new();
     data.extend_from_slice(&PTGM_MAGIC);
-    data.push(3); // module = Lazer
+    data.push(4); // module = Stellar executor
     data.push(1); // action = generic call
     data.extend_from_slice(&chain_id.to_be_bytes());
     let executor = address_to_payload_bytes(executor_contract);
@@ -191,7 +191,7 @@ fn build_ptgm_upgrade_executor(
 ) -> alloc::vec::Vec<u8> {
     let mut data = alloc::vec::Vec::new();
     data.extend_from_slice(&PTGM_MAGIC);
-    data.push(3); // module = Lazer
+    data.push(4); // module = Stellar executor
     data.push(0); // action = upgrade_executor
     data.extend_from_slice(&chain_id.to_be_bytes());
     let executor = address_to_payload_bytes(executor_contract);

@@ -76,7 +76,7 @@ The Pyth ecosystem uses Wormhole VAAs to deliver governance instructions across 
 All governance messages use the PTGM (Pyth Governance Message) header:
 ```
 [4 bytes]  magic = "PTGM" (0x5054474d)
-[1 byte]   module (3 = Lazer)
+[1 byte]   module (4 = Stellar executor)
 [1 byte]   action (0 = upgrade executor, 1 = generic call)
 [2 bytes]  target_chain_id (BE u16)
 [1 byte]   executor strkey length
@@ -85,6 +85,16 @@ All governance messages use the PTGM (Pyth Governance Message) header:
 [M bytes]  target strkey        (the contract to invoke / self for upgrade)
 [variable] action-specific payload
 ```
+
+The Stellar executor is its own governance module (`4`) rather than reusing the
+Lazer module (`3`). Module 3 carries the canonical `xc_admin_common` `LazerAction`
+registry of fixed actions whose `(action, payload)` layouts would collide with
+this executor's generic dispatch; a dedicated module keeps module 3 unambiguously
+"Lazer fixed actions" and lets the executor own action codes `0`/`1`. This mirrors
+the canonical precedent where generic executors are separate modules (Solana
+remote-executor `0`, EVM executor `2`). The matching registration in the EVM
+`Executor.sol` `GovernanceModule` enum and `xc_admin_common` lives in
+`pyth-network/pyth-crosschain` and is tracked separately.
 
 For `generic_call` (action=1) — dispatches `function_name(args…)` to `target`:
 ```

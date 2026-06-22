@@ -6,8 +6,22 @@ use crate::error::ContractError;
 /// PTGM magic: "PTGM" = 0x5054474d
 const PTGM_MAGIC: [u8; 4] = [0x50, 0x54, 0x47, 0x4d];
 
-/// Module 3 = Lazer.
-const LAZER_MODULE: u8 = 3;
+/// PTGM module id for the Stellar wormhole executor.
+///
+/// The Stellar executor is its own governance module rather than reusing the
+/// Lazer module (3). Module 3 carries the canonical `xc_admin_common`
+/// `LazerAction` registry, whose fixed action codes (e.g. `UpgradeSuiLazerContract`,
+/// `UpdateTrustedSigner`) collide with this executor's `(action, payload)`
+/// layout. Giving the executor a dedicated module — mirroring the canonical
+/// precedent where generic executors are separate modules (Solana
+/// remote-executor `0`, EVM executor `2`) — keeps module 3 unambiguously
+/// "Lazer fixed actions" and lets this executor own action codes `0`/`1`.
+///
+/// Module id `4` is the next free slot after the canonical modules (Executor
+/// `0`, Target `1`, EvmExecutor `2`, Lazer `3`). The matching registration in
+/// the EVM `Executor.sol` `GovernanceModule` enum and `xc_admin_common` lives
+/// in `pyth-network/pyth-crosschain` and is tracked separately.
+const STELLAR_EXECUTOR_MODULE: u8 = 4;
 
 /// Governance action: upgrade the executor contract itself.
 ///
@@ -68,7 +82,7 @@ pub enum GovernanceAction {
 ///
 /// Common header:
 /// - [4 bytes] magic "PTGM"
-/// - [1 byte]  module (3 = Lazer)
+/// - [1 byte]  module (4 = Stellar executor)
 /// - [1 byte]  action (0 = upgrade executor, 1 = generic call)
 /// - [2 bytes] target_chain_id (BE u16)
 /// - [1 byte]  executor strkey length
@@ -103,7 +117,7 @@ pub fn parse_ptgm(
 
     // Verify module.
     let module = get_byte(payload, 4)?;
-    if module != LAZER_MODULE {
+    if module != STELLAR_EXECUTOR_MODULE {
         return Err(ContractError::InvalidPtgmModule);
     }
 
@@ -261,7 +275,7 @@ mod tests {
         args_xdr: &[u8],
     ) -> alloc::vec::Vec<u8> {
         let mut data = build_ptgm_header(
-            LAZER_MODULE,
+            STELLAR_EXECUTOR_MODULE,
             ACTION_CALL,
             chain_id,
             executor_contract,
@@ -412,7 +426,13 @@ mod tests {
         let env = Env::default();
         let executor = Address::generate(&env);
         let target = Address::generate(&env);
-        let mut raw = build_ptgm_header(LAZER_MODULE, 99, TEST_CHAIN_ID as u16, &executor, &target);
+        let mut raw = build_ptgm_header(
+            STELLAR_EXECUTOR_MODULE,
+            99,
+            TEST_CHAIN_ID as u16,
+            &executor,
+            &target,
+        );
         // Add a few extra bytes so the action parses.
         raw.extend_from_slice(&[0u8; 4]);
         let payload = Bytes::from_slice(&env, &raw);
@@ -441,7 +461,7 @@ mod tests {
         let target = Address::generate(&env);
         // Header only — no function-name length byte.
         let raw = build_ptgm_header(
-            LAZER_MODULE,
+            STELLAR_EXECUTOR_MODULE,
             ACTION_CALL,
             TEST_CHAIN_ID as u16,
             &executor,
@@ -461,7 +481,7 @@ mod tests {
         let executor = Address::generate(&env);
         let target = Address::generate(&env);
         let mut raw = build_ptgm_header(
-            LAZER_MODULE,
+            STELLAR_EXECUTOR_MODULE,
             ACTION_CALL,
             TEST_CHAIN_ID as u16,
             &executor,
@@ -529,7 +549,7 @@ mod tests {
         wasm_digest: &[u8; 32],
     ) -> alloc::vec::Vec<u8> {
         let mut data = build_ptgm_header(
-            LAZER_MODULE,
+            STELLAR_EXECUTOR_MODULE,
             ACTION_UPGRADE_EXECUTOR,
             chain_id,
             executor_contract,
@@ -586,7 +606,7 @@ mod tests {
         let env = Env::default();
         let executor = Address::generate(&env);
         let mut raw = build_ptgm_header(
-            LAZER_MODULE,
+            STELLAR_EXECUTOR_MODULE,
             ACTION_UPGRADE_EXECUTOR,
             TEST_CHAIN_ID as u16,
             &executor,
