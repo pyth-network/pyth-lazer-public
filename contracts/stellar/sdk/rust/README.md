@@ -6,7 +6,7 @@ Rust SDK for consuming [Pyth Lazer](https://docs.pyth.network/lazer) price updat
 
 ```toml
 [dependencies]
-pyth-lazer-stellar-sdk = "0.1"
+pyth-lazer-stellar-sdk = "0.2"
 ```
 
 ## Usage
@@ -33,8 +33,20 @@ impl ExampleConsumer {
 }
 ```
 
-`parse_payload` is also exported for callers that already hold verified payload
-bytes and only need to decode them.
+`verify_update` returns a `VerifiedPayload` — a newtype wrapping the decoded
+`Update` that signals the bytes passed on-chain verification. Read fields
+directly (it derefs to `Update`) or call `.into_inner()` to take ownership of
+the `Update`.
+
+> **⚠️ Security: `parse_payload` does not verify signatures.**
+>
+> `parse_payload` is also exported for callers that already hold verified
+> payload bytes. It performs **no** signature verification — it decodes whatever
+> bytes it is handed. Only `PythLazerClient::verify_update` establishes the trust
+> boundary (it verifies via the on-chain verifier contract before parsing).
+> Passing unverified, attacker-supplied bytes to `parse_payload` yields a
+> fully-formed but **unsigned** `Update` whose values are entirely
+> attacker-controlled and must not be trusted.
 
 ## Integration guide
 

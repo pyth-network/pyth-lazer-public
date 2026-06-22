@@ -256,6 +256,16 @@ fn parse_feed(reader: &mut Reader) -> Result<Feed, ParseError> {
 
 /// Parse verified payload bytes into a structured Update.
 ///
+/// # Security
+///
+/// This function performs no signature verification. Callers MUST ensure
+/// `payload` came from a successful [`PythLazerClient::verify_update`] (or an
+/// equivalent on-chain verification). Parsing arbitrary attacker-supplied bytes
+/// yields a fully-formed but **unsigned** [`Update`] — the decoded values are
+/// entirely attacker-controlled and must not be trusted.
+///
+/// [`PythLazerClient::verify_update`]: crate::PythLazerClient::verify_update
+///
 /// The payload format (all integers little-endian):
 /// - 4 bytes: magic (0x93C7D375)
 /// - 8 bytes: timestamp (u64, microseconds)
