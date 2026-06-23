@@ -116,6 +116,7 @@
     "@coral-xyz/anchor": "^0.31.1",
     "@cprussin/tsconfig": "^5.0.0",
     "@dotenvx/dotenvx": "^1.71.0",
+    "@electric-sql/pglite": "^0.5.2",
     "@floating-ui/react": "^0.27.19",
     "@happy-dom/global-registrator": "^20.9.0",
     "@headlessui/react": "^2.2.10",
