@@ -26,7 +26,7 @@ deploy the verifier yourself:
 
 | Contract | Testnet address |
 | -------- | --------------- |
-| Pyth Lazer verifier | `CCE62RN3NUTNMD2SQ2EGWRJ6XHL7RUYQBNCEK7LVGFRLPCW7U7FGACM5` |
+| Pyth Lazer verifier | _TODO: pending redeploy under canonical Pyth-DAO governance_ |
 
 Configure a funded testnet identity once (see the [Stellar CLI docs](https://developers.stellar.org/docs/tools/developer-tools/cli/install-cli)):
 
@@ -47,7 +47,7 @@ stellar contract deploy \
   --source deployer \
   --network testnet \
   -- \
-  --lazer CCE62RN3NUTNMD2SQ2EGWRJ6XHL7RUYQBNCEK7LVGFRLPCW7U7FGACM5 \
+  --lazer <LAZER_VERIFIER_CONTRACT_ID> \
   --feed_id 1 \
   --freshness_threshold_us 60000000
 ```

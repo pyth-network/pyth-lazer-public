@@ -75,7 +75,7 @@ Run the E2E test against the testnet deployment:
 ```bash
 cd scripts/e2e
 PYTH_LAZER_TOKEN=<your-token> npx tsx src/test_real_update.ts \
-  --contract-id CCE62RN3NUTNMD2SQ2EGWRJ6XHL7RUYQBNCEK7LVGFRLPCW7U7FGACM5
+  --contract-id <LAZER_CONTRACT_ID>   # see the Testnet Deployment table below
 ```
 
 This fetches a real signed price update from the Pyth Lazer service and verifies it on-chain.
@@ -120,86 +120,39 @@ lazer/contracts/stellar/
 
 | Contract | Address |
 |----------|---------|
-| Pyth Lazer | `CCE62RN3NUTNMD2SQ2EGWRJ6XHL7RUYQBNCEK7LVGFRLPCW7U7FGACM5` |
+| Pyth Lazer (verifier) | _TODO: pending redeploy under canonical Pyth-DAO governance_ |
+| Wormhole Executor | _TODO: pending redeploy_ |
 
-The testnet contract is initialized with the Pyth Lazer trusted signer and ready for use.
+The testnet contract is initialized with the canonical Pyth-DAO Lazer governance emitter and the
+Pyth Lazer trusted signer (see the governance config baked into `scripts/deploy.sh`). The canonical
+machine-readable record of the deployed contract ids lives in the `contract_manager` registry in
+`pyth-network/pyth-crosschain`.
 
 ## Deployment
 
-### Testnet
-
-1. Configure Stellar CLI for testnet:
-
-```bash
-stellar keys generate deployer --network testnet
-```
-
-2. Build the WASM binaries:
+Use `scripts/deploy.sh`. It builds, deploys, and initializes both contracts with the canonical
+Pyth-DAO governance defaults (owner emitter, guardian set, and Pyth receiver chain id) for the chosen
+network — no governance overrides are needed. See the "Canonical governance configuration" doc-block
+at the top of the script for what those defaults are and how to verify them.
 
 ```bash
-make build
+# Testnet (--fund friendbot-funds a fresh account)
+./scripts/deploy.sh --secret <SECRET_KEY_OR_IDENTITY> --network testnet --fund
+
+# Mainnet
+./scripts/deploy.sh --secret <SECRET_KEY_OR_IDENTITY> --network mainnet
 ```
-
-3. Deploy the Wormhole executor contract:
-
-```bash
-stellar contract deploy \
-  --wasm target/wasm32-unknown-unknown/release/wormhole_executor_stellar.wasm \
-  --network testnet \
-  --source deployer
-```
-
-4. Initialize the executor with the Wormhole guardian set:
-
-```bash
-stellar contract invoke \
-  --id <EXECUTOR_CONTRACT_ID> \
-  --network testnet \
-  --source deployer \
-  -- initialize \
-  --chain_id 30 \
-  --owner_emitter_chain 1 \
-  --owner_emitter_address <GOVERNANCE_EMITTER_ADDRESS> \
-  --gs_upgrade_emitter_chain 1 \
-  --gs_upgrade_emitter_address <WORMHOLE_CORE_GOVERNANCE_EMITTER_ADDRESS> \
-  --initial_guardian_set '["<GUARDIAN_ETH_ADDR_1>", ...]' \
-  --guardian_set_index <CURRENT_INDEX>
-```
-
-5. Deploy the Pyth Lazer contract:
-
-```bash
-stellar contract deploy \
-  --wasm target/wasm32-unknown-unknown/release/pyth_lazer_stellar.wasm \
-  --network testnet \
-  --source deployer
-```
-
-6. Initialize the Lazer contract with the executor address:
-
-```bash
-stellar contract invoke \
-  --id <LAZER_CONTRACT_ID> \
-  --network testnet \
-  --source deployer \
-  -- initialize \
-  --executor <EXECUTOR_CONTRACT_ID>
-```
-
-### Mainnet
-
-Follow the same steps as testnet, replacing `--network testnet` with `--network mainnet` and using production guardian set values.
 
 ## Configuration
 
 | Parameter | Description |
 |-----------|-------------|
-| `chain_id` | Wormhole chain ID for Stellar (30) |
+| `chain_id` | Pyth receiver chain ID this deployment answers governance for: testnet `50140` / mainnet `60100`. This is different from Wormhole's Stellar chain id (30) because the contracts have their own receiver implementation. Must match what `contract_manager` sends |
 | `owner_emitter_chain` | Wormhole chain ID of the Pyth governance emitter (1 = Solana) |
-| `owner_emitter_address` | 32-byte Wormhole emitter address of the Pyth governance emitter |
+| `owner_emitter_address` | 32-byte Wormhole emitter address of the Pyth-DAO Lazer governance emitter (`5635979a…75b12e9e`) — the Squads authority PDA (index 1) of the Pyth DAO mainnet multisig; same for testnet and mainnet |
 | `gs_upgrade_emitter_chain` | Wormhole chain ID of the Wormhole core bridge governance emitter (1 = Solana). Authorizes guardian set upgrades only |
 | `gs_upgrade_emitter_address` | 32-byte Wormhole emitter address used to authorize guardian set upgrades |
-| `initial_guardian_set` | List of 20-byte Ethereum addresses of Wormhole guardians |
-| `guardian_set_index` | Current guardian set index from Wormhole |
+| `initial_guardian_set` | List of 20-byte Ethereum addresses of Wormhole guardians. Use the current Wormhole **mainnet** guardian set on both networks — governance VAAs are signed by the mainnet guardians since the owner emitter lives on Solana mainnet |
+| `guardian_set_index` | Wormhole guardian set index — `4` (the current mainnet set) on both networks |
 
 See [Wormhole contract addresses](https://wormhole.com/docs/products/reference/contract-addresses) and [chain IDs](https://wormhole.com/docs/products/reference/chain-ids) for reference values.
