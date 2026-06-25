@@ -52,3 +52,14 @@ the `Update`.
 
 See the full consumer integration guide at
 [docs.pyth.network/lazer/price-feeds/pro/integrate-as-consumer/stellar](https://docs.pyth.network/lazer/price-feeds/pro/integrate-as-consumer/stellar).
+
+## Publishing
+
+This crate is published to crates.io via
+`.github/workflows/publish-rust-lazer-stellar-sdk.yml`. To cut a new release:
+
+1. Bump `version` in `Cargo.toml` (semver).
+2. Commit + merge to `main`.
+3. Tag: `git tag rust-pyth-lazer-stellar-sdk-v<X.Y.Z> && git push origin rust-pyth-lazer-stellar-sdk-v<X.Y.Z>`
+4. The workflow runs `cargo publish` from the tag. It can also be triggered
+   manually via `workflow_dispatch`.
