@@ -75,7 +75,7 @@ Run the E2E test against the testnet deployment:
 ```bash
 cd scripts/e2e
 PYTH_LAZER_TOKEN=<your-token> npx tsx src/test_real_update.ts \
-  --contract-id <LAZER_CONTRACT_ID>   # see the Testnet Deployment table below
+  --contract-id CD2KMDOR274ZVPVVSDIBWNBLGAXJOHKJBQGNWYQHF3O6H767UOYJJYJZ   # see the Testnet Deployment table below
 ```
 
 This fetches a real signed price update from the Pyth Lazer service and verifies it on-chain.
@@ -120,8 +120,8 @@ lazer/contracts/stellar/
 
 | Contract | Address |
 |----------|---------|
-| Pyth Lazer (verifier) | _TODO: pending redeploy under canonical Pyth-DAO governance_ |
-| Wormhole Executor | _TODO: pending redeploy_ |
+| Pyth Lazer (verifier) | [`CD2KMDOR274ZVPVVSDIBWNBLGAXJOHKJBQGNWYQHF3O6H767UOYJJYJZ`](https://stellar.expert/explorer/testnet/contract/CD2KMDOR274ZVPVVSDIBWNBLGAXJOHKJBQGNWYQHF3O6H767UOYJJYJZ) |
+| Wormhole Executor | [`CD2GFORUETLBEL6TWUYWP2D4NXZ2APYJFOSVBMYWVH2U7OB4DCOQOKI7`](https://stellar.expert/explorer/testnet/contract/CD2GFORUETLBEL6TWUYWP2D4NXZ2APYJFOSVBMYWVH2U7OB4DCOQOKI7) |
 
 The testnet contract is initialized with the canonical Pyth-DAO Lazer governance emitter and the
 Pyth Lazer trusted signer (see the governance config baked into `scripts/deploy.sh`). The canonical
