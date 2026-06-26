@@ -5,7 +5,7 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
 
 import "dynamic_value.proto";
-import "state.proto";
+import "types.proto";
 
 // If any field documented as `[required]` is not present in the instruction,
 // the instruction will be rejected.
@@ -102,6 +102,8 @@ message GovernanceInstructionItem {
         AddExchange add_exchange = 120;
         UpdateExchange update_exchange = 121;
         RemoveExchange remove_exchange = 122;
+        ScheduleInstruction schedule_instruction = 123;
+        UnscheduleInstruction unschedule_instruction = 124;
     }
 }
 
@@ -514,4 +516,41 @@ message UpdateExchangeMetadata {
     optional string name = 1;
     // [optional] Property value. If unset, the property will be removed.
     optional DynamicValue value = 2;
+}
+
+// Schedule a set of governance actions to be applied at a future timestamp.
+// Permissions for all items are validated at scheduling time (not at execution time).
+// Scheduled instructions are immutable once queued — they can only be removed via
+// `UnscheduleInstruction`, not edited.
+message ScheduleInstruction {
+    // [required] Unique identifier for this scheduled action within the shard.
+    // Used to reference the action in `UnscheduleInstruction`.
+    optional uint64 id = 1;
+    // [required] The timestamp at which the scheduled items should be applied.
+    optional google.protobuf.Timestamp execution_timestamp = 2;
+    // [required] The governance instruction items to apply at `execution_timestamp`.
+    // Must not be empty.
+    repeated GovernanceInstructionItem items = 3;
+}
+
+// Cancel a previously scheduled governance action.
+// The scheduled action is identified by its id.
+message UnscheduleInstruction {
+    // [required] The id of the scheduled action to cancel.
+    optional uint64 id = 1;
+}
+
+// A governance action that has been scheduled for future execution.
+// Stored in the shard state until it is executed or cancelled.
+message ScheduledGovernanceAction {
+    // [required] Unique identifier for this scheduled action within the shard.
+    optional uint64 id = 1;
+    // [required] The timestamp at which the items should be applied.
+    optional google.protobuf.Timestamp execution_timestamp = 2;
+    // [required] The governance instruction items to apply at `execution_timestamp`.
+    repeated GovernanceInstructionItem items = 3;
+    // [required] The governance source that created this scheduled action.
+    optional GovernanceSource creator_source = 4;
+    // [required] Timestamp when this action was scheduled (for ordering tie-breaking).
+    optional google.protobuf.Timestamp creation_timestamp = 5;
 }

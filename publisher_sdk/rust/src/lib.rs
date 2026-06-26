@@ -23,8 +23,14 @@ pub mod governance_instruction {
     pub use crate::protobuf::governance_instruction::*;
 }
 
+pub mod types {
+    pub use crate::protobuf::types::*;
+}
+
+#[allow(ambiguous_glob_reexports)]
 pub mod state {
     pub use crate::protobuf::state::*;
+    pub use crate::protobuf::types::*;
 }
 
 pub mod dynamic_value {

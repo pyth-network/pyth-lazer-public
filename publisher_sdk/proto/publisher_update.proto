@@ -5,7 +5,7 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
 
-import "state.proto";
+import "types.proto";
 
 
 // if any fields marked as [required] are missing, feed/publisher update will be rejected

@@ -123,15 +123,15 @@ xz2 = "0.1.7"
 
 [workspace.dependencies.pyth-lazer-client]
 path = "sdk/rust/client"
-version = "26.1.0"
+version = "26.2.0"
 
 [workspace.dependencies.pyth-lazer-protocol]
 path = "sdk/rust/protocol"
-version = "0.44.0"
+version = "0.45.0"
 
 [workspace.dependencies.pyth-lazer-publisher-sdk]
 path = "publisher_sdk/rust"
-version = "0.44.0"
+version = "0.45.0"
 
 [workspace.dependencies.async-stripe-core]
 features = ["customer"]
