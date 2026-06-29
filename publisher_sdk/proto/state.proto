@@ -82,9 +82,6 @@ message ExchangeClassificationSchedule {
     optional DynamicValue.Map metadata = 3;
     // [optional] Asset class for this exchange entry.
     optional ExchangeAssetClass asset_class = 4;
-    // [optional] Secondary asset class. Active only when the
-    // `enable_exchange_asset_class_2` feature flag is enabled.
-    optional ExchangeAssetClass asset_class_2 = 8;
     // [optional] Asset subclass for this exchange entry.
     optional ExchangeAssetSubclass asset_subclass = 5;
     // [optional] Asset sector for this exchange entry.

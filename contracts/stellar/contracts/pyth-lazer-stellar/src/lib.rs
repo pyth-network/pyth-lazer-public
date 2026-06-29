@@ -1,6 +1,6 @@
 #![no_std]
 
-use soroban_sdk::{contract, contractimpl, Address, Bytes, BytesN, Env, Vec};
+use soroban_sdk::{contract, contractimpl, Address, Bytes, BytesN, Env};
 
 mod bytes;
 mod error;
@@ -60,13 +60,6 @@ impl PythLazerContract {
         state::set_trusted_signer(&env, &pubkey, expires_at);
         state::extend_instance_ttl(&env);
         Ok(())
-    }
-
-    /// List every currently trusted signer as `(pubkey, expires_at)` pairs.
-    /// Read-only; readable by anyone.
-    pub fn list_trusted_signers(env: Env) -> Vec<(BytesN<33>, u64)> {
-        state::extend_instance_ttl(&env);
-        state::list_trusted_signers(&env)
     }
 
     /// Upgrade the contract WASM. Callable only by the executor.
