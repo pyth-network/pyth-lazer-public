@@ -5,7 +5,7 @@ set -euo pipefail
 #
 # Prerequisites:
 #   - stellar CLI v25+ (https://developers.stellar.org/docs/tools/cli/install-cli)
-#   - wasm32-unknown-unknown target: rustup target add wasm32-unknown-unknown
+#   - Rust >= 1.84 with the wasm32v1-none target: rustup target add wasm32v1-none
 #   - wasm-opt (optional, for WASM optimization): cargo install wasm-opt
 #
 # Usage:
@@ -215,11 +215,11 @@ fi
 # Step 1: Build contracts
 echo "=== Building contracts ==="
 cd "$WORKSPACE_DIR"
-cargo build --release --target wasm32-unknown-unknown -p wormhole-executor-stellar -p pyth-lazer-stellar
+cargo build --release --target wasm32v1-none -p wormhole-executor-stellar -p pyth-lazer-stellar
 echo "Build complete."
 echo ""
 
-WASM_DIR="$WORKSPACE_DIR/target/wasm32-unknown-unknown/release"
+WASM_DIR="$WORKSPACE_DIR/target/wasm32v1-none/release"
 EXECUTOR_WASM="$WASM_DIR/wormhole_executor_stellar.wasm"
 LAZER_WASM="$WASM_DIR/pyth_lazer_stellar.wasm"
 

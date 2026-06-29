@@ -15,7 +15,7 @@ recent price.
 
 ```bash
 # From contracts/stellar/
-make build                                   # compiles to wasm32-unknown-unknown
+make build                                   # compiles to wasm32v1-none
 cargo test --package pyth-lazer-stellar-example
 ```
 
@@ -43,7 +43,7 @@ make build
 # Deploy, passing the constructor args (verifier address, feed id, freshness threshold).
 # Here: track BTC/USD (feed id 1) and reject updates older than 60 seconds.
 stellar contract deploy \
-  --wasm target/wasm32-unknown-unknown/release/pyth_lazer_stellar_example.wasm \
+  --wasm target/wasm32v1-none/release/pyth_lazer_stellar_example.wasm \
   --source deployer \
   --network testnet \
   -- \

@@ -42,8 +42,8 @@ Soroban smart contracts for verifying [Pyth Lazer](https://docs.pyth.network/laz
 
 ## Prerequisites
 
-- [Rust](https://rustup.rs/) (stable)
-- Soroban target: `rustup target add wasm32-unknown-unknown`
+- [Rust](https://rustup.rs/) (>= 1.84)
+- Soroban target: `rustup target add wasm32v1-none`
 - [Stellar CLI](https://developers.stellar.org/docs/tools/developer-tools/cli/install-cli) (for deployment)
 
 ## Build
@@ -52,7 +52,7 @@ Soroban smart contracts for verifying [Pyth Lazer](https://docs.pyth.network/laz
 make build
 ```
 
-This compiles both contracts to WASM targeting `wasm32-unknown-unknown`.
+This compiles both contracts to WASM targeting `wasm32v1-none`.
 
 ## Test
 

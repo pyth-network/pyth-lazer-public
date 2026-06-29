@@ -1,11 +1,11 @@
 .PHONY: build optimize test clean fmt fmt-check clippy check deploy-testnet
 
-WASM_DIR = $(CURDIR)/target/wasm32-unknown-unknown/release
+WASM_DIR = $(CURDIR)/target/wasm32v1-none/release
 
-# Only contract crates: integration-tests pulls soroban-env-host and cannot compile for wasm32-unknown-unknown.
-# Requires `rustup target add wasm32-unknown-unknown`.
+# Only contract crates: integration-tests pulls soroban-env-host and cannot compile for wasm32v1-none.
+# Requires `rustup target add wasm32v1-none` (Rust >= 1.84).
 build:
-	cd $(CURDIR) && cargo build --release --target wasm32-unknown-unknown \
+	cd $(CURDIR) && cargo build --release --target wasm32v1-none \
 		-p pyth-lazer-stellar -p wormhole-executor-stellar -p pyth-lazer-stellar-sdk \
 		-p pyth-lazer-stellar-example
 
