@@ -1,3 +1,4 @@
+use crate::config::RedactedUrl;
 use anyhow::{Context, Result, bail};
 use backoff::backoff::Backoff;
 use backoff::{ExponentialBackoff, ExponentialBackoffBuilder};
@@ -26,24 +27,24 @@ type RelayerWsSender = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Tun
 type RelayerWsReceiver = SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>;
 
 async fn connect_through_proxy(
-    proxy_url: &Url,
+    proxy_url: &RedactedUrl,
     target_url: &Url,
     token: &str,
 ) -> Result<(RelayerWsSender, RelayerWsReceiver)> {
+    // `proxy_url`'s Display/Debug are redacted, so it is safe to log directly.
+    // `proxy` carries the credentials and is only used to build the connection.
+    let proxy = proxy_url.expose();
+
     tracing::info!(
         "connecting to the relayer at {} via proxy {}",
         target_url,
         proxy_url
     );
 
-    let proxy_host = proxy_url.host_str().context("Proxy URL must have a host")?;
-    let proxy_port = proxy_url
+    let proxy_host = proxy.host_str().context("Proxy URL must have a host")?;
+    let proxy_port = proxy
         .port()
-        .unwrap_or(if proxy_url.scheme() == "https" {
-            443
-        } else {
-            80
-        });
+        .unwrap_or(if proxy.scheme() == "https" { 443 } else { 80 });
 
     let proxy_addr = format!("{proxy_host}:{proxy_port}");
     let mut stream = TcpStream::connect(&proxy_addr)
@@ -65,9 +66,9 @@ async fn connect_through_proxy(
     let mut request_parts = vec![format!("CONNECT {target_authority} HTTP/1.1")];
     request_parts.push(format!("Host: {target_authority}"));
 
-    let username = proxy_url.username();
+    let username = proxy.username();
     if !username.is_empty() {
-        let password = proxy_url.password().unwrap_or("");
+        let password = proxy.password().unwrap_or("");
         let credentials = format!("{username}:{password}");
         let encoded = base64::engine::general_purpose::STANDARD.encode(credentials.as_bytes());
         request_parts.push(format!("Proxy-Authorization: Basic {encoded}"));
@@ -185,7 +186,7 @@ async fn connect_through_proxy(
 async fn connect_to_relayer(
     url: Url,
     token: &str,
-    proxy_url: Option<&Url>,
+    proxy_url: Option<&RedactedUrl>,
 ) -> Result<(RelayerWsSender, RelayerWsReceiver)> {
     if let Some(proxy) = proxy_url {
         connect_through_proxy(proxy, &url, token).await
@@ -312,7 +313,7 @@ pub struct RelayerSessionTask {
     pub pool: RelayerPool,
     pub token: String,
     pub is_ready: Arc<AtomicBool>,
-    pub proxy_url: Option<Url>,
+    pub proxy_url: Option<RedactedUrl>,
 }
 
 impl RelayerSessionTask {
