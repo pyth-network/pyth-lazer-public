@@ -470,6 +470,9 @@ message AddExchange {
     optional DynamicValue.Map metadata = 3;
     // [optional]
     optional ExchangeAssetClass asset_class = 4;
+    // [optional] Secondary asset class. Honored only when the
+    // `enable_exchange_asset_class_2` feature flag is enabled.
+    optional ExchangeAssetClass asset_class_2 = 8;
     // [optional]
     optional ExchangeAssetSubclass asset_subclass = 5;
     // [optional]
@@ -501,6 +504,9 @@ message UpdateExchangeProperties {
     optional string name = 1;
     // [optional]
     optional ExchangeAssetClass asset_class = 2;
+    // [optional] Secondary asset class. Honored only when the
+    // `enable_exchange_asset_class_2` feature flag is enabled.
+    optional ExchangeAssetClass asset_class_2 = 6;
     // [optional]
     optional ExchangeAssetSubclass asset_subclass = 3;
     // [optional]
