@@ -371,6 +371,109 @@ fn test_governance_unauthorized_upgrade() {
         .upgrade(&uploaded_hash);
 }
 
+// ── Trusted-signer enumeration tests ──
+
+fn signer_key(env: &Env, byte: u8) -> BytesN<33> {
+    BytesN::from_array(env, &[byte; 33])
+}
+
+#[test]
+fn test_list_empty_after_init() {
+    let env = Env::default();
+    let (client, _executor) = setup(&env);
+    assert_eq!(client.list_trusted_signers().len(), 0);
+}
+
+#[test]
+fn test_list_returns_added_signers() {
+    let env = Env::default();
+    let (client, executor) = setup(&env);
+
+    let key_a = signer_key(&env, 0x01);
+    let key_b = signer_key(&env, 0x02);
+    let key_c = signer_key(&env, 0x03);
+    add_trusted_signer(&env, &client, &executor, &key_a, 100);
+    add_trusted_signer(&env, &client, &executor, &key_b, 200);
+    add_trusted_signer(&env, &client, &executor, &key_c, 300);
+
+    let signers = client.list_trusted_signers();
+    assert_eq!(signers.len(), 3);
+    // Order is not guaranteed; check membership and expiries.
+    for (key, expected) in [(&key_a, 100u64), (&key_b, 200), (&key_c, 300)] {
+        let found = signers.iter().find(|(k, _)| k == key);
+        assert_eq!(found.map(|(_, e)| e), Some(expected));
+    }
+}
+
+#[test]
+fn test_update_expiry_keeps_length() {
+    let env = Env::default();
+    let (client, executor) = setup(&env);
+
+    let key_a = signer_key(&env, 0x01);
+    add_trusted_signer(&env, &client, &executor, &key_a, 100);
+    add_trusted_signer(&env, &client, &executor, &key_a, 999);
+
+    let signers = client.list_trusted_signers();
+    assert_eq!(signers.len(), 1);
+    assert_eq!(signers.get(0).map(|(_, e)| e), Some(999));
+}
+
+#[test]
+fn test_remove_signer() {
+    let env = Env::default();
+    let (client, executor) = setup(&env);
+
+    let key_a = signer_key(&env, 0x01);
+    let key_b = signer_key(&env, 0x02);
+    add_trusted_signer(&env, &client, &executor, &key_a, 100);
+    add_trusted_signer(&env, &client, &executor, &key_b, 200);
+
+    // Remove key_a.
+    add_trusted_signer(&env, &client, &executor, &key_a, 0);
+
+    let signers = client.list_trusted_signers();
+    assert_eq!(signers.len(), 1);
+    assert!(signers.iter().all(|(k, _)| k != key_a));
+    assert_eq!(signers.get(0).map(|(_, e)| e), Some(200));
+}
+
+#[test]
+fn test_add_remove_add_same_key_appears_once() {
+    let env = Env::default();
+    let (client, executor) = setup(&env);
+
+    let key_a = signer_key(&env, 0x01);
+    add_trusted_signer(&env, &client, &executor, &key_a, 100);
+    add_trusted_signer(&env, &client, &executor, &key_a, 0);
+    add_trusted_signer(&env, &client, &executor, &key_a, 300);
+
+    let signers = client.list_trusted_signers();
+    assert_eq!(signers.len(), 1);
+    assert_eq!(signers.get(0).map(|(_, e)| e), Some(300));
+}
+
+#[test]
+fn test_initial_signer_listed() {
+    // A signer supplied to the constructor must be listed.
+    let env = Env::default();
+    let executor = Address::generate(&env);
+    let initial_signer = signer_key(&env, 0x07);
+    let contract_id = env.register(
+        PythLazerContract,
+        (
+            executor.clone(),
+            Some(initial_signer.clone()),
+            Some(2_000_000_000u64),
+        ),
+    );
+    let client = PythLazerContractClient::new(&env, &contract_id);
+
+    let signers = client.list_trusted_signers();
+    assert_eq!(signers.len(), 1);
+    assert_eq!(signers.get(0), Some((initial_signer, 2_000_000_000u64)));
+}
+
 #[test]
 fn test_governance_upgrade_with_executor() {
     let env = Env::default();

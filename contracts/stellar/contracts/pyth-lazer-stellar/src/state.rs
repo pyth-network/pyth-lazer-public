@@ -1,4 +1,4 @@
-use soroban_sdk::{contracttype, Address, BytesN, Env};
+use soroban_sdk::{contracttype, Address, BytesN, Env, Map, Vec};
 
 use crate::error::ContractError;
 
@@ -12,8 +12,11 @@ pub const TTL_EXTEND_TO: u32 = 500_000;
 pub enum DataKey {
     /// The executor address authorized for governance operations.
     Executor,
-    /// Trusted signer entry: maps compressed secp256k1 pubkey to expiry timestamp.
-    TrustedSigner(BytesN<33>),
+    /// The full set of trusted signers, stored as a single enumerable map from
+    /// compressed secp256k1 pubkey to expiry timestamp (unix seconds). A single
+    /// map (rather than one storage entry per signer) lets the whole set be
+    /// listed on-chain.
+    TrustedSigners,
 }
 
 /// Store the executor address (one-time initialization).
@@ -34,28 +37,62 @@ pub fn has_executor(env: &Env) -> bool {
     env.storage().instance().has(&DataKey::Executor)
 }
 
+/// Read the trusted-signers map, defaulting to an empty map when unset.
+fn get_trusted_signers(env: &Env) -> Map<BytesN<33>, u64> {
+    env.storage()
+        .persistent()
+        .get(&DataKey::TrustedSigners)
+        .unwrap_or_else(|| Map::new(env))
+}
+
+/// Persist the trusted-signers map and bump its TTL.
+fn put_trusted_signers(env: &Env, signers: &Map<BytesN<33>, u64>) {
+    env.storage()
+        .persistent()
+        .set(&DataKey::TrustedSigners, signers);
+    env.storage()
+        .persistent()
+        .extend_ttl(&DataKey::TrustedSigners, TTL_THRESHOLD, TTL_EXTEND_TO);
+}
+
+/// Extend the TTL on the trusted-signers map (used on read paths).
+fn extend_trusted_signers_ttl(env: &Env) {
+    env.storage()
+        .persistent()
+        .extend_ttl(&DataKey::TrustedSigners, TTL_THRESHOLD, TTL_EXTEND_TO);
+}
+
 /// Store or update a trusted signer's expiry timestamp (unix seconds).
 /// If `expires_at` is 0, removes the signer.
 pub fn set_trusted_signer(env: &Env, pubkey: &BytesN<33>, expires_at: u64) {
-    let key = DataKey::TrustedSigner(pubkey.clone());
+    let mut signers = get_trusted_signers(env);
     if expires_at == 0 {
-        env.storage().persistent().remove(&key);
+        signers.remove(pubkey.clone());
     } else {
-        env.storage().persistent().set(&key, &expires_at);
-        env.storage()
-            .persistent()
-            .extend_ttl(&key, TTL_THRESHOLD, TTL_EXTEND_TO);
+        signers.set(pubkey.clone(), expires_at);
     }
+    put_trusted_signers(env, &signers);
+}
+
+/// List every currently trusted signer as `(pubkey, expires_at)` pairs.
+/// Extends the TTL on the map it reads.
+pub fn list_trusted_signers(env: &Env) -> Vec<(BytesN<33>, u64)> {
+    let signers = get_trusted_signers(env);
+    if !signers.is_empty() {
+        extend_trusted_signers_ttl(env);
+    }
+    let mut result = Vec::new(env);
+    for (pubkey, expires_at) in signers.iter() {
+        result.push_back((pubkey, expires_at));
+    }
+    result
 }
 
 /// Get a trusted signer's expiry timestamp. Returns None if not found.
 pub fn get_trusted_signer_expiry(env: &Env, pubkey: &BytesN<33>) -> Option<u64> {
-    let key = DataKey::TrustedSigner(pubkey.clone());
-    let result: Option<u64> = env.storage().persistent().get(&key);
+    let result = get_trusted_signers(env).get(pubkey.clone());
     if result.is_some() {
-        env.storage()
-            .persistent()
-            .extend_ttl(&key, TTL_THRESHOLD, TTL_EXTEND_TO);
+        extend_trusted_signers_ttl(env);
     }
     result
 }
