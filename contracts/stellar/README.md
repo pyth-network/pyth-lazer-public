@@ -75,7 +75,7 @@ Run the E2E test against the testnet deployment:
 ```bash
 cd scripts/e2e
 PYTH_LAZER_TOKEN=<your-token> npx tsx src/test_real_update.ts \
-  --contract-id CD2KMDOR274ZVPVVSDIBWNBLGAXJOHKJBQGNWYQHF3O6H767UOYJJYJZ   # see the Testnet Deployment table below
+  --contract-id CAYFT5JE3UQTKT4Q6ZOZK4FXVYVT6RE3MFC7STA4UB6WAEGBT65MRU52   # see the Testnet Deployment table below
 ```
 
 This fetches a real signed price update from the Pyth Lazer service and verifies it on-chain.
@@ -120,8 +120,8 @@ lazer/contracts/stellar/
 
 | Contract | Address |
 |----------|---------|
-| Pyth Lazer (verifier) | [`CD2KMDOR274ZVPVVSDIBWNBLGAXJOHKJBQGNWYQHF3O6H767UOYJJYJZ`](https://stellar.expert/explorer/testnet/contract/CD2KMDOR274ZVPVVSDIBWNBLGAXJOHKJBQGNWYQHF3O6H767UOYJJYJZ) |
-| Wormhole Executor | [`CD2GFORUETLBEL6TWUYWP2D4NXZ2APYJFOSVBMYWVH2U7OB4DCOQOKI7`](https://stellar.expert/explorer/testnet/contract/CD2GFORUETLBEL6TWUYWP2D4NXZ2APYJFOSVBMYWVH2U7OB4DCOQOKI7) |
+| Pyth Lazer (verifier) | [`CAYFT5JE3UQTKT4Q6ZOZK4FXVYVT6RE3MFC7STA4UB6WAEGBT65MRU52`](https://stellar.expert/explorer/testnet/contract/CAYFT5JE3UQTKT4Q6ZOZK4FXVYVT6RE3MFC7STA4UB6WAEGBT65MRU52) |
+| Wormhole Executor | [`CA542YLVDLBQXTTS2FOERQAED2WE5DQRKLRZUUEG75DQ2TEX2525QNBG`](https://stellar.expert/explorer/testnet/contract/CA542YLVDLBQXTTS2FOERQAED2WE5DQRKLRZUUEG75DQ2TEX2525QNBG) |
 
 The testnet contract is initialized with the canonical Pyth-DAO Lazer governance emitter and the
 Pyth Lazer trusted signer (see the governance config baked into `scripts/deploy.sh`). The canonical
@@ -153,6 +153,6 @@ at the top of the script for what those defaults are and how to verify them.
 | `gs_upgrade_emitter_chain` | Wormhole chain ID of the Wormhole core bridge governance emitter (1 = Solana). Authorizes guardian set upgrades only |
 | `gs_upgrade_emitter_address` | 32-byte Wormhole emitter address used to authorize guardian set upgrades |
 | `initial_guardian_set` | List of 20-byte Ethereum addresses of Wormhole guardians. Use the current Wormhole **mainnet** guardian set on both networks — governance VAAs are signed by the mainnet guardians since the owner emitter lives on Solana mainnet |
-| `guardian_set_index` | Wormhole guardian set index — `4` (the current mainnet set) on both networks |
+| `guardian_set_index` | Wormhole guardian set index — `7` (the current mainnet set) on both networks |
 
 See [Wormhole contract addresses](https://wormhole.com/docs/products/reference/contract-addresses) and [chain IDs](https://wormhole.com/docs/products/reference/chain-ids) for reference values.
