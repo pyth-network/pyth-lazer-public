@@ -21,7 +21,6 @@
     "includes": [
       "**",
       "!**/tilt",
-      "!**/tilt.state.json",
       "!**/.sqlx",
       "!.turbo/**/*",
       "!dist/**/*",
