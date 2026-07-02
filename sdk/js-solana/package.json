@@ -69,13 +69,14 @@
     "url": "https://github.com/pyth-network/pyth-lazer-public"
   },
   "scripts": {
-    "build": "ts-duality",
+    "build": "ts-duality --copyOtherFiles",
     "build:docs": "typedoc --out docs/typedoc src",
     "clean": "rm -rf ./dist",
+    "test:package": "bun test",
     "test:types": "tsc --noEmit --project ./tsconfig.build.json",
     "update-idl": "cd ../../contracts/solana && RUSTUP_TOOLCHAIN=nightly-2025-04-15 anchor build && cp target/types/pyth_lazer_solana_contract.ts ../../sdk/js-solana/src/idl/pyth-lazer-solana-contract.ts && cp target/idl/pyth_lazer_solana_contract.json ../../sdk/js-solana/src/idl/pyth-lazer-solana-contract.json"
   },
   "type": "module",
   "types": "./dist/cjs/index.d.ts",
-  "version": "0.2.0"
+  "version": "0.2.1"
 }

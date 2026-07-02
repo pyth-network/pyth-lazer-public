@@ -242,6 +242,9 @@
     "test:lint": {
       "dependsOn": ["//#install:modules", "^build"]
     },
+    "test:package": {
+      "dependsOn": ["//#install:modules", "build"]
+    },
     "test:staged": {
       "dependsOn": ["^build", "//#test:lint:staged", "test:types"]
     },
