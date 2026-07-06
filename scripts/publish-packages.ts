@@ -6,227 +6,146 @@
  * determine if the version marked has already been published and,
  * if it hasn't, publishes it to NPM.
  *
- * Publishing goes through `npm publish` (rather than `bun publish`) because
- * npm supports the provenance/OIDC trusted-publishing flow this repo relies on
- * and `bun publish` does not. The downside is that `npm` has no knowledge of
- * Bun's `catalog:`/`workspace:` protocols, so it would pack those literal
- * strings straight into the published `dependencies` and make the package
- * uninstallable in downstream workspaces. To avoid that, we resolve those
- * protocols to concrete versions in each package.json right before publishing
- * and restore the original file afterwards.
+ * Publishing is a two-step dance:
+ *
+ *   1. `bun pm pack` builds the tarball. Bun owns the `catalog:`/`workspace:`
+ *      protocols (defined in the root package.json), so it resolves them to
+ *      concrete versions in the packed `package.json`. `npm` has no knowledge
+ *      of those protocols and would otherwise pack the literal strings straight
+ *      into the published `dependencies`, making the package uninstallable in
+ *      downstream workspaces.
+ *   2. `npm publish <tarball>` uploads that pre-built tarball. We go through
+ *      `npm` (rather than `bun publish`) because npm supports the
+ *      provenance/OIDC trusted-publishing flow this repo relies on and
+ *      `bun publish` does not. Provenance is derived from the CI environment
+ *      (repo + commit + OIDC) and the tarball digest, so publishing a
+ *      pre-packed tarball produces a valid attestation.
  */
 /** biome-ignore-all lint/suspicious/noConsole: it's a script file, we need to output to the console */
 /** biome-ignore-all lint/nursery/noUndeclaredEnvVars: We don't care about turbo in this file */
 /** biome-ignore-all lint/style/noProcessEnv: it's a script file, it needs access to the env */
 
+import { mkdtemp, readdir, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import mapWorkspaces from "@npmcli/map-workspaces";
 import Bun from "bun";
 import type { PackageJson } from "type-fest";
 
-const DEPENDENCY_FIELDS = [
-  "dependencies",
-  "devDependencies",
-  "optionalDependencies",
-  "peerDependencies",
-] as const;
+const strToBool = (str: string) => str.toLowerCase().trim() === "true";
 
-type Catalog = Record<string, string>;
+const dryRun = strToBool(process.env.DRY_RUN ?? "");
 
-type Catalogs = {
-  /** The default (unnamed) catalog from the root package.json `catalog` field. */
-  catalog: Catalog;
-  /** Named catalogs from the root package.json `catalogs` field. */
-  catalogs: Record<string, Catalog>;
-  /** Map of workspace package name -> its local version. */
-  workspaceVersions: Map<string, string>;
-};
+if (dryRun) {
+  console.info("📢 Dry run has been enabled");
+}
 
-/**
- * Resolve a single dependency specifier that may use Bun's `catalog:` or
- * `workspace:` protocol into a concrete, npm-publishable version range.
- * Specifiers using neither protocol are returned unchanged.
- */
-const resolveSpecifier = (
-  depName: string,
-  specifier: string,
-  { catalog, catalogs, workspaceVersions }: Catalogs,
-): string => {
-  if (specifier.startsWith("catalog:")) {
-    const catalogName = specifier.slice("catalog:".length).trim();
-    const table = catalogName === "" ? catalog : catalogs[catalogName];
-    const resolved = table?.[depName];
-    if (resolved === undefined) {
-      throw new Error(
-        `Unable to resolve "${depName}": "${specifier}" is not defined in ${
-          catalogName === ""
-            ? "the default catalog"
-            : `the "${catalogName}" catalog`
-        } of the root package.json`,
-      );
-    }
-    return resolved;
+const repoRoot = path.join(import.meta.dirname, "../");
+const rootPkgFile = Bun.file(path.join(repoRoot, "package.json"));
+const rootPkg = await rootPkgFile.json();
+
+const packagesMap = await mapWorkspaces({ cwd: repoRoot, pkg: rootPkg });
+
+const packages: { name: string; packagePath: string; pkg: PackageJson }[] = [];
+
+for (const [name, packagePath] of packagesMap.entries()) {
+  const pkg = await Bun.file(path.join(packagePath, "package.json")).json();
+  packages.push({ name, packagePath, pkg });
+}
+
+const publicPackages = packages.filter((p) => !p.pkg.private);
+
+let hasErrors = false;
+
+for (const p of publicPackages) {
+  const viewResult = Bun.spawnSync(["bun", "pm", "view", p.name, "version"]);
+
+  // If the package doesn't exist on NPM yet, viewResult will have non-zero exit code
+  // In that case, publishedVersion will be empty string and we'll publish it
+  let publishedVersion = "";
+  if (viewResult.exitCode === 0) {
+    publishedVersion = viewResult.stdout.toString("utf-8").trim();
   }
 
-  if (specifier.startsWith("workspace:")) {
-    const version = workspaceVersions.get(depName);
-    if (version === undefined) {
-      throw new Error(
-        `Unable to resolve "${depName}": "${specifier}" refers to a workspace package that does not exist`,
-      );
-    }
-    // e.g. `workspace:*` -> the version, `workspace:^`/`workspace:~` -> prefixed
-    // version, `workspace:<range>` -> that range verbatim.
-    const range = specifier.slice("workspace:".length);
-    if (range === "" || range === "*") {
-      return version;
-    }
-    if (range === "^" || range === "~") {
-      return `${range}${version}`;
-    }
-    return range;
-  }
+  const {
+    pkg: { version },
+  } = p;
 
-  return specifier;
-};
-
-/**
- * Return a copy of `pkg` with every `catalog:`/`workspace:` specifier across
- * all dependency fields replaced by a concrete version. Throws if any such
- * specifier cannot be resolved, so we never publish an unresolved protocol.
- */
-export const resolveWorkspaceProtocols = (
-  pkg: PackageJson,
-  catalogs: Catalogs,
-): PackageJson => {
-  const resolved: PackageJson = { ...pkg };
-  for (const field of DEPENDENCY_FIELDS) {
-    const deps = pkg[field];
-    if (deps === undefined) {
-      continue;
-    }
-    resolved[field] = Object.fromEntries(
-      Object.entries(deps).map(([name, specifier]) => [
-        name,
-        typeof specifier === "string"
-          ? resolveSpecifier(name, specifier, catalogs)
-          : specifier,
-      ]),
+  // can't publish to NPM if the package.json is malformed and is missing its version field
+  if (!version) {
+    console.info(
+      "unable to publish",
+      p.name,
+      'because it is missing a "version" property in its package.json file',
     );
+    continue;
   }
-  return resolved;
-};
-
-if (import.meta.main) {
-  const strToBool = (str: string) => str.toLowerCase().trim() === "true";
-
-  const dryRun = strToBool(process.env.DRY_RUN ?? "");
-
-  if (dryRun) {
-    console.info("📢 Dry run has been enabled");
+  if (version === publishedVersion) {
+    console.info(
+      "✋🏼 skipping publishing",
+      p.name,
+      'because there has been no change to its "version" property',
+    );
+    continue;
   }
 
-  const repoRoot = path.join(import.meta.dirname, "../");
-  const rootPkgFile = Bun.file(path.join(repoRoot, "package.json"));
-  const rootPkg = await rootPkgFile.json();
+  const packDir = await mkdtemp(path.join(tmpdir(), "pyth-lazer-publish-"));
 
-  const packagesMap = await mapWorkspaces({ cwd: repoRoot, pkg: rootPkg });
-
-  const packages: { name: string; packagePath: string; pkg: PackageJson }[] =
-    [];
-
-  for (const [name, packagePath] of packagesMap.entries()) {
-    const pkg = await Bun.file(path.join(packagePath, "package.json")).json();
-    packages.push({ name, packagePath, pkg });
-  }
-
-  const workspaceVersions = new Map<string, string>();
-  for (const p of packages) {
-    if (typeof p.pkg.version === "string") {
-      workspaceVersions.set(p.name, p.pkg.version);
-    }
-  }
-
-  const catalogs: Catalogs = {
-    catalog: rootPkg.catalog ?? {},
-    catalogs: rootPkg.catalogs ?? {},
-    workspaceVersions,
-  };
-
-  const publicPackages = packages.filter((p) => !p.pkg.private);
-
-  let hasErrors = false;
-
-  for (const p of publicPackages) {
-    const viewResult = Bun.spawnSync(["bun", "pm", "view", p.name, "version"]);
-
-    // If the package doesn't exist on NPM yet, viewResult will have non-zero exit code
-    // In that case, publishedVersion will be empty string and we'll publish it
-    let publishedVersion = "";
-    if (viewResult.exitCode === 0) {
-      publishedVersion = viewResult.stdout.toString("utf-8").trim();
-    }
-
-    const {
-      pkg: { version },
-    } = p;
-
-    // can't publish to NPM if the package.json is malformed and is missing its version field
-    if (!version) {
-      console.info(
-        "unable to publish",
-        p.name,
-        'because it is missing a "version" property in its package.json file',
-      );
-      continue;
-    }
-    if (version === publishedVersion) {
-      console.info(
-        "✋🏼 skipping publishing",
-        p.name,
-        'because there has been no change to its "version" property',
-      );
-      continue;
-    }
-
-    // `npm` doesn't understand Bun's `catalog:`/`workspace:` protocols, so we
-    // resolve them to concrete versions on disk for the duration of the publish
-    // and restore the original package.json afterwards.
-    const pkgJsonPath = path.join(p.packagePath, "package.json");
-    const originalContents = await Bun.file(pkgJsonPath).text();
-    await Bun.write(
-      pkgJsonPath,
-      `${JSON.stringify(resolveWorkspaceProtocols(p.pkg, catalogs), null, 2)}\n`,
+  try {
+    // `bun pm pack` resolves Bun's `catalog:`/`workspace:` protocols into
+    // concrete versions in the packed package.json (see the module comment).
+    const packResult = Bun.spawnSync(
+      ["bun", "pm", "pack", "--destination", packDir],
+      { cwd: p.packagePath },
     );
 
-    try {
-      const result = Bun.spawnSync(
-        [
-          "npm",
-          "publish",
-          "--provenance",
-          "--access",
-          "public",
-          dryRun ? "--dry-run" : "",
-        ].filter(Boolean),
-        { cwd: p.packagePath },
-      );
-
-      if (result.exitCode !== 0) {
-        hasErrors = true;
-        console.error("🚨 an error occurred when publishing", p.name);
-        console.error(result.stdout.toString("utf-8"));
-        console.error(result.stderr.toString("utf-8"));
-      } else {
-        console.info(`✅ ${p.name}@${version} was published`);
-      }
-    } finally {
-      await Bun.write(pkgJsonPath, originalContents);
+    if (packResult.exitCode !== 0) {
+      hasErrors = true;
+      console.error("🚨 an error occurred when packing", p.name);
+      console.error(packResult.stdout.toString("utf-8"));
+      console.error(packResult.stderr.toString("utf-8"));
+      continue;
     }
-  }
 
-  if (hasErrors) {
-    console.error("⚠️  Some packages failed to publish");
-    process.exit(1);
+    const tarballs = (await readdir(packDir)).filter((f) => f.endsWith(".tgz"));
+    if (tarballs.length !== 1) {
+      hasErrors = true;
+      console.error(
+        "🚨 expected exactly one tarball for",
+        p.name,
+        "but found",
+        tarballs.join(", ") || "none",
+      );
+      continue;
+    }
+    const tarballPath = path.join(packDir, tarballs[0]);
+
+    const result = Bun.spawnSync(
+      [
+        "npm",
+        "publish",
+        tarballPath,
+        "--provenance",
+        "--access",
+        "public",
+        dryRun ? "--dry-run" : "",
+      ].filter(Boolean),
+    );
+
+    if (result.exitCode !== 0) {
+      hasErrors = true;
+      console.error("🚨 an error occurred when publishing", p.name);
+      console.error(result.stdout.toString("utf-8"));
+      console.error(result.stderr.toString("utf-8"));
+    } else {
+      console.info(`✅ ${p.name}@${version} was published`);
+    }
+  } finally {
+    await rm(packDir, { force: true, recursive: true });
   }
+}
+
+if (hasErrors) {
+  console.error("⚠️  Some packages failed to publish");
+  process.exit(1);
 }
