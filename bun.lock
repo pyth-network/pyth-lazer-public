@@ -77,7 +77,7 @@
     },
     "sdk/js-solana": {
       "name": "@pythnetwork/pyth-lazer-solana-sdk",
-      "version": "0.2.1",
+      "version": "0.2.2",
       "dependencies": {
         "@solana/buffer-layout": "catalog:",
         "@solana/web3.js": "catalog:",
