@@ -67,7 +67,7 @@ impl PythLazerRouterClient {
         &self,
         url: &Url,
     ) -> anyhow::Result<Option<SignedGuardianSetUpgrade>> {
-        let url = url.join("v1/guardian_set_upgrade")?;
+        let url = Self::http_endpoint(url, "/v1/guardian_set_upgrade")?;
 
         let response = self
             .client
@@ -79,6 +79,26 @@ impl PythLazerRouterClient {
         let response = response.error_for_status()?;
         let upgrade = response.json::<Option<SignedGuardianSetUpgrade>>().await?;
         Ok(upgrade)
+    }
+
+    /// Build the HTTP endpoint URL for a router request.
+    ///
+    /// The configured endpoints may be shared with the WebSocket streaming
+    /// config (e.g. `wss://host/v1/merkle/root/stream`), so we normalize the
+    /// scheme to HTTP(S) and set the path absolutely instead of joining it onto
+    /// the (possibly unrelated) base path.
+    fn http_endpoint(url: &Url, path: &str) -> anyhow::Result<Url> {
+        let mut url = url.clone();
+        let scheme = match url.scheme() {
+            "ws" | "http" => "http",
+            _ => "https",
+        };
+        url.set_scheme(scheme)
+            .map_err(|()| anyhow::anyhow!("failed to set url scheme to {scheme}"))?;
+        url.set_path(path);
+        url.set_query(None);
+        url.set_fragment(None);
+        Ok(url)
     }
 }
 
@@ -189,6 +209,34 @@ mod tests {
         let upgrade = result.unwrap();
         assert_eq!(upgrade.current_guardian_set_index, 10);
         assert_eq!(upgrade.new_guardian_set_index, 11);
+    }
+
+    #[test]
+    fn test_http_endpoint_normalizes_ws_scheme_and_path() {
+        // Endpoints shared with the streaming config use ws/wss and a stream path.
+        let base = Url::parse("wss://lazer0.example.com/v1/merkle/root/stream").unwrap();
+        let endpoint =
+            PythLazerRouterClient::http_endpoint(&base, "/v1/guardian_set_upgrade").unwrap();
+        assert_eq!(
+            endpoint.as_str(),
+            "https://lazer0.example.com/v1/guardian_set_upgrade"
+        );
+
+        let base = Url::parse("ws://localhost:1234/v1/merkle/root/stream?foo=bar").unwrap();
+        let endpoint =
+            PythLazerRouterClient::http_endpoint(&base, "/v1/guardian_set_upgrade").unwrap();
+        assert_eq!(
+            endpoint.as_str(),
+            "http://localhost:1234/v1/guardian_set_upgrade"
+        );
+
+        let base = Url::parse("https://lazer0.example.com").unwrap();
+        let endpoint =
+            PythLazerRouterClient::http_endpoint(&base, "/v1/guardian_set_upgrade").unwrap();
+        assert_eq!(
+            endpoint.as_str(),
+            "https://lazer0.example.com/v1/guardian_set_upgrade"
+        );
     }
 
     #[test]
