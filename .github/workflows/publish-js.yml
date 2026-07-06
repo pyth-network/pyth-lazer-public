@@ -1,0 +1,29 @@
+name: Publish Pyth JS packages
+
+on:
+  push:
+    tags:
+      - pyth-js-v*
+
+permissions:
+  id-token: write # Required for OIDC
+  contents: read
+
+jobs:
+  publish-js:
+    name: Publish Javascript Packages to NPM
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
+      # Libusb is a build requirement for the node-hid package and so bun
+      # install will fail if this isn't in the build environment and if a
+      # precompiled binary isn't found.
+      - name: Install libusb
+        run: sudo apt-get update && sudo apt-get install -y libusb-1.0-0-dev libudev-dev
+      - name: Install dependencies
+        run: bun install
+      - name: Build
+        run: bun run turbo build
+      - name: Publish all non-private packages
+        run: bun run ./scripts/publish-packages.ts
