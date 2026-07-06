@@ -3,7 +3,7 @@ use {
     futures::Stream,
     pyth_lazer_protocol::jrpc::SymbolMetadata,
     serde::{Deserialize, Serialize},
-    std::{path::PathBuf, sync::Arc, time::Duration},
+    std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration},
     tracing::{Instrument, info_span},
     url::Url,
 };
@@ -90,6 +90,20 @@ impl PythLazerApiClient {
             .await
     }
 
+    /// Fetch metadata + market schedules for all symbols in one call. Same
+    /// `/v1/symbols` request as [`all_symbols_metadata`](Self::all_symbols_metadata),
+    /// but keeps the per-feed `market_session_schedule` the response carries
+    /// alongside the metadata.
+    pub async fn all_symbol_info(&self) -> anyhow::Result<Vec<SymbolInfo>> {
+        self.http
+            .fetch_or_cache(
+                self.http.cache_file_path("symbol_info_v1.json"),
+                request_symbol_info,
+            )
+            .instrument(info_span!("all_symbol_info"))
+            .await
+    }
+
     /// Creates a fault-tolerant stream that requests the list of symbols and yields new items
     /// when a change of value occurs.
     ///
@@ -129,4 +143,35 @@ async fn request_symbols(
         .await
         .map_err(|err| backoff::Error::transient(anyhow::Error::from(err)))?;
     Ok(vec)
+}
+
+/// A `/v1/symbols` row: the metadata (flattened) plus the per-session market
+/// schedule strings keyed by session name — both from the same response.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SymbolInfo {
+    #[serde(flatten)]
+    pub metadata: SymbolMetadata,
+    #[serde(default)]
+    pub market_session_schedule: HashMap<String, String>,
+}
+
+async fn request_symbol_info(
+    http: &ResilientHttpClient,
+    url: &Url,
+) -> Result<Vec<SymbolInfo>, backoff::Error<anyhow::Error>> {
+    let url = url
+        .join("v1/symbols")
+        .map_err(|err| backoff::Error::permanent(anyhow::Error::from(err)))?;
+
+    let response = http
+        .reqwest
+        .get(url.clone())
+        .send()
+        .await
+        .map_err(|err| backoff::Error::transient(anyhow::Error::from(err)))?
+        .backoff_error_for_status()?;
+    response
+        .json::<Vec<SymbolInfo>>()
+        .await
+        .map_err(|err| backoff::Error::transient(anyhow::Error::from(err)))
 }
