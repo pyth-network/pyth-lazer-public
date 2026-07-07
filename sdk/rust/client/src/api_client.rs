@@ -26,6 +26,10 @@ pub struct PythLazerApiClientConfig {
     /// Capacity of communication channels created by this client. It must be above zero.
     #[serde(default = "default_channel_capacity")]
     pub channel_capacity: usize,
+    /// Optional bearer token sent on every request. Provide it to see unlisted feeds
+    /// the token is entitled to; the symbols endpoint hides those from anonymous callers.
+    #[serde(default)]
+    pub access_token: Option<String>,
 }
 
 fn default_urls() -> Vec<Url> {
@@ -52,6 +56,7 @@ impl Default for PythLazerApiClientConfig {
             request_timeout: default_request_timeout(),
             cache_dir: None,
             channel_capacity: default_channel_capacity(),
+            access_token: None,
         }
     }
 }
@@ -64,10 +69,22 @@ pub struct PythLazerApiClient {
 
 impl PythLazerApiClient {
     pub fn new(config: PythLazerApiClientConfig) -> Self {
-        let reqwest = reqwest::Client::builder()
-            .timeout(config.request_timeout)
-            .build()
-            .expect("failed to initialize reqwest");
+        let mut builder = reqwest::Client::builder().timeout(config.request_timeout);
+        if let Some(token) = &config.access_token {
+            match reqwest::header::HeaderValue::from_str(&format!("Bearer {token}")) {
+                Ok(mut value) => {
+                    value.set_sensitive(true);
+                    let mut headers = reqwest::header::HeaderMap::new();
+                    headers.insert(reqwest::header::AUTHORIZATION, value);
+                    builder = builder.default_headers(headers);
+                }
+                Err(err) => tracing::warn!(
+                    ?err,
+                    "invalid access_token, continuing without an authorization header"
+                ),
+            }
+        }
+        let reqwest = builder.build().expect("failed to initialize reqwest");
         Self {
             http: Arc::new(ResilientHttpClient {
                 urls: config.urls,

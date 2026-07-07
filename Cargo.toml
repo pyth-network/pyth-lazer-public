@@ -123,7 +123,7 @@ xz2 = "0.1.7"
 
 [workspace.dependencies.pyth-lazer-client]
 path = "sdk/rust/client"
-version = "26.3.0"
+version = "26.4.0"
 
 [workspace.dependencies.pyth-lazer-protocol]
 path = "sdk/rust/protocol"
