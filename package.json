@@ -255,11 +255,11 @@
     "fix:lint": "biome check --max-diagnostics=none --write",
     "fix:lint:changed": "bun run fix:lint --changed",
     "fix:lint:staged": "bun run fix:lint --staged",
-    "install:modules": "[ $CI ] && true || bun install",
+    "install:modules": "[ $CI ] && true || bun ci",
     "test:lint": "biome check --max-diagnostics=none --no-errors-on-unmatched",
     "test:lint:changed": "biome check --max-diagnostics=none --changed --no-errors-on-unmatched",
     "test:lint:staged": "biome check --max-diagnostics=none --staged --no-errors-on-unmatched",
-    "turbo": "[ ! -d node_modules ] && bun install; turbo"
+    "turbo": "[ ! -d node_modules ] && bun ci; turbo"
   },
   "trustedDependencies": [
     "@apollo/protobufjs",
