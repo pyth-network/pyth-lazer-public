@@ -3,6 +3,8 @@ extern crate std;
 
 use alloc::vec;
 use k256::ecdsa::SigningKey;
+use soroban_sdk::testutils::storage::Persistent as _;
+use soroban_sdk::testutils::Ledger as _;
 use soroban_sdk::{Address, Bytes, BytesN, Env, Vec};
 use tiny_keccak::{Hasher, Keccak};
 
@@ -214,6 +216,67 @@ fn test_constructor_deployment_success() {
         assert_eq!(gs.len(), 3);
         assert_eq!(guardian::get_guardian_set_index(&env), Ok(0));
         assert_eq!(guardian::get_chain_id(&env), Ok(30));
+    });
+}
+
+#[test]
+fn test_last_executed_sequence_initialized_to_zero() {
+    let env = Env::default();
+    let (_, contract_id, _) = setup_contract(&env, 1, 0);
+
+    // `initialize` writes the entry, so it reads back as 0 — never an error.
+    env.as_contract(&contract_id, || {
+        assert_eq!(guardian::get_last_executed_sequence(&env), Ok(0));
+    });
+}
+
+#[test]
+fn test_last_executed_sequence_missing_errors() {
+    let env = Env::default();
+    let (_, contract_id, _) = setup_contract(&env, 1, 0);
+
+    // Simulate the persistent entry expiring / being evicted. The getter must
+    // surface an error rather than silently defaulting to 0, which would reset
+    // replay protection.
+    env.as_contract(&contract_id, || {
+        env.storage()
+            .persistent()
+            .remove(&guardian::DataKey::LastExecutedSequence);
+        assert_eq!(
+            guardian::get_last_executed_sequence(&env),
+            Err(ContractError::SequenceNotFound)
+        );
+    });
+}
+
+#[test]
+fn test_set_last_executed_sequence_extends_ttl() {
+    let env = Env::default();
+    let (_, contract_id, _) = setup_contract(&env, 1, 0);
+
+    // Advance the ledger so the TTL written during `initialize` decays below
+    // the extension threshold. Without a refresh on the execute path the entry
+    // would eventually expire and — since a missing entry now errors —
+    // permanently block governance.
+    env.ledger().with_mut(|li| {
+        li.sequence_number += 450_000;
+    });
+
+    env.as_contract(&contract_id, || {
+        let ttl_before = env
+            .storage()
+            .persistent()
+            .get_ttl(&guardian::DataKey::LastExecutedSequence);
+
+        // Writing the sequence on the governance path must refresh the TTL.
+        guardian::set_last_executed_sequence(&env, 1);
+
+        let ttl_after = env
+            .storage()
+            .persistent()
+            .get_ttl(&guardian::DataKey::LastExecutedSequence);
+
+        assert!(ttl_after > ttl_before);
     });
 }
 

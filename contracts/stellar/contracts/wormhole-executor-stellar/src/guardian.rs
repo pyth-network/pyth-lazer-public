@@ -185,18 +185,36 @@ pub fn get_gs_upgrade_emitter_address(env: &Env) -> Result<BytesN<32>, ContractE
 }
 
 /// Get the last executed sequence number.
-pub fn get_last_executed_sequence(env: &Env) -> u64 {
+///
+/// The entry is written to 0 during `initialize`, so a missing entry means the
+/// persistent storage expired — not that the contract is fresh. Returning an
+/// error (rather than defaulting to 0) is critical for replay protection:
+/// silently reading 0 would reset the high-water mark and let every previously
+/// executed governance VAA be replayed.
+pub fn get_last_executed_sequence(env: &Env) -> Result<u64, ContractError> {
     env.storage()
         .persistent()
         .get(&DataKey::LastExecutedSequence)
-        .unwrap_or(0u64)
+        .ok_or(ContractError::SequenceNotFound)
 }
 
 /// Set the last executed sequence number.
+///
+/// Also refreshes the entry's TTL. This is the only write on the governance
+/// execution path, so extending here keeps the entry alive under active
+/// governance even when no guardian-set updates occur — a Soroban `set` does
+/// not reset TTL on its own. Without this, the entry could expire after
+/// `TTL_EXTEND_TO` ledgers and, since a missing entry now errors, permanently
+/// block governance until the entry is restored.
 pub fn set_last_executed_sequence(env: &Env, sequence: u64) {
     env.storage()
         .persistent()
         .set(&DataKey::LastExecutedSequence, &sequence);
+    env.storage().persistent().extend_ttl(
+        &DataKey::LastExecutedSequence,
+        TTL_THRESHOLD,
+        TTL_EXTEND_TO,
+    );
 }
 
 /// Update the guardian set. Expires the old set (24h window) and stores the new one.

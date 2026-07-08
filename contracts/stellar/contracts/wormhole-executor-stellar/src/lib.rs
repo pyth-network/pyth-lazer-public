@@ -223,7 +223,7 @@ impl WormholeExecutor {
         }
 
         // Replay protection: sequence must be strictly increasing.
-        let last_sequence = guardian::get_last_executed_sequence(&env);
+        let last_sequence = guardian::get_last_executed_sequence(&env)?;
         if vaa.body.sequence <= last_sequence {
             return Err(ContractError::StaleSequence);
         }

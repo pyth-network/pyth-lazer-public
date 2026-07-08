@@ -58,4 +58,8 @@ pub enum ContractError {
     InvalidFunctionName = 25,
     /// The PTGM generic-call args XDR did not decode into a vector of values.
     InvalidArgsEncoding = 26,
+    /// The last-executed-sequence entry is missing from persistent storage
+    /// (its TTL expired). Replay protection cannot be enforced, so the action
+    /// is rejected rather than defaulting the sequence to 0.
+    SequenceNotFound = 27,
 }
