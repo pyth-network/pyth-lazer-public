@@ -1044,16 +1044,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pyth-lazer-stellar-example"
-version = "0.1.0"
-dependencies = [
- "hex-literal",
- "pyth-lazer-stellar",
- "pyth-lazer-stellar-sdk",
- "soroban-sdk",
-]
-
-[[package]]
 name = "pyth-lazer-stellar-sdk"
 version = "0.3.0"
 dependencies = [

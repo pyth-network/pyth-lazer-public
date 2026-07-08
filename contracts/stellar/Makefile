@@ -6,8 +6,7 @@ WASM_DIR = $(CURDIR)/target/wasm32v1-none/release
 # Requires `rustup target add wasm32v1-none` (Rust >= 1.84).
 build:
 	cd $(CURDIR) && cargo build --release --target wasm32v1-none \
-		-p pyth-lazer-stellar -p wormhole-executor-stellar -p pyth-lazer-stellar-sdk \
-		-p pyth-lazer-stellar-example
+		-p pyth-lazer-stellar -p wormhole-executor-stellar -p pyth-lazer-stellar-sdk
 
 optimize: build
 	wasm-opt -Oz --disable-reference-types \
