@@ -1,6 +1,8 @@
 # Rust
 target
 config.toml
+# ...but the workspace-level cargo config (the `cargo testz` alias) is real
+!.cargo/config.toml
 
 # Python
 __pycache__/
