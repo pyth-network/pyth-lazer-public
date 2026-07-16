@@ -237,6 +237,9 @@ impl From<state::ExchangeAssetClass> for ExchangeAssetClass {
             }
             state::ExchangeAssetClass::EXCHANGE_ASSET_CLASS_EQUITY => ExchangeAssetClass::Equity,
             state::ExchangeAssetClass::EXCHANGE_ASSET_CLASS_FUTURE => ExchangeAssetClass::Future,
+            state::ExchangeAssetClass::EXCHANGE_ASSET_CLASS_COMMODITY => {
+                ExchangeAssetClass::Commodity
+            }
         }
     }
 }
@@ -249,6 +252,9 @@ impl From<ExchangeAssetClass> for state::ExchangeAssetClass {
             }
             ExchangeAssetClass::Equity => state::ExchangeAssetClass::EXCHANGE_ASSET_CLASS_EQUITY,
             ExchangeAssetClass::Future => state::ExchangeAssetClass::EXCHANGE_ASSET_CLASS_FUTURE,
+            ExchangeAssetClass::Commodity => {
+                state::ExchangeAssetClass::EXCHANGE_ASSET_CLASS_COMMODITY
+            }
         }
     }
 }
@@ -278,6 +284,24 @@ impl From<state::ExchangeAssetSubclass> for ExchangeAssetSubclass {
             state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_FX => ExchangeAssetSubclass::Fx,
             state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_AGRICULTURAL => {
                 ExchangeAssetSubclass::Agricultural
+            }
+            state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_COCOA => {
+                ExchangeAssetSubclass::Cocoa
+            }
+            state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_COFFEE => {
+                ExchangeAssetSubclass::Coffee
+            }
+            state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_RAW_SUGAR => {
+                ExchangeAssetSubclass::RawSugar
+            }
+            state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_PRECIOUS_METALS => {
+                ExchangeAssetSubclass::PreciousMetals
+            }
+            state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_BASE_METALS => {
+                ExchangeAssetSubclass::BaseMetals
+            }
+            state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_VOLATILITY => {
+                ExchangeAssetSubclass::Volatility
             }
         }
     }
@@ -309,6 +333,24 @@ impl From<ExchangeAssetSubclass> for state::ExchangeAssetSubclass {
             ExchangeAssetSubclass::Agricultural => {
                 state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_AGRICULTURAL
             }
+            ExchangeAssetSubclass::Cocoa => {
+                state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_COCOA
+            }
+            ExchangeAssetSubclass::Coffee => {
+                state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_COFFEE
+            }
+            ExchangeAssetSubclass::RawSugar => {
+                state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_RAW_SUGAR
+            }
+            ExchangeAssetSubclass::PreciousMetals => {
+                state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_PRECIOUS_METALS
+            }
+            ExchangeAssetSubclass::BaseMetals => {
+                state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_BASE_METALS
+            }
+            ExchangeAssetSubclass::Volatility => {
+                state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_VOLATILITY
+            }
         }
     }
 }
@@ -336,6 +378,13 @@ impl From<state::ExchangeAssetSector> for ExchangeAssetSector {
             state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_AGRICULTURAL => {
                 ExchangeAssetSector::Agricultural
             }
+            state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_ENERGY => ExchangeAssetSector::Energy,
+            state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_MATERIALS => {
+                ExchangeAssetSector::Materials
+            }
+            state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_AGRICULTURE => {
+                ExchangeAssetSector::Agriculture
+            }
         }
     }
 }
@@ -362,6 +411,13 @@ impl From<ExchangeAssetSector> for state::ExchangeAssetSector {
             ExchangeAssetSector::Fx => state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_FX,
             ExchangeAssetSector::Agricultural => {
                 state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_AGRICULTURAL
+            }
+            ExchangeAssetSector::Energy => state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_ENERGY,
+            ExchangeAssetSector::Materials => {
+                state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_MATERIALS
+            }
+            ExchangeAssetSector::Agriculture => {
+                state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_AGRICULTURE
             }
         }
     }

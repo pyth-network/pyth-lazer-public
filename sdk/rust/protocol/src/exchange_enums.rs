@@ -13,6 +13,7 @@ pub enum ExchangeAssetClass {
     Unspecified,
     Equity,
     Future,
+    Commodity,
 }
 
 impl Display for ExchangeAssetClass {
@@ -21,6 +22,7 @@ impl Display for ExchangeAssetClass {
             Self::Unspecified => write!(f, "unspecified"),
             Self::Equity => write!(f, "equity"),
             Self::Future => write!(f, "future"),
+            Self::Commodity => write!(f, "commodity"),
         }
     }
 }
@@ -41,6 +43,12 @@ pub enum ExchangeAssetSubclass {
     FixedIncome,
     Fx,
     Agricultural,
+    Cocoa,
+    Coffee,
+    RawSugar,
+    PreciousMetals,
+    BaseMetals,
+    Volatility,
 }
 
 impl Display for ExchangeAssetSubclass {
@@ -55,6 +63,12 @@ impl Display for ExchangeAssetSubclass {
             Self::FixedIncome => write!(f, "fixed_income"),
             Self::Fx => write!(f, "fx"),
             Self::Agricultural => write!(f, "agricultural"),
+            Self::Cocoa => write!(f, "cocoa"),
+            Self::Coffee => write!(f, "coffee"),
+            Self::RawSugar => write!(f, "raw_sugar"),
+            Self::PreciousMetals => write!(f, "precious_metals"),
+            Self::BaseMetals => write!(f, "base_metals"),
+            Self::Volatility => write!(f, "volatility"),
         }
     }
 }
@@ -75,7 +89,11 @@ pub enum ExchangeAssetSector {
     Index,
     Rates,
     Fx,
+    /// Deprecated: use `Agriculture`. Kept for backward compatibility.
     Agricultural,
+    Energy,
+    Materials,
+    Agriculture,
 }
 
 impl Display for ExchangeAssetSector {
@@ -91,6 +109,9 @@ impl Display for ExchangeAssetSector {
             Self::Rates => write!(f, "rates"),
             Self::Fx => write!(f, "fx"),
             Self::Agricultural => write!(f, "agricultural"),
+            Self::Energy => write!(f, "energy"),
+            Self::Materials => write!(f, "materials"),
+            Self::Agriculture => write!(f, "agriculture"),
         }
     }
 }

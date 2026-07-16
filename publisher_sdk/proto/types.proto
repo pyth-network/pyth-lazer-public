@@ -74,6 +74,7 @@ enum ExchangeAssetClass {
     EXCHANGE_ASSET_CLASS_UNSPECIFIED = 0;
     EXCHANGE_ASSET_CLASS_EQUITY = 1;
     EXCHANGE_ASSET_CLASS_FUTURE = 2;
+    EXCHANGE_ASSET_CLASS_COMMODITY = 3;
 }
 
 // Asset subclass for exchange classification.
@@ -87,6 +88,12 @@ enum ExchangeAssetSubclass {
     EXCHANGE_ASSET_SUBCLASS_FIXED_INCOME = 6;
     EXCHANGE_ASSET_SUBCLASS_FX = 7;
     EXCHANGE_ASSET_SUBCLASS_AGRICULTURAL = 8;
+    EXCHANGE_ASSET_SUBCLASS_COCOA = 9;
+    EXCHANGE_ASSET_SUBCLASS_COFFEE = 10;
+    EXCHANGE_ASSET_SUBCLASS_RAW_SUGAR = 11;
+    EXCHANGE_ASSET_SUBCLASS_PRECIOUS_METALS = 12;
+    EXCHANGE_ASSET_SUBCLASS_BASE_METALS = 13;
+    EXCHANGE_ASSET_SUBCLASS_VOLATILITY = 14;
 }
 
 // Asset sector for exchange classification.
@@ -100,7 +107,12 @@ enum ExchangeAssetSector {
     EXCHANGE_ASSET_SECTOR_INDEX = 6;
     EXCHANGE_ASSET_SECTOR_RATES = 7;
     EXCHANGE_ASSET_SECTOR_FX = 8;
+    // Deprecated: use EXCHANGE_ASSET_SECTOR_AGRICULTURE (12). Kept for
+    // backward compatibility; to be removed once no data references it.
     EXCHANGE_ASSET_SECTOR_AGRICULTURAL = 9;
+    EXCHANGE_ASSET_SECTOR_ENERGY = 10;
+    EXCHANGE_ASSET_SECTOR_MATERIALS = 11;
+    EXCHANGE_ASSET_SECTOR_AGRICULTURE = 12;
 }
 
 // Market schedule configuration for a session on an exchange.

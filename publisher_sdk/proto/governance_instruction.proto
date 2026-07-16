@@ -470,15 +470,16 @@ message AddExchange {
     optional DynamicValue.Map metadata = 3;
     // [optional]
     optional ExchangeAssetClass asset_class = 4;
-    // [optional] Secondary asset class. Honored only when the
-    // `enable_exchange_asset_class_2` feature flag is enabled.
-    optional ExchangeAssetClass asset_class_2 = 8;
     // [optional]
     optional ExchangeAssetSubclass asset_subclass = 5;
     // [optional]
     optional ExchangeAssetSector asset_sector = 6;
     // [optional]
     repeated ExchangeSessionConfig sessions = 7;
+
+    // Field 8 was a removed `asset_class_2` (feature reverted, never enabled).
+    reserved 8;
+    reserved "asset_class_2";
 }
 
 message UpdateExchange {
@@ -504,9 +505,6 @@ message UpdateExchangeProperties {
     optional string name = 1;
     // [optional]
     optional ExchangeAssetClass asset_class = 2;
-    // [optional] Secondary asset class. Honored only when the
-    // `enable_exchange_asset_class_2` feature flag is enabled.
-    optional ExchangeAssetClass asset_class_2 = 6;
     // [optional]
     optional ExchangeAssetSubclass asset_subclass = 3;
     // [optional]
@@ -515,6 +513,10 @@ message UpdateExchangeProperties {
     // While proto does not allow distinguishing between "not set" and "set to empty",
     // an empty list here means to not update the sessions.
     repeated ExchangeSessionConfig sessions = 5;
+
+    // Field 6 was a removed `asset_class_2` (feature reverted, never enabled).
+    reserved 6;
+    reserved "asset_class_2";
 }
 
 message UpdateExchangeMetadata {
