@@ -256,6 +256,51 @@
           }
         }
       }
+    },
+    {
+      "includes": [
+        "apps/pyth-app/src/**",
+        "!apps/pyth-app/src/**/*.test.ts",
+        "!apps/pyth-app/src/**/*.test.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "@pythnetwork/components": {
+                    "importNames": ["Link", "ButtonLink"],
+                    "message": "Use TerminalLink/TerminalButtonLink from src/components so attribution params persist across navigation."
+                  },
+                  "next/link": {
+                    "message": "Use TerminalLink from src/components/TerminalLink so attribution params persist across navigation."
+                  },
+                  "next/navigation": {
+                    "importNames": ["useRouter"],
+                    "message": "Use useTerminalRouter from src/hooks/useTerminalRouter so attribution params persist across navigation."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "apps/pyth-app/src/components/TerminalLink.tsx",
+        "apps/pyth-app/src/components/TerminalButtonLink.tsx",
+        "apps/pyth-app/src/hooks/useTerminalRouter.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": "off"
+          }
+        }
+      }
     }
   ],
   "root": true,
