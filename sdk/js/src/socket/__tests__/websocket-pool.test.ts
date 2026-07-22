@@ -1,7 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 
+import {
+  AUTH_SUBPROTOCOL,
+  DEFAULT_STREAM_SERVICE_URLS,
+} from "../../constants.js";
 import type { Request } from "../../protocol.js";
-import { ResilientWebSocket } from "../resilient-websocket.js";
+import type { ResilientWebSocketConfig } from "../resilient-websocket.js";
 import type { WebSocketPoolConfig } from "../websocket-pool.js";
 import { WebSocketPool } from "../websocket-pool.js";
 
@@ -10,6 +14,10 @@ class MockResilientWebSocket {
   static instances: MockResilientWebSocket[] = [];
 
   endpoint: string;
+  protocols?: string[] | undefined;
+  heartbeatTimeoutDurationMs?: number | undefined;
+  maxRetryDelayMs?: number | undefined;
+  logAfterRetryCount?: number | undefined;
   wsUserClosed = false;
   onReconnect: () => void = () => undefined;
   onTimeout: () => void = () => undefined;
@@ -19,8 +27,12 @@ class MockResilientWebSocket {
   private _isConnected = false;
   private _isReconnecting = false;
 
-  constructor(config: { endpoint: string }) {
+  constructor(config: ResilientWebSocketConfig) {
     this.endpoint = config.endpoint;
+    this.protocols = config.protocols;
+    this.heartbeatTimeoutDurationMs = config.heartbeatTimeoutDurationMs;
+    this.maxRetryDelayMs = config.maxRetryDelayMs;
+    this.logAfterRetryCount = config.logAfterRetryCount;
     MockResilientWebSocket.instances.push(this);
   }
 
@@ -55,28 +67,25 @@ class MockResilientWebSocket {
   }
 }
 
-// Store original constructor
-const OriginalResilientWebSocket = ResilientWebSocket;
+// Inject the mock connection so the pool builds fakes, not real sockets.
+const createPool = (
+  config: WebSocketPoolConfig,
+  token: string,
+  abortSignal?: AbortSignal | null,
+) =>
+  WebSocketPool.create(config, token, abortSignal, undefined, {
+    createConnection: (rwsConfig) => new MockResilientWebSocket(rwsConfig),
+  });
 
 beforeEach(() => {
   MockResilientWebSocket.clearInstances();
-
-  // Replace ResilientWebSocket with mock
-  // @ts-expect-error - replacing class for testing
-  globalThis.ResilientWebSocket = MockResilientWebSocket;
-});
-
-afterEach(() => {
-  // Restore original
-  // @ts-expect-error - restoring class after testing
-  globalThis.ResilientWebSocket = OriginalResilientWebSocket;
 });
 
 describe("WebSocketPool", () => {
   describe("create()", () => {
     it("should create a pool with default number of connections", async () => {
       const config: WebSocketPoolConfig = {};
-      const pool = await WebSocketPool.create(config, "test-token");
+      const pool = await createPool(config, "test-token");
 
       // Default is 4 connections
       expect(pool.rwsPool.length).toBe(4);
@@ -88,23 +97,27 @@ describe("WebSocketPool", () => {
       const config: WebSocketPoolConfig = {
         numConnections: 2,
       };
-      const pool = await WebSocketPool.create(config, "test-token");
+      const pool = await createPool(config, "test-token");
 
       expect(pool.rwsPool.length).toBe(2);
 
       pool.shutdown();
     });
 
-    it("should use default URLs when not provided", async () => {
-      const config: WebSocketPoolConfig = {
-        numConnections: 2,
-      };
-      const pool = await WebSocketPool.create(config, "test-token");
+    it("uses the default stream URLs, round-robined, when none provided", async () => {
+      const config: WebSocketPoolConfig = {}; // default is 4 connections
 
-      // The pool should have created connections to default URLs
-      // We can't directly inspect the URLs in the ResilientWebSocket without
-      // more invasive mocking, but we verify the pool was created successfully
-      expect(pool.rwsPool.length).toBe(2);
+      const pool = await createPool(config, "test-token");
+
+      // 4 default connections round-robin across the 3 default URLs, so the
+      // fourth wraps back to the first.
+      const endpoints = MockResilientWebSocket.instances.map((i) => i.endpoint);
+      expect(endpoints).toEqual([
+        DEFAULT_STREAM_SERVICE_URLS[0],
+        DEFAULT_STREAM_SERVICE_URLS[1],
+        DEFAULT_STREAM_SERVICE_URLS[2],
+        DEFAULT_STREAM_SERVICE_URLS[0],
+      ]);
 
       pool.shutdown();
     });
@@ -132,11 +145,8 @@ describe("WebSocketPool", () => {
         urls: [""],
       };
 
-      // In browser env, addAuthTokenToWebSocketUrl returns empty string for empty input
-      // which should cause an error
-      await expect(
-        WebSocketPool.create(config, "test-token"),
-      ).rejects.toThrow();
+      // An empty base URL fails the null/empty check before a connection is made.
+      await expect(createPool(config, "test-token")).rejects.toThrow();
     });
 
     it("should call onWebSocketError callback when provided", async () => {
@@ -146,7 +156,7 @@ describe("WebSocketPool", () => {
         onWebSocketError,
       };
 
-      const pool = await WebSocketPool.create(config, "test-token");
+      const pool = await createPool(config, "test-token");
 
       // The callback is attached but won't be called until an error occurs
       // We just verify the pool was created successfully
@@ -162,7 +172,7 @@ describe("WebSocketPool", () => {
         onWebSocketPoolError,
       };
 
-      const pool = await WebSocketPool.create(config, "test-token");
+      const pool = await createPool(config, "test-token");
 
       // The callback is attached via event emitter
       expect(pool.rwsPool.length).toBe(1);
@@ -170,20 +180,58 @@ describe("WebSocketPool", () => {
       pool.shutdown();
     });
 
-    it("should pass rwsConfig to ResilientWebSocket instances", async () => {
+    it("passes the auth token to each connection as a subprotocol", async () => {
+      const config: WebSocketPoolConfig = { numConnections: 2 };
+
+      const pool = await createPool(config, "test-token");
+
+      expect(MockResilientWebSocket.instances).toHaveLength(2);
+      for (const instance of MockResilientWebSocket.instances) {
+        expect(instance.protocols).toEqual([AUTH_SUBPROTOCOL, "test-token"]);
+      }
+
+      pool.shutdown();
+    });
+
+    it("forwards rwsConfig tuning values to each connection", async () => {
       const config: WebSocketPoolConfig = {
-        numConnections: 1,
+        numConnections: 2,
         rwsConfig: {
-          heartbeatTimeoutDurationMs: 10_000,
-          maxRetryDelayMs: 2000,
+          heartbeatTimeoutDurationMs: 1234,
+          logAfterRetryCount: 7,
+          maxRetryDelayMs: 4321,
         },
       };
 
-      const pool = await WebSocketPool.create(config, "test-token");
+      const pool = await createPool(config, "test-token");
 
-      // We can't easily inspect the config passed to ResilientWebSocket
-      // without more invasive mocking, but we verify the pool was created
-      expect(pool.rwsPool.length).toBe(1);
+      expect(MockResilientWebSocket.instances).toHaveLength(2);
+      for (const instance of MockResilientWebSocket.instances) {
+        expect(instance.heartbeatTimeoutDurationMs).toBe(1234);
+        expect(instance.maxRetryDelayMs).toBe(4321);
+        expect(instance.logAfterRetryCount).toBe(7);
+      }
+
+      pool.shutdown();
+    });
+
+    it("keeps pool-controlled auth and endpoint regardless of rwsConfig", async () => {
+      const config: WebSocketPoolConfig = {
+        numConnections: 1,
+        rwsConfig: {
+          // Auth and endpoint are not part of rwsConfig's type; cast to prove
+          // the pool still wins even if a caller forces them in at runtime.
+          endpoint: "wss://attacker.example.com",
+          protocols: ["evil", "spoofed-token"],
+        } as WebSocketPoolConfig["rwsConfig"],
+        urls: ["wss://real.example.com"],
+      };
+
+      const pool = await createPool(config, "test-token");
+
+      const [instance] = MockResilientWebSocket.instances;
+      expect(instance?.endpoint).toBe("wss://real.example.com");
+      expect(instance?.protocols).toEqual([AUTH_SUBPROTOCOL, "test-token"]);
 
       pool.shutdown();
     });
@@ -197,7 +245,7 @@ describe("WebSocketPool", () => {
       };
 
       await expect(
-        WebSocketPool.create(config, "test-token", abortController.signal),
+        createPool(config, "test-token", abortController.signal),
       ).rejects.toThrow("WebSocketPool.create() was aborted");
     });
 
@@ -212,7 +260,7 @@ describe("WebSocketPool", () => {
       };
 
       // Start creation and abort shortly after
-      const createPromise = WebSocketPool.create(
+      const createPromise = createPool(
         config,
         "test-token",
         abortController.signal,
@@ -270,10 +318,7 @@ describe("WebSocketPool", () => {
 
   describe("sendRequest()", () => {
     it("should send request to all connections", async () => {
-      const pool = await WebSocketPool.create(
-        { numConnections: 2 },
-        "test-token",
-      );
+      const pool = await createPool({ numConnections: 2 }, "test-token");
 
       const request: Request = {
         subscriptionId: 1,
@@ -293,10 +338,7 @@ describe("WebSocketPool", () => {
     });
 
     it("should do nothing after shutdown", async () => {
-      const pool = await WebSocketPool.create(
-        { numConnections: 1 },
-        "test-token",
-      );
+      const pool = await createPool({ numConnections: 1 }, "test-token");
 
       pool.shutdown();
 
@@ -312,10 +354,7 @@ describe("WebSocketPool", () => {
 
   describe("addSubscription()", () => {
     it("should store subscription and send request", async () => {
-      const pool = await WebSocketPool.create(
-        { numConnections: 1 },
-        "test-token",
-      );
+      const pool = await createPool({ numConnections: 1 }, "test-token");
 
       const request: Request = {
         channel: "real_time",
@@ -337,7 +376,7 @@ describe("WebSocketPool", () => {
 
     it("should emit error for non-subscribe request", async () => {
       const onWebSocketPoolError = mock((_error: Error) => undefined);
-      const pool = await WebSocketPool.create(
+      const pool = await createPool(
         { numConnections: 1, onWebSocketPoolError },
         "test-token",
       );
@@ -356,10 +395,7 @@ describe("WebSocketPool", () => {
     });
 
     it("should do nothing after shutdown", async () => {
-      const pool = await WebSocketPool.create(
-        { numConnections: 1 },
-        "test-token",
-      );
+      const pool = await createPool({ numConnections: 1 }, "test-token");
 
       pool.shutdown();
 
@@ -379,10 +415,7 @@ describe("WebSocketPool", () => {
 
   describe("removeSubscription()", () => {
     it("should remove subscription and send unsubscribe request", async () => {
-      const pool = await WebSocketPool.create(
-        { numConnections: 1 },
-        "test-token",
-      );
+      const pool = await createPool({ numConnections: 1 }, "test-token");
 
       // First add a subscription
       const subscribeRequest: Request = {
@@ -405,10 +438,7 @@ describe("WebSocketPool", () => {
     });
 
     it("should do nothing after shutdown", async () => {
-      const pool = await WebSocketPool.create(
-        { numConnections: 1 },
-        "test-token",
-      );
+      const pool = await createPool({ numConnections: 1 }, "test-token");
 
       pool.shutdown();
 
@@ -419,10 +449,7 @@ describe("WebSocketPool", () => {
 
   describe("addMessageListener()", () => {
     it("should register message listener", async () => {
-      const pool = await WebSocketPool.create(
-        { numConnections: 1 },
-        "test-token",
-      );
+      const pool = await createPool({ numConnections: 1 }, "test-token");
 
       const handler = mock(async (_data: unknown) => undefined);
       pool.addMessageListener(handler);
@@ -437,10 +464,7 @@ describe("WebSocketPool", () => {
 
   describe("connection state listeners", () => {
     it("should register allConnectionsDownListener", async () => {
-      const pool = await WebSocketPool.create(
-        { numConnections: 1 },
-        "test-token",
-      );
+      const pool = await createPool({ numConnections: 1 }, "test-token");
 
       const handler = mock(() => undefined);
       pool.addAllConnectionsDownListener(handler);
@@ -452,10 +476,7 @@ describe("WebSocketPool", () => {
     });
 
     it("should register connectionRestoredListener", async () => {
-      const pool = await WebSocketPool.create(
-        { numConnections: 1 },
-        "test-token",
-      );
+      const pool = await createPool({ numConnections: 1 }, "test-token");
 
       const handler = mock(() => undefined);
       pool.addConnectionRestoredListener(handler);
@@ -466,10 +487,7 @@ describe("WebSocketPool", () => {
     });
 
     it("should register connectionTimeoutListener", async () => {
-      const pool = await WebSocketPool.create(
-        { numConnections: 1 },
-        "test-token",
-      );
+      const pool = await createPool({ numConnections: 1 }, "test-token");
 
       const handler = mock((_index: number, _endpoint: string) => undefined);
       pool.addConnectionTimeoutListener(handler);
@@ -480,10 +498,7 @@ describe("WebSocketPool", () => {
     });
 
     it("should register connectionReconnectListener", async () => {
-      const pool = await WebSocketPool.create(
-        { numConnections: 1 },
-        "test-token",
-      );
+      const pool = await createPool({ numConnections: 1 }, "test-token");
 
       const handler = mock((_index: number, _endpoint: string) => undefined);
       pool.addConnectionReconnectListener(handler);
@@ -496,10 +511,7 @@ describe("WebSocketPool", () => {
 
   describe("shutdown()", () => {
     it("should close all connections", async () => {
-      const pool = await WebSocketPool.create(
-        { numConnections: 3 },
-        "test-token",
-      );
+      const pool = await createPool({ numConnections: 3 }, "test-token");
 
       expect(pool.rwsPool.length).toBe(3);
 
@@ -510,10 +522,7 @@ describe("WebSocketPool", () => {
     });
 
     it("should clear all subscriptions", async () => {
-      const pool = await WebSocketPool.create(
-        { numConnections: 1 },
-        "test-token",
-      );
+      const pool = await createPool({ numConnections: 1 }, "test-token");
 
       // Add some subscriptions
       pool.addSubscription({
@@ -540,10 +549,7 @@ describe("WebSocketPool", () => {
     });
 
     it("should be idempotent (safe to call multiple times)", async () => {
-      const pool = await WebSocketPool.create(
-        { numConnections: 1 },
-        "test-token",
-      );
+      const pool = await createPool({ numConnections: 1 }, "test-token");
 
       pool.shutdown();
       pool.shutdown();
@@ -555,7 +561,7 @@ describe("WebSocketPool", () => {
 
     it("should execute shutdown handlers", async () => {
       const onWebSocketPoolError = mock((_error: Error) => undefined);
-      const pool = await WebSocketPool.create(
+      const pool = await createPool(
         { numConnections: 1, onWebSocketPoolError },
         "test-token",
       );
@@ -569,10 +575,7 @@ describe("WebSocketPool", () => {
 
   describe("message deduplication", () => {
     it("should deduplicate identical string messages", async () => {
-      const pool = await WebSocketPool.create(
-        { numConnections: 2 },
-        "test-token",
-      );
+      const pool = await createPool({ numConnections: 2 }, "test-token");
 
       const handler = mock(async (_data: unknown) => undefined);
       pool.addMessageListener(handler);
@@ -591,10 +594,7 @@ describe("WebSocketPool", () => {
     });
 
     it("should not deduplicate different messages", async () => {
-      const pool = await WebSocketPool.create(
-        { numConnections: 1 },
-        "test-token",
-      );
+      const pool = await createPool({ numConnections: 1 }, "test-token");
 
       const handler = mock(async (_data: unknown) => undefined);
       pool.addMessageListener(handler);
@@ -618,10 +618,7 @@ describe("WebSocketPool", () => {
     });
 
     it("should throw on subscription error response", async () => {
-      const pool = await WebSocketPool.create(
-        { numConnections: 1 },
-        "test-token",
-      );
+      const pool = await createPool({ numConnections: 1 }, "test-token");
 
       pool.addMessageListener(async () => undefined);
 
@@ -639,10 +636,7 @@ describe("WebSocketPool", () => {
     });
 
     it("should throw on general error response", async () => {
-      const pool = await WebSocketPool.create(
-        { numConnections: 1 },
-        "test-token",
-      );
+      const pool = await createPool({ numConnections: 1 }, "test-token");
 
       pool.addMessageListener(async () => undefined);
 
@@ -662,7 +656,7 @@ describe("WebSocketPool", () => {
   describe("error handling", () => {
     it("should emit pool error when message handler throws", async () => {
       const onWebSocketPoolError = mock((_error: Error) => undefined);
-      const pool = await WebSocketPool.create(
+      const pool = await createPool(
         { numConnections: 1, onWebSocketPoolError },
         "test-token",
       );

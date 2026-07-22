@@ -3,21 +3,33 @@ import type WebSocket from "isomorphic-ws";
 import type { ErrorEvent } from "isomorphic-ws";
 import type { Logger } from "ts-log";
 import { dummyLogger } from "ts-log";
-import {
-  DEFAULT_STREAM_SERVICE_0_URL,
-  DEFAULT_STREAM_SERVICE_1_URL,
-} from "../constants.js";
+import { AUTH_SUBPROTOCOL, DEFAULT_STREAM_SERVICE_URLS } from "../constants.js";
 import { IsomorphicEventEmitter } from "../emitter/index.js";
 import type { Request, Response } from "../protocol.js";
-import {
-  addAuthTokenToWebSocketUrl,
-  bufferFromWebsocketData,
-  envIsBrowserOrWorker,
-} from "../util/index.js";
+import { bufferFromWebsocketData } from "../util/index.js";
 import type { ResilientWebSocketConfig } from "./resilient-websocket.js";
 import { ResilientWebSocket } from "./resilient-websocket.js";
 
 const DEFAULT_NUM_CONNECTIONS = 4;
+
+/** The subset of `ResilientWebSocket` the pool depends on. */
+export type PooledConnection = {
+  wsUserClosed: boolean;
+  onReconnect: () => void;
+  onTimeout: () => void;
+  onError: (error: ErrorEvent) => void;
+  onMessage: (data: WebSocket.Data) => void;
+  send(data: string | Buffer): void;
+  startWebSocket(): void;
+  isConnected(): boolean;
+  isReconnecting(): boolean;
+  closeWebSocket(): void;
+};
+
+/** Builds a pooled connection; overridable to inject a fake in tests. */
+export type ConnectionFactory = (
+  config: ResilientWebSocketConfig,
+) => PooledConnection;
 
 type WebSocketOnMessageCallback = (data: WebSocket.Data) => Promise<void>;
 
@@ -50,9 +62,14 @@ export type WebSocketPoolConfig = {
   onWebSocketPoolError?: (error: Error) => void;
 
   /**
-   * Additional websocket configuration
+   * Optional tuning for the underlying resilient WebSocket connections
+   * (heartbeat timeout, retry backoff, and retry-log cadence).
    */
-  rwsConfig?: Omit<ResilientWebSocketConfig, "logger" | "endpoint">;
+  rwsConfig?: Omit<
+    ResilientWebSocketConfig,
+    "endpoint" | "logger" | "protocols"
+  >;
+
   /**
    * Pyth URLs to use when creating a connection
    */
@@ -65,7 +82,7 @@ export type WebSocketPoolEvents = {
 };
 
 export class WebSocketPool extends IsomorphicEventEmitter<WebSocketPoolEvents> {
-  rwsPool: ResilientWebSocket[];
+  rwsPool: PooledConnection[];
   private cache: TTLCache<string, boolean>;
   private subscriptions: Map<number, Request>; // id -> subscription Request
   private messageListeners: WebSocketOnMessageCallback[];
@@ -113,6 +130,7 @@ export class WebSocketPool extends IsomorphicEventEmitter<WebSocketPoolEvents> {
     token: string,
     abortSignal?: AbortSignal | null | undefined,
     logger?: Logger,
+    deps: { createConnection?: ConnectionFactory } = {},
   ): Promise<WebSocketPool> {
     // Helper to check if aborted and throw
     const throwIfAborted = () => {
@@ -127,11 +145,11 @@ export class WebSocketPool extends IsomorphicEventEmitter<WebSocketPoolEvents> {
     // Check before starting
     throwIfAborted();
 
-    const urls = config.urls ?? [
-      DEFAULT_STREAM_SERVICE_0_URL,
-      DEFAULT_STREAM_SERVICE_1_URL,
-    ];
+    const urls = config.urls ?? DEFAULT_STREAM_SERVICE_URLS;
     const log = logger ?? dummyLogger;
+    const createConnection =
+      deps.createConnection ??
+      ((rwsConfig) => new ResilientWebSocket(rwsConfig));
     const pool = new WebSocketPool(log);
 
     try {
@@ -149,27 +167,23 @@ export class WebSocketPool extends IsomorphicEventEmitter<WebSocketPoolEvents> {
 
       for (let i = 0; i < numConnections; i++) {
         const baseUrl = urls[i % urls.length];
-        const isBrowser = envIsBrowserOrWorker();
-        const url = isBrowser
-          ? addAuthTokenToWebSocketUrl(baseUrl, token)
-          : baseUrl;
-        if (!url) {
+        if (!baseUrl) {
           throw new Error(`URLs must not be null or empty`);
         }
-        const wsOptions: ResilientWebSocketConfig["wsOptions"] = {
-          ...config.rwsConfig?.wsOptions,
-          headers: isBrowser ? undefined : { Authorization: `Bearer ${token}` },
+        const rwsInit: ResilientWebSocketConfig = {
+          ...config.rwsConfig,
+          // Pool-controlled fields are set last so they always win over
+          // anything supplied via rwsConfig (in particular, auth can never be
+          // overridden here).
+          endpoint: baseUrl,
+          logger: log,
+          protocols: [AUTH_SUBPROTOCOL, token],
         };
 
-        const rws = new ResilientWebSocket({
-          ...config.rwsConfig,
-          endpoint: url,
-          logger: log,
-          wsOptions,
-        });
+        const rws = createConnection(rwsInit);
 
         const connectionIndex = i;
-        const connectionEndpoint = url;
+        const connectionEndpoint = baseUrl;
 
         // If a websocket client unexpectedly disconnects, ResilientWebSocket will reestablish
         // the connection and call the onReconnect callback.

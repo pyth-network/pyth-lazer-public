@@ -120,16 +120,6 @@
         "default": "./dist/cjs/util/env-util.cjs",
         "types": "./dist/cjs/util/env-util.d.ts"
       }
-    },
-    "./util/url-util": {
-      "import": {
-        "default": "./dist/esm/util/url-util.mjs",
-        "types": "./dist/esm/util/url-util.d.ts"
-      },
-      "require": {
-        "default": "./dist/cjs/util/url-util.cjs",
-        "types": "./dist/cjs/util/url-util.d.ts"
-      }
     }
   },
   "files": [
@@ -164,5 +154,5 @@
   },
   "type": "module",
   "types": "./dist/cjs/index.d.ts",
-  "version": "6.2.4"
+  "version": "7.0.0"
 }

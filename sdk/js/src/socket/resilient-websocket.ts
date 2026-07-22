@@ -1,12 +1,9 @@
-import type { ClientRequestArgs } from "node:http";
-
-import type { ClientOptions, ErrorEvent } from "isomorphic-ws";
+import type { ErrorEvent } from "isomorphic-ws";
 import WebSocket from "isomorphic-ws";
 import type { Logger } from "ts-log";
 import { dummyLogger } from "ts-log";
 
 import { CustomSocketClosureCodes } from "../protocol.js";
-import { envIsBrowserOrWorker } from "../util/env-util.js";
 
 const DEFAULT_HEARTBEAT_TIMEOUT_DURATION_MS = 5000; // 5 seconds
 const DEFAULT_MAX_RETRY_DELAY_MS = 1000; // 1 second'
@@ -14,7 +11,8 @@ const DEFAULT_LOG_AFTER_RETRY_COUNT = 10;
 
 export type ResilientWebSocketConfig = {
   endpoint: string;
-  wsOptions?: ClientOptions | ClientRequestArgs | undefined;
+  /** WebSocket subprotocols, used to carry the auth token. */
+  protocols?: string[] | undefined;
   logger?: Logger;
   heartbeatTimeoutDurationMs?: number;
   maxRetryDelayMs?: number;
@@ -38,7 +36,7 @@ type UnsafeWebSocket = Omit<WebSocket, "terminate"> &
 
 export class ResilientWebSocket {
   private endpoint: string;
-  private wsOptions?: ClientOptions | ClientRequestArgs | undefined;
+  private protocols?: string[] | undefined;
   private logger: Logger;
   private heartbeatTimeoutDurationMs: number;
   private maxRetryDelayMs: number;
@@ -70,7 +68,7 @@ export class ResilientWebSocket {
 
   constructor(config: ResilientWebSocketConfig) {
     this.endpoint = config.endpoint;
-    this.wsOptions = config.wsOptions;
+    this.protocols = config.protocols;
     this.logger = config.logger ?? dummyLogger;
     this.heartbeatTimeoutDurationMs =
       config.heartbeatTimeoutDurationMs ??
@@ -134,13 +132,7 @@ export class ResilientWebSocket {
     // an uncaught DOMException in the browser (or equivalent in Node, Bun or Deno)
     // and potentially blow up the process (if running in Node, Bun or Deno)
     try {
-      // browser constructor supports a different 2nd argument for the constructor,
-      // so we need to ensure it's not included if we're running in that environment:
-      // https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/WebSocket#protocols
-      this.wsClient = new WebSocket(
-        this.endpoint,
-        envIsBrowserOrWorker() ? undefined : this.wsOptions,
-      );
+      this.wsClient = new WebSocket(this.endpoint, this.protocols);
 
       this.wsClient.addEventListener("open", () => {
         this.logger.info("WebSocket connection established");

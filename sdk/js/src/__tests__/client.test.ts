@@ -83,9 +83,6 @@ describe("PythLazerClient", () => {
         token: "my-secret-token",
         webSocketPoolConfig: {
           numConnections: 4,
-          rwsConfig: {
-            heartbeatTimeoutDurationMs: 3000,
-          },
         },
       };
 
@@ -101,7 +98,6 @@ describe("PythLazerClient", () => {
 
       expect(token).toBe("my-secret-token");
       expect(poolConfig.numConnections).toBe(4);
-      expect(poolConfig.rwsConfig?.heartbeatTimeoutDurationMs).toBe(3000);
     });
 
     it("should pass abortSignal to WebSocketPool.create config", async () => {
