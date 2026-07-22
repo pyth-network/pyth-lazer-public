@@ -245,7 +245,8 @@
         "**/*.test.ts",
         "**/*.spec.tsx",
         "**/*.test.tsx"
-      ]
+      ],
+      "plugins": ["./biome-plugins/discourage-mock-module.grit"]
     },
     {
       "includes": ["contracts/solana/scripts/**", "pulumi/**"],

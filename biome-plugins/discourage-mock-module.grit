@@ -1,0 +1,18 @@
+// Warn on `mock.module(...)` in test files.
+//
+// Under the shared (non-isolated) bun test runner, `mock.module` is
+// process-global and is never auto-restored, so a per-file module mock leaks
+// into every test that later imports that module for real. Prefer, in order:
+//   1. a dependency-injection seam (repository connection, DAL/service config,
+//      hook argument, component prop, or a `createXRoute(dep = real)` factory),
+//   2. a globally-shared central mock registered once with a complete surface
+//      (see apps/pyth-app/src/testSupport/globalMocks.ts).
+// Reach for a local `mock.module` only for a leaf module no other test imports
+// for real, and be sure to clean it up after your test runs.
+// See standards/web/testing.md.
+//
+// This is a warning, not an error: it nudges authors away from mocking without
+// blocking existing usage. Scoped to test files via biome.json `overrides`.
+`mock.module($args)` as $call where {
+  register_diagnostic(span=$call, message="Avoid mock.module: prefer a dependency-injection seam or a shared central mock, and fall back to a local mock.module only for a leaf module no other test imports for real. See standards/web/testing.md.", severity="warn")
+}
