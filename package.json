@@ -135,6 +135,7 @@
     "ioredis": "^5.11.1",
     "ip-range-check": "^0.2.0",
     "isomorphic-ws": "^5.0.0",
+    "jose": "^6.1.0",
     "jszip": "^3.10.1",
     "katex": "^0.17.0",
     "kysely": "~0.29.2",
