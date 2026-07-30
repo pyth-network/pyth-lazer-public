@@ -1,5 +1,11 @@
 # pyth-lazer-sdk - Changelog
 
+## 7.0.1
+
+- **Default stream URLs** move back to the redundant router instances
+  (`wss://pyth-lazer-{0,1,2}.dourolabs.app/v1/stream`) from the api service
+  (`wss://pyth-{0,1,2}.dourolabs.app/v1/prices/stream`).
+
 ## 7.0.0
 
 Breaking changes to WebSocket streaming, aligning the SDK with the Lazer **api service** (the public read API that supersedes the router's public stream):

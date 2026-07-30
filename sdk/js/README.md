@@ -25,8 +25,8 @@ const client = await PythLazerClient.create({
 
     // Optional.
     // Override the stream endpoint(s). Round-robined across `numConnections`.
-    // Defaults to the api service instances (pyth-0/1/2.dourolabs.app).
-    // urls: ["wss://pyth-0.dourolabs.app/v1/prices/stream"],
+    // Defaults to the redundant router stream instances (pyth-lazer-0/1/2).
+    // urls: ["wss://pyth-lazer-0.dourolabs.app/v1/stream"],
     onWebSocketError: (error) => {
       console.error("⛔️ WebSocket error:", error.message);
     },
@@ -74,15 +74,14 @@ browser and in Node. It is never placed in the URL as a query parameter, so the
 token stays out of URLs, browser history, and proxy/server access logs — worth
 knowing if you care about credential hygiene.
 
-Connections default to the redundant Lazer api service stream instances
-(`wss://pyth-{0,1,2}.dourolabs.app/v1/prices/stream`), round-robined across
+Connections default to the redundant Lazer router stream instances
+(`wss://pyth-lazer-{0,1,2}.dourolabs.app/v1/stream`), round-robined across
 `numConnections` (override via `webSocketPoolConfig.urls`). They serve parsed /
-unsigned JSON updates; signed `evm` / `solana` update payloads are not served on
-this stream.
+unsigned JSON updates; signed `evm` / `solana` update payloads require the
+router stream with signature support.
 
 > **v7 breaking change:** the token moved from `?ACCESS_TOKEN=` to
-> `Sec-WebSocket-Protocol`, and the default stream moved from the router to the
-> api service. See [CHANGELOG.md](CHANGELOG.md).
+> `Sec-WebSocket-Protocol`. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Error callbacks and outage detection
 
