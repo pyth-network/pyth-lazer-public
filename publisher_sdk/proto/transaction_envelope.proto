@@ -69,4 +69,5 @@ enum RejectReason {
     Unauthorized = 7;
     TimestampInFuture = 8;
     TimestampInPast = 9;
+    ExpiredFeedId = 10;
 }

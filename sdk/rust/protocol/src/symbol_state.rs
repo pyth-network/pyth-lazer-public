@@ -11,6 +11,7 @@ pub enum SymbolState {
     Stable,
     Inactive,
     Beta,
+    Expired,
 }
 
 impl Display for SymbolState {
@@ -20,6 +21,7 @@ impl Display for SymbolState {
             SymbolState::Stable => write!(f, "stable"),
             SymbolState::Inactive => write!(f, "inactive"),
             SymbolState::Beta => write!(f, "beta"),
+            SymbolState::Expired => write!(f, "expired"),
         }
     }
 }

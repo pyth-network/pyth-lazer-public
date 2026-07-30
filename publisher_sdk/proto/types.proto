@@ -33,6 +33,11 @@ enum FeedState {
     INACTIVE = 2;
     // `BETA` feed is only available to permissioned consumers.
     BETA = 3;
+    // `EXPIRED` feeds reached their expiration (e.g. settled futures).
+    // No new aggregations are produced and publisher updates are dropped;
+    // the last aggregated value keeps being emitted to consumers.
+    // Historical data remains available.
+    EXPIRED = 4;
 }
 
 // Feed kind determines the set of data fields available in the feed.

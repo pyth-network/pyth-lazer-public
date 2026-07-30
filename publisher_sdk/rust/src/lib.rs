@@ -97,6 +97,7 @@ impl From<FeedState> for SymbolState {
             FeedState::STABLE => SymbolState::Stable,
             FeedState::INACTIVE => SymbolState::Inactive,
             FeedState::BETA => SymbolState::Beta,
+            FeedState::EXPIRED => SymbolState::Expired,
         }
     }
 }
@@ -108,6 +109,7 @@ impl From<SymbolState> for FeedState {
             SymbolState::Stable => FeedState::STABLE,
             SymbolState::Inactive => FeedState::INACTIVE,
             SymbolState::Beta => FeedState::BETA,
+            SymbolState::Expired => FeedState::EXPIRED,
         }
     }
 }
