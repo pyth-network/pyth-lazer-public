@@ -12,6 +12,10 @@ pub enum SymbolState {
     Inactive,
     Beta,
     Expired,
+    /// Deserialization fallback for states introduced after this build;
+    /// never originates server-side.
+    #[serde(other)]
+    Unknown,
 }
 
 impl Display for SymbolState {
@@ -22,6 +26,39 @@ impl Display for SymbolState {
             SymbolState::Inactive => write!(f, "inactive"),
             SymbolState::Beta => write!(f, "beta"),
             SymbolState::Expired => write!(f, "expired"),
+            SymbolState::Unknown => write!(f, "unknown"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn known_states_roundtrip() {
+        for (state, wire) in [
+            (SymbolState::ComingSoon, "\"coming_soon\""),
+            (SymbolState::Stable, "\"stable\""),
+            (SymbolState::Inactive, "\"inactive\""),
+            (SymbolState::Beta, "\"beta\""),
+            (SymbolState::Expired, "\"expired\""),
+            (SymbolState::Unknown, "\"unknown\""),
+        ] {
+            assert_eq!(serde_json::to_string(&state).unwrap(), wire);
+            assert_eq!(
+                serde_json::from_str::<SymbolState>(wire).unwrap(),
+                state,
+                "{wire} should deserialize"
+            );
+        }
+    }
+
+    #[test]
+    fn unrecognized_state_deserializes_to_unknown() {
+        assert_eq!(
+            serde_json::from_str::<SymbolState>("\"some_future_state\"").unwrap(),
+            SymbolState::Unknown,
+        );
     }
 }

@@ -166,6 +166,33 @@ mod tests {
     use super::*;
     use crate::jrpc::JrpcCall::{GetMetadata, PushUpdate};
 
+    /// Clients (agent, client SDK) deserialize the symbols listing with this
+    /// type; a state introduced after their build must parse as `Unknown`
+    /// instead of failing the whole response.
+    #[test]
+    fn symbol_metadata_with_future_state_parses_as_unknown() {
+        let json = r#"
+        {
+          "pyth_lazer_id": 1,
+          "name": "BTCUSD",
+          "symbol": "Crypto.BTC/USD",
+          "description": "BITCOIN / US DOLLAR",
+          "asset_type": "crypto",
+          "exponent": -8,
+          "cmc_id": null,
+          "interval": null,
+          "min_publishers": 3,
+          "min_channel": "real_time",
+          "state": "some_future_state",
+          "hermes_id": null,
+          "quote_currency": "USD"
+        }
+        "#;
+
+        let symbol: SymbolMetadata = serde_json::from_str(json).unwrap();
+        assert_eq!(symbol.state, SymbolState::Unknown);
+    }
+
     #[test]
     fn test_push_update_price() {
         let json = r#"

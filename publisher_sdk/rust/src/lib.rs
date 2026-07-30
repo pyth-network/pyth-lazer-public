@@ -102,14 +102,17 @@ impl From<FeedState> for SymbolState {
     }
 }
 
-impl From<SymbolState> for FeedState {
-    fn from(value: SymbolState) -> Self {
+impl TryFrom<SymbolState> for FeedState {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SymbolState) -> Result<Self, Self::Error> {
         match value {
-            SymbolState::ComingSoon => FeedState::COMING_SOON,
-            SymbolState::Stable => FeedState::STABLE,
-            SymbolState::Inactive => FeedState::INACTIVE,
-            SymbolState::Beta => FeedState::BETA,
-            SymbolState::Expired => FeedState::EXPIRED,
+            SymbolState::ComingSoon => Ok(FeedState::COMING_SOON),
+            SymbolState::Stable => Ok(FeedState::STABLE),
+            SymbolState::Inactive => Ok(FeedState::INACTIVE),
+            SymbolState::Beta => Ok(FeedState::BETA),
+            SymbolState::Expired => Ok(FeedState::EXPIRED),
+            SymbolState::Unknown => anyhow::bail!("unknown feed state has no wire representation"),
         }
     }
 }
