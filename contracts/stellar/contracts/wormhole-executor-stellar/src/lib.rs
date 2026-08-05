@@ -202,6 +202,18 @@ impl WormholeExecutor {
     /// 24-hour grace window — it does *not* additionally require the current
     /// set. (The self-referential `update_guardian_set` upgrade path does
     /// require the current set; see its docs.)
+    ///
+    /// This entry point is permissionless and never calls `require_auth` on the
+    /// submitter, so an authorization that a `Call` target requires cannot be
+    /// nested under the governance action — it must be submitted as its own
+    /// top-level authorization entry, which anyone observing the transaction
+    /// can lift into a transaction of their own and consume independently. The
+    /// only current target, `PythLazerContract`, requires nothing but this
+    /// executor's own implicit authorization and is unaffected; integrators
+    /// wiring up new `Call` targets must avoid workflows where consuming that
+    /// authorization independently affects correctness, such as multicalls,
+    /// smart wallets, or any target that authenticates a principal other than
+    /// this executor.
     pub fn execute_governance_action(env: Env, vaa_bytes: Bytes) -> Result<(), ContractError> {
         guardian::require_initialized(&env)?;
         guardian::extend_instance_ttl(&env);

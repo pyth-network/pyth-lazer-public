@@ -32,7 +32,10 @@ pub fn verify_update(env: &Env, data: &Bytes) -> Result<Bytes, ContractError> {
         return Err(ContractError::InvalidMagic);
     }
 
-    // Parse signature (64 bytes at offset 4)
+    // Parse signature (64 bytes at offset 4). Non-canonical high-`s` signatures
+    // need no check here: the host rejects them inside secp256k1_recover below.
+    // It does so by trapping rather than returning a ContractError, unlike the
+    // recovery_id range that is checked explicitly below.
     let mut sig_bytes = [0u8; 64];
     for (i, slot) in sig_bytes.iter_mut().enumerate() {
         *slot = get_byte(data, 4 + i as u32)?;

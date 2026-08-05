@@ -43,6 +43,13 @@ impl PythLazerContract {
     ///
     /// Parses the envelope, recovers the signer's public key, checks it against
     /// trusted signers, validates expiry, and returns the verified payload bytes.
+    ///
+    /// Verification is stateless: it proves the payload was signed by a
+    /// currently trusted signer, but does not prevent replay of an update or
+    /// order updates by arrival. Callers must deduplicate updates and enforce
+    /// freshness using the `timestamp` field of the verified payload (and,
+    /// where relevant, the per-feed `feed_update_timestamp`) — never the
+    /// envelope bytes, the signature, or a hash of either.
     pub fn verify_update(env: Env, data: Bytes) -> Result<Bytes, ContractError> {
         state::extend_instance_ttl(&env);
         verify::verify_update(&env, &data)

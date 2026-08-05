@@ -49,6 +49,13 @@ impl<'a> PythLazerClient<'a> {
     /// parse the verified payload into a typed [`VerifiedPayload`]. Traps if the
     /// update fails verification; returns [`ParseError`] if the verified payload
     /// bytes are malformed.
+    ///
+    /// Verification is stateless and does not prevent replay of an update, so
+    /// deduplicate and enforce freshness with
+    /// [`Update::timestamp`](crate::payload::Update::timestamp) (and, where
+    /// relevant, the per-feed
+    /// [`feed_update_timestamp`](crate::payload::Feed::feed_update_timestamp)),
+    /// never with the raw `data` bytes, the signature, or a hash of either.
     pub fn verify_update(&self, data: &Bytes) -> Result<VerifiedPayload, ParseError> {
         let verified: Bytes = self.env.invoke_contract(
             &self.address,
