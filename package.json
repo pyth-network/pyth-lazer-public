@@ -142,6 +142,7 @@
     "jose": "^6.1.0",
     "jszip": "^3.10.1",
     "katex": "^0.17.0",
+    "knip": "^6.29.0",
     "kysely": "~0.29.2",
     "kysely-neon": "^3.0.0",
     "lightweight-charts": "^5.2.0",
