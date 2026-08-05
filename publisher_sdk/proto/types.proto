@@ -306,6 +306,7 @@ message Permissions {
         SET_MULTISIG_KEYS = 119;
         SCHEDULE_INSTRUCTION = 120;
         UNSCHEDULE_INSTRUCTION = 121;
+        ATTEST_CROSSCHAIN_PAYLOAD = 122;
     }
 
     enum UpdateGovernanceSourceAction {

@@ -104,6 +104,7 @@ message GovernanceInstructionItem {
         RemoveExchange remove_exchange = 122;
         ScheduleInstruction schedule_instruction = 123;
         UnscheduleInstruction unschedule_instruction = 124;
+        AttestCrosschainPayload attest_crosschain_payload = 125;
     }
 }
 
@@ -546,6 +547,17 @@ message ScheduleInstruction {
 message UnscheduleInstruction {
     // [required] The id of the scheduled action to cancel.
     optional uint64 id = 1;
+}
+
+// Request router attestation of a contract governance payload for crosschain
+// execution. The payload is opaque to Pyth Lazer and is never decoded.
+// Routers that accept the action sign a Wormhole VAA body carrying it; that
+// signing path is separate from the deterministic state transition, which this
+// action does not modify. Not allowed inside `ScheduleInstruction`.
+message AttestCrosschainPayload {
+    // [required] Opaque contract governance payload to attest.
+    // Must not be empty.
+    optional bytes payload = 1;
 }
 
 // A governance action that has been scheduled for future execution.
