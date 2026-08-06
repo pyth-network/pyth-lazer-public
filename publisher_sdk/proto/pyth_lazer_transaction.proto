@@ -39,6 +39,7 @@ message SignatureData {
     oneof data {
         Ed25519SignatureData ed25519 = 1;
         WormholeMultiSigData wormholeMultiSig = 2;
+        EcdsaMultiSigData ecdsaMultiSig = 3;
     };
 }
 
@@ -75,6 +76,13 @@ message Ed25519SignatureData {
 
     // [required] 32 byte public key
     optional bytes public_key = 2;
+}
+
+message EcdsaMultiSigData {
+    // [required] Governance source identifier.
+    optional string source_id = 1;
+    // 65 byte signature of each signer.
+    repeated bytes signatures = 2;
 }
 
 // Transaction contianing one of the valid Lazer Transactions

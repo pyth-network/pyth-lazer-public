@@ -150,13 +150,17 @@ message AddGovernanceSource {
 }
 
 message UpdateGovernanceSource {
-    // [required] Governance source that should be updated. Rejects if there is no such source.
-    // Rejects if the specified source is the same as the source of the current instruction.
-    optional GovernanceSource source = 1;
+    // [required] Identifier of the governance source that should be updated. Rejects if there is
+    // no such source. Rejects if the specified source is the same as the source of the current
+    // instruction.
+    optional GovernanceSourceId source = 1;
     // [required]
     // Note: when adding a new variant here, update `Permissions` as well.
     oneof action {
         SetGovernanceSourcePermissions set_governance_source_permissions = 101;
+        AddGovernanceMultiSigParticipant add_governance_multi_sig_participant = 102;
+        RemoveGovernanceMultiSigParticipant remove_governance_multi_sig_participant = 103;
+        UpdateGovernanceMultiSigThreshold update_governance_multi_sig_threshold = 104;
     }
 }
 
@@ -164,6 +168,20 @@ message SetGovernanceSourcePermissions {
     // [required] Permissions granted to this source. Replaces all previous permissions.
     optional Permissions permissions = 1;
 }
+
+message AddGovernanceMultiSigParticipant {
+    optional EcdsaMultiSigParticipant participant = 1;
+}
+
+message RemoveGovernanceMultiSigParticipant {
+    // [required] Ethereum address (derived from public key).
+    optional string address = 1;
+}
+
+message UpdateGovernanceMultiSigThreshold {
+    optional uint32 threshold = 1;
+}
+
 
 // Set shard name. This action will be rejected if `GovernanceInstructionItem.shard_names` is empty or contains
 // more than one item.
@@ -569,8 +587,8 @@ message ScheduledGovernanceAction {
     optional google.protobuf.Timestamp execution_timestamp = 2;
     // [required] The governance instruction items to apply at `execution_timestamp`.
     repeated GovernanceInstructionItem items = 3;
-    // [required] The governance source that created this scheduled action.
-    optional GovernanceSource creator_source = 4;
+    // [required] Identifier of the governance source that created this scheduled action.
+    optional GovernanceSourceId creator_source = 4;
     // [required] Timestamp when this action was scheduled (for ordering tie-breaking).
     optional google.protobuf.Timestamp creation_timestamp = 5;
 }

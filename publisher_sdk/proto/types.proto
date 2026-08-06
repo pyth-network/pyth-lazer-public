@@ -263,11 +263,42 @@ message GovernanceSource {
         optional uint32 chain_id = 2;
     }
 
+    message EcdsaMultiSig {
+        // [required] Stable identifier that distinguishes multiple EcdsaMultiSig sources within a
+        // shard. Chosen at creation; never modified by threshold/participant updates.
+        optional string id = 1;
+        // [required] Number of signatures required to execute the message.
+        optional uint32 threshold = 2;
+        repeated EcdsaMultiSigParticipant participants = 3;
+    }
+
     // [required]
     oneof source {
         SingleEd25519 single_ed25519 = 1;
         WormholeEmitter wormhole_emitter = 2;
+        EcdsaMultiSig ecdsa_multi_sig = 3;
     }
+}
+
+// Stable identifier for a `GovernanceSource`. Wire-compatible with
+// `GovernanceSource` on the `SingleEd25519` and `WormholeEmitter` cases
+// (the identifier is the full data), and for `EcdsaMultiSig` carries only
+// the caller-chosen `id` (participants and threshold are stored separately
+// and can change without changing the identifier).
+message GovernanceSourceId {
+    // [required]
+    oneof source {
+        GovernanceSource.SingleEd25519 single_ed25519 = 1;
+        GovernanceSource.WormholeEmitter wormhole_emitter = 2;
+        string ecdsa_multi_sig_id = 3;
+    }
+}
+
+message EcdsaMultiSigParticipant {
+    // [required] Display name.
+    optional string name = 1;
+    // [required] Ethereum address (derived from public key).
+    optional string address = 2;
 }
 
 // Permissions granted to a governance source.
