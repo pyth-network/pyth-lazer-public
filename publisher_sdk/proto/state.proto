@@ -50,6 +50,10 @@ message State {
     repeated ExchangeClassificationSchedule exchanges = 13;
     // Scheduled governance actions pending execution.
     repeated ScheduledGovernanceAction scheduled_actions = 14;
+    // Last Wormhole VAA sequence assigned to an accepted crosschain attestation
+    // request. Omitted while zero, i.e. while no sequence has been assigned yet;
+    // snapshots taken before this field existed also load as zero.
+    optional uint64 crosschain_vaa_sequence_no = 15;
 }
 
 // An item of the state describing a publisher.
