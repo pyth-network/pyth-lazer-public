@@ -1,6 +1,8 @@
 use {
     anyhow::bail,
-    pyth_lazer_protocol::api::SignedGuardianSetUpgrade,
+    pyth_lazer_protocol::api::{
+        CrosschainAttestationRequest, SignedCrosschainAttestation, SignedGuardianSetUpgrade,
+    },
     serde::{Deserialize, Serialize},
     std::{sync::Arc, time::Duration},
     tracing::warn,
@@ -79,6 +81,56 @@ impl PythLazerRouterClient {
         let response = response.error_for_status()?;
         let upgrade = response.json::<Option<SignedGuardianSetUpgrade>>().await?;
         Ok(upgrade)
+    }
+
+    /// Fetch this router's share of the crosschain attestation VAA for a request:
+    /// the body, which every router in the quorum produces identically, and one
+    /// signature from this router's key.
+    ///
+    /// Returns `Ok(None)` if the router has not signed the request — it has not
+    /// seen it, is not configured to sign, or has dropped it from its bounded
+    /// store. That is not a rejection: only attestations the aggregator already
+    /// accepted are ever handed to the signer.
+    ///
+    /// Tries each configured URL in order, falling back to subsequent ones on failure.
+    pub async fn crosschain_attestation(
+        &self,
+        request: &CrosschainAttestationRequest,
+    ) -> anyhow::Result<Option<SignedCrosschainAttestation>> {
+        for url in &self.config.urls {
+            match self.request_crosschain_attestation(url, request).await {
+                Ok(output) => return Ok(output),
+                Err(err) => {
+                    warn!(?url, ?err, "failed to fetch from router, trying next url");
+                }
+            }
+        }
+        bail!(
+            "failed to fetch data from any router urls ({:?})",
+            self.config.urls
+        );
+    }
+
+    async fn request_crosschain_attestation(
+        &self,
+        url: &Url,
+        request: &CrosschainAttestationRequest,
+    ) -> anyhow::Result<Option<SignedCrosschainAttestation>> {
+        let url = Self::http_endpoint(url, "/internal/v1/crosschain_attestation")?;
+
+        let response = self
+            .client
+            .post(url.clone())
+            .bearer_auth(&self.config.access_token)
+            .json(request)
+            .send()
+            .await?;
+
+        let response = response.error_for_status()?;
+        let attestation = response
+            .json::<Option<SignedCrosschainAttestation>>()
+            .await?;
+        Ok(attestation)
     }
 
     /// Build the HTTP endpoint URL for a router request.
@@ -209,6 +261,125 @@ mod tests {
         let upgrade = result.unwrap();
         assert_eq!(upgrade.current_guardian_set_index, 10);
         assert_eq!(upgrade.new_guardian_set_index, 11);
+    }
+
+    fn attestation_request() -> CrosschainAttestationRequest {
+        CrosschainAttestationRequest {
+            source: pyth_lazer_protocol::api::GovernanceSourceId::SingleEd25519 {
+                public_key: vec![0x11; 32],
+            },
+            governance_sequence_no: 12,
+            item_index: 3,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_crosschain_attestation_success() {
+        let server = httpmock::MockServer::start();
+
+        let json_body = serde_json::json!({
+            "vaa_sequence_no": 7,
+            "body": "deadbeef",
+            "signature": "aa".repeat(65),
+        });
+
+        server.mock(|when, then| {
+            when.method(httpmock::Method::POST)
+                .path("/internal/v1/crosschain_attestation")
+                .header("Authorization", "Bearer test-token")
+                .json_body(serde_json::to_value(attestation_request()).unwrap());
+            then.status(200)
+                .header("Content-Type", "application/json")
+                .json_body(json_body);
+        });
+
+        let client = PythLazerRouterClient::new(PythLazerRouterClientConfig {
+            urls: vec![Url::parse(&server.base_url()).unwrap()],
+            request_timeout: Duration::from_secs(5),
+            access_token: "test-token".to_string(),
+        })
+        .unwrap();
+
+        let attestation = client
+            .crosschain_attestation(&attestation_request())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(attestation.vaa_sequence_no, 7);
+        assert_eq!(attestation.body, vec![0xde, 0xad, 0xbe, 0xef]);
+        assert_eq!(attestation.signature, vec![0xaa; 65]);
+    }
+
+    #[tokio::test]
+    async fn test_crosschain_attestation_not_signed() {
+        let server = httpmock::MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(httpmock::Method::POST)
+                .path("/internal/v1/crosschain_attestation");
+            then.status(200)
+                .header("Content-Type", "application/json")
+                .body("null");
+        });
+
+        let client = PythLazerRouterClient::new(PythLazerRouterClientConfig {
+            urls: vec![Url::parse(&server.base_url()).unwrap()],
+            request_timeout: Duration::from_secs(5),
+            access_token: "test-token".to_string(),
+        })
+        .unwrap();
+
+        let result = client
+            .crosschain_attestation(&attestation_request())
+            .await
+            .unwrap();
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_crosschain_attestation_fallback_to_second_url() {
+        let server1 = httpmock::MockServer::start();
+        let server2 = httpmock::MockServer::start();
+
+        // First server returns 400 (error, triggers fallback)
+        server1.mock(|when, then| {
+            when.method(httpmock::Method::POST)
+                .path("/internal/v1/crosschain_attestation");
+            then.status(400);
+        });
+
+        let json_body = serde_json::json!({
+            "vaa_sequence_no": 21,
+            "body": "cafe",
+            "signature": "bb".repeat(65),
+        });
+
+        // Second server returns success
+        server2.mock(|when, then| {
+            when.method(httpmock::Method::POST)
+                .path("/internal/v1/crosschain_attestation");
+            then.status(200)
+                .header("Content-Type", "application/json")
+                .json_body(json_body);
+        });
+
+        let client = PythLazerRouterClient::new(PythLazerRouterClientConfig {
+            urls: vec![
+                Url::parse(&server1.base_url()).unwrap(),
+                Url::parse(&server2.base_url()).unwrap(),
+            ],
+            request_timeout: Duration::from_secs(5),
+            access_token: "test-token".to_string(),
+        })
+        .unwrap();
+
+        let attestation = client
+            .crosschain_attestation(&attestation_request())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(attestation.vaa_sequence_no, 21);
+        assert_eq!(attestation.body, vec![0xca, 0xfe]);
     }
 
     #[test]

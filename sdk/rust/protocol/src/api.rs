@@ -1079,6 +1079,70 @@ pub struct SignedGuardianSetUpgrade {
     pub signature: Vec<u8>,
 }
 
+/// Wire form of a Pyth Pro governance source identifier.
+#[serde_as]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub enum GovernanceSourceId {
+    /// A source authenticated by a single Ed25519 key.
+    SingleEd25519 {
+        /// Hex-encoded 32-byte Ed25519 public key
+        #[serde_as(as = "Hex")]
+        #[cfg_attr(feature = "utoipa", schema(value_type = String, example = "0x1a2b3c..."))]
+        public_key: Vec<u8>,
+    },
+    /// A source authenticated by a Wormhole VAA from a given emitter.
+    WormholeEmitter {
+        /// Hex-encoded Wormhole emitter address
+        #[serde_as(as = "Hex")]
+        #[cfg_attr(feature = "utoipa", schema(value_type = String, example = "0x1a2b3c..."))]
+        address: Vec<u8>,
+        /// Wormhole chain id the emitter publishes from
+        chain_id: u16,
+    },
+    /// A source authenticated by a threshold of ECDSA signers, named by its
+    /// stable id (the participant set and threshold can change under it).
+    EcdsaMultiSig {
+        /// Stable identifier of the multisig source
+        id: String,
+    },
+}
+
+/// Retrieval handle for a crosschain attestation request: everything the
+/// submitter knows at submission time, which together identifies one attested
+/// payload.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct CrosschainAttestationRequest {
+    /// Governance source that submitted the request
+    pub source: GovernanceSourceId,
+    /// Governance sequence number of the submitting transaction, which is
+    /// unique per source
+    pub governance_sequence_no: u64,
+    /// Zero-based position of the attestation within that transaction
+    pub item_index: u32,
+}
+
+/// One router's share of a crosschain attestation VAA.
+#[serde_as]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct SignedCrosschainAttestation {
+    /// VAA sequence number assigned to this attestation by aggregator state
+    pub vaa_sequence_no: u64,
+    /// Hex-encoded serialized VAA body bytes. Every router in the quorum
+    /// produces these bytes identically, so a collector needs only one copy.
+    #[serde_as(as = "Hex")]
+    #[cfg_attr(feature = "utoipa", schema(value_type = String, example = "0x1a2b3c..."))]
+    pub body: Vec<u8>,
+    /// Hex-encoded 65-byte ECDSA signature (r || s || v) from this router's key
+    /// over the body digest
+    #[serde_as(as = "Hex")]
+    #[cfg_attr(feature = "utoipa", schema(value_type = String, example = "0x1a2b3c..."))]
+    pub signature: Vec<u8>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1140,5 +1204,72 @@ mod tests {
         // round-trip
         let deserialized: SignedGuardianSetUpgrade = serde_json::from_value(json).unwrap();
         assert_eq!(deserialized, upgrade);
+    }
+
+    fn attestation_request(source: GovernanceSourceId) -> CrosschainAttestationRequest {
+        CrosschainAttestationRequest {
+            source,
+            governance_sequence_no: 12,
+            item_index: 3,
+        }
+    }
+
+    #[test]
+    fn crosschain_attestation_request_json_serialization() {
+        for (source, expected_source) in [
+            (
+                GovernanceSourceId::SingleEd25519 {
+                    public_key: vec![0x11; 32],
+                },
+                json!({ "type": "single_ed25519", "public_key": "11".repeat(32) }),
+            ),
+            (
+                GovernanceSourceId::WormholeEmitter {
+                    address: vec![0x22; 32],
+                    chain_id: 26,
+                },
+                json!({
+                    "type": "wormhole_emitter",
+                    "address": "22".repeat(32),
+                    "chain_id": 26,
+                }),
+            ),
+            (
+                GovernanceSourceId::EcdsaMultiSig {
+                    id: "council".to_string(),
+                },
+                json!({ "type": "ecdsa_multi_sig", "id": "council" }),
+            ),
+        ] {
+            let request = attestation_request(source);
+            let json = serde_json::to_value(&request).unwrap();
+
+            assert_eq!(json["source"], expected_source);
+            assert_eq!(json["governance_sequence_no"], 12);
+            assert_eq!(json["item_index"], 3);
+
+            // round-trip
+            let deserialized: CrosschainAttestationRequest = serde_json::from_value(json).unwrap();
+            assert_eq!(deserialized, request);
+        }
+    }
+
+    #[test]
+    fn signed_crosschain_attestation_json_serialization() {
+        let attestation = SignedCrosschainAttestation {
+            vaa_sequence_no: 7,
+            body: vec![0xde, 0xad, 0xbe, 0xef],
+            signature: vec![0xaa; 65],
+        };
+
+        let json = serde_json::to_value(&attestation).unwrap();
+
+        assert_eq!(json["vaa_sequence_no"], 7);
+        assert_eq!(json["body"], "deadbeef");
+        assert_eq!(json["signature"], "aa".repeat(65));
+
+        // round-trip
+        let deserialized: SignedCrosschainAttestation = serde_json::from_value(json).unwrap();
+        assert_eq!(deserialized, attestation);
     }
 }
