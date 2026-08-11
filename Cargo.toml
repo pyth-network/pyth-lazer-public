@@ -11,6 +11,7 @@ members = [
 
 [workspace.dependencies]
 alloy-primitives = "0.8.5"
+alloy-sol-types = "1.6.1"
 anyhow = "1.0.98"
 arc-swap = "1.7.1"
 assert_float_eq = "1.1.4"
@@ -260,6 +261,11 @@ features = [
   "system-proxy",
 ]
 version = "0.12.23"
+
+[workspace.dependencies.revm]
+default-features = false
+features = ["secp256k1", "std"]
+version = "42.0.1"
 
 [workspace.dependencies.rust_decimal]
 features = ["serde-with-str"]
