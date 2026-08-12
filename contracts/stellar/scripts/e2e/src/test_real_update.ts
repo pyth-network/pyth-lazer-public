@@ -17,7 +17,23 @@ import { Api, Server } from "@stellar/stellar-sdk/rpc";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 
-const RPC_URL = "https://soroban-testnet.stellar.org";
+const NETWORKS = {
+  mainnet: {
+    explorer: "public",
+    // Inclusion bid, not the resource fee: `prepareTransaction` adds the Soroban resource fee on
+    // top but leaves this untouched, and mainnet ledgers run close to full, so a BASE_FEE bid gets
+    // evicted and the transaction expires without ever reaching a ledger.
+    inclusionFee: "1000000",
+    networkPassphrase: Networks.PUBLIC,
+    rpcUrl: "https://mainnet.sorobanrpc.com",
+  },
+  testnet: {
+    explorer: "testnet",
+    inclusionFee: BASE_FEE,
+    networkPassphrase: Networks.TESTNET,
+    rpcUrl: "https://soroban-testnet.stellar.org",
+  },
+} as const;
 const PAYLOAD_MAGIC = 0x93_c7_d3_75;
 const BTC_USD_FEED_ID = 1;
 
@@ -28,12 +44,19 @@ const CHANNEL_NAMES: Record<number, string> = {
   4: "FixedRate1000ms",
 };
 
-const { secret, "contract-id": contractIdArg } = await yargs(
-  hideBin(process.argv),
-)
+const {
+  network: networkName,
+  secret,
+  "contract-id": contractIdArg,
+} = await yargs(hideBin(process.argv))
+  .option("network", {
+    choices: Object.keys(NETWORKS) as (keyof typeof NETWORKS)[],
+    default: "testnet" as const,
+    description: "Stellar network the contract is deployed on.",
+  })
   .option("secret", {
     description:
-      "Stellar secret key (S...). If omitted, a new keypair is generated and funded.",
+      "Stellar secret key (S...). Required on mainnet; on testnet, a new keypair is generated and friendbot-funded when omitted.",
     type: "string",
   })
   .option("contract-id", {
@@ -44,6 +67,8 @@ const { secret, "contract-id": contractIdArg } = await yargs(
   })
   .help()
   .parseAsync();
+
+const network = NETWORKS[networkName];
 
 // biome-ignore lint/style/noProcessEnv: e2e reads Lazer auth token from the environment
 const { PYTH_LAZER_TOKEN } = process.env;
@@ -259,12 +284,14 @@ function parsePayload(buf: Buffer): ParsedPayload {
 }
 
 // --- Step 1: Set up Stellar keypair ---
-const server = new Server(RPC_URL);
+const server = new Server(network.rpcUrl);
 let keypair: Keypair;
 if (secret) {
   keypair = Keypair.fromSecret(secret);
   console.log("=== Using provided keypair ===");
   console.log(`  Account: ${keypair.publicKey()}`);
+} else if (networkName === "mainnet") {
+  throw new Error("--secret is required on mainnet (there is no friendbot).");
 } else {
   keypair = Keypair.random();
   console.log("=== Generating Stellar test keypair ===");
@@ -278,7 +305,7 @@ const accountId = keypair.publicKey();
 
 // --- Step 2: Use the provided contract ID ---
 const contractId = contractIdArg;
-console.log(`\n=== Using Lazer contract: ${contractId} ===`);
+console.log(`\n=== Using Lazer contract: ${contractId} on ${networkName} ===`);
 
 // --- Step 3: Fetch real price update from Pyth Lazer ---
 console.log("\n=== Fetching real price update from Pyth Lazer ===");
@@ -315,8 +342,8 @@ console.log("\n=== Calling verify_update with real Lazer payload ===");
 const account = await server.getAccount(accountId);
 const contract = new Contract(contractId);
 const tx = new TransactionBuilder(account, {
-  fee: BASE_FEE,
-  networkPassphrase: Networks.TESTNET,
+  fee: network.inclusionFee,
+  networkPassphrase: network.networkPassphrase,
 })
   .addOperation(
     contract.call("verify_update", nativeToScVal(update, { type: "bytes" })),
@@ -330,7 +357,7 @@ prepared.sign(keypair);
 const sendResult = await server.sendTransaction(prepared);
 console.log(`  Transaction hash: ${sendResult.hash}`);
 console.log(
-  `  Stellar Explorer: https://stellar.expert/explorer/testnet/tx/${sendResult.hash}`,
+  `  Stellar Explorer: https://stellar.expert/explorer/${network.explorer}/tx/${sendResult.hash}`,
 );
 if (sendResult.status === "ERROR") {
   console.error("  Send error:", JSON.stringify(sendResult.errorResult));
@@ -338,6 +365,11 @@ if (sendResult.status === "ERROR") {
 }
 
 const txResult = await server.pollTransaction(sendResult.hash);
+if (txResult.status === Api.GetTransactionStatus.NOT_FOUND) {
+  throw new Error(
+    `Transaction ${sendResult.hash} was dropped before reaching a ledger, so nothing executed and no fee was charged. This usually means the ledger was full and the inclusion fee of ${network.inclusionFee} stroops was outbid; retry, raising it if it keeps happening.`,
+  );
+}
 if (txResult.status !== Api.GetTransactionStatus.SUCCESS) {
   throw new Error(`Transaction did not succeed: ${txResult.status}`);
 }
@@ -378,5 +410,5 @@ console.log("=== END-TO-END TEST PASSED ===");
 console.log("=========================================");
 console.log(`\nLazer contract: ${contractId}`);
 console.log(
-  "\nThe real Pyth Lazer price update was successfully verified on Stellar testnet!",
+  `\nThe real Pyth Lazer price update was successfully verified on Stellar ${networkName}!`,
 );

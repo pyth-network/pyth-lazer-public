@@ -70,15 +70,28 @@ Runs all unit tests and integration tests. The integration test suite (`contract
 
 ## End-to-End Test
 
-Run the E2E test against the testnet deployment:
+Run the E2E test against a deployment (see the deployment tables below for contract ids):
 
 ```bash
 cd scripts/e2e
+
+# Testnet — funds a throwaway account via friendbot when --secret is omitted
 PYTH_LAZER_TOKEN=<your-token> npx tsx src/test_real_update.ts \
-  --contract-id CAYFT5JE3UQTKT4Q6ZOZK4FXVYVT6RE3MFC7STA4UB6WAEGBT65MRU52   # see the Testnet Deployment table below
+  --contract-id CAYFT5JE3UQTKT4Q6ZOZK4FXVYVT6RE3MFC7STA4UB6WAEGBT65MRU52
+
+# Mainnet — --secret is required, there is no friendbot
+PYTH_LAZER_TOKEN=<your-token> npx tsx src/test_real_update.ts \
+  --network mainnet --secret <SECRET_KEY> \
+  --contract-id CACZ3GBAKUPIAFRILUFO27J5RUH5GJ2VSJ46LP6GJYSKGDRTQ5MS3HCH
 ```
 
 This fetches a real signed price update from the Pyth Lazer service and verifies it on-chain.
+
+The mainnet run bids 0.1 XLM of inclusion fee (testnet bids the 100-stroop base fee). Stellar
+charges the market-clearing rate rather than the bid, so the higher number costs nothing extra on an
+uncongested ledger; it exists because mainnet ledgers routinely run near capacity and a base-fee bid
+gets evicted. If a run still reports the transaction was dropped before reaching a ledger, retry —
+raising `inclusionFee` in `src/test_real_update.ts` if it keeps happening.
 
 ## Code Quality
 
@@ -116,6 +129,13 @@ lazer/contracts/stellar/
 │           └── test.rs
 ```
 
+## Mainnet Deployment
+
+| Contract | Address |
+|----------|---------|
+| Pyth Lazer (verifier) | [`CACZ3GBAKUPIAFRILUFO27J5RUH5GJ2VSJ46LP6GJYSKGDRTQ5MS3HCH`](https://stellar.expert/explorer/public/contract/CACZ3GBAKUPIAFRILUFO27J5RUH5GJ2VSJ46LP6GJYSKGDRTQ5MS3HCH) |
+| Wormhole Executor | [`CDBUGCAVCZIS7RQXYKQTACS32JZ7EOVDBXXNR3BW7AVAHGGMMGGYZY35`](https://stellar.expert/explorer/public/contract/CDBUGCAVCZIS7RQXYKQTACS32JZ7EOVDBXXNR3BW7AVAHGGMMGGYZY35) |
+
 ## Testnet Deployment
 
 | Contract | Address |
@@ -123,7 +143,7 @@ lazer/contracts/stellar/
 | Pyth Lazer (verifier) | [`CAYFT5JE3UQTKT4Q6ZOZK4FXVYVT6RE3MFC7STA4UB6WAEGBT65MRU52`](https://stellar.expert/explorer/testnet/contract/CAYFT5JE3UQTKT4Q6ZOZK4FXVYVT6RE3MFC7STA4UB6WAEGBT65MRU52) |
 | Wormhole Executor | [`CA542YLVDLBQXTTS2FOERQAED2WE5DQRKLRZUUEG75DQ2TEX2525QNBG`](https://stellar.expert/explorer/testnet/contract/CA542YLVDLBQXTTS2FOERQAED2WE5DQRKLRZUUEG75DQ2TEX2525QNBG) |
 
-The testnet contract is initialized with the canonical Pyth-DAO Lazer governance emitter and the
+Both networks are initialized with the canonical Pyth-DAO Lazer governance emitter and the
 Pyth Lazer trusted signer (see the governance config baked into `scripts/deploy.sh`). The canonical
 machine-readable record of the deployed contract ids lives in the `contract_manager` registry in
 `pyth-network/pyth-crosschain`.
