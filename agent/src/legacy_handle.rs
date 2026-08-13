@@ -520,10 +520,7 @@ async fn handle_update_price(
 
     let trading_status = params.status.to_trading_status();
 
-    let conf_i64 = match i64::try_from(params.conf) {
-        Ok(conf_i64) => conf_i64,
-        Err(_) => i64::MAX,
-    };
+    let conf_i64 = i64::try_from(params.conf).unwrap_or(i64::MAX);
 
     let feed_update = FeedUpdate {
         feed_id: Some(feed_id.0),
