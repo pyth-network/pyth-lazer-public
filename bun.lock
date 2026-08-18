@@ -187,6 +187,7 @@
     "highlight.js": "^11.11.1",
     "http-status-codes": "^2.3.0",
     "idb-keyval": "^6.3.0",
+    "isbot": "^5.2.1",
     "isomorphic-ws": "^5.0.0",
     "jszip": "^3.10.1",
     "knip": "^6.30.0",
