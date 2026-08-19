@@ -34,7 +34,7 @@
       "!scripts/**/*.sh",
       "!scripts/**/*.py",
       "!**/*.gen.ts",
-      "!**/schemas/*.json",
+      "!**/schemas/**",
       "!apps/operations-dashboard/openapi.json"
     ]
   },
