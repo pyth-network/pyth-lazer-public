@@ -40,6 +40,10 @@ message State {
     repeated Publisher publishers = 8;
     // List of governance sources.
     repeated GovernanceSourceState governance_sources = 9;
+    // List of previously processed governance instructions with UUIDs.
+    // Records are retained in this list until the current timestamp surpasses
+    // `max_execution_timestamp` of the instruction.
+    repeated ProcessedGovernanceInstruction processed_governance_instructions = 16;
     // Currently active feature flags. Feature flags influence the aggregator's behavior.
     repeated string feature_flags = 10;
     // List of assets.
@@ -294,4 +298,12 @@ message GovernanceSourceState {
     optional Permissions permissions = 2;
     // [required]
     optional uint64 last_sequence_no = 3;
+}
+
+// Record of a previously processed governance instructions.
+message ProcessedGovernanceInstruction {
+    // [required] UUID of the instruction.
+    optional string uuid = 1;
+    // [required] Max execution timestamp of the instruction.
+    optional google.protobuf.Timestamp max_execution_timestamp = 2;
 }
