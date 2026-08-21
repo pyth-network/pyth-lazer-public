@@ -173,8 +173,20 @@ pub struct PriceFeedAttributes {
 
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MarketHours {
+    pub is_open: bool,
+    #[cfg_attr(feature = "utoipa", schema(required, example = 1717632000))]
+    pub next_open: Option<i64>,
+    #[cfg_attr(feature = "utoipa", schema(required, example = 1717632000))]
+    pub next_close: Option<i64>,
+}
+
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PriceFeedMetadata {
     pub id: RpcPriceIdentifier,
+    #[cfg_attr(feature = "utoipa", schema(required))]
+    pub market_hours: Option<MarketHours>,
     pub attributes: PriceFeedAttributes,
 }
 
