@@ -8,11 +8,16 @@
 //   2. a globally-shared central mock registered once with a complete surface
 //      (see apps/pyth-app/src/testSupport/globalMocks.ts).
 // Reach for a local `mock.module` only for a leaf module no other test imports
-// for real, and be sure to clean it up after your test runs.
+// for real, or for an ambient environment hook (viewport, theme, media query,
+// feature flag) that a component under test calls directly -- a component's
+// props are its public contract and should not grow a hook just to be testable.
+// Either way give the factory the module's complete surface and a default that
+// matches the real module: `mock.clearAllMocks()` does NOT unregister a module
+// mock, so the registration lives for the rest of the process.
 // See standards/web/testing.md.
 //
 // This is a warning, not an error: it nudges authors away from mocking without
 // blocking existing usage. Scoped to test files via biome.json `overrides`.
 `mock.module($args)` as $call where {
-  register_diagnostic(span=$call, message="Avoid mock.module: prefer a dependency-injection seam or a shared central mock, and fall back to a local mock.module only for a leaf module no other test imports for real. See standards/web/testing.md.", severity="warn")
+  register_diagnostic(span=$call, message="Avoid mock.module: prefer a dependency-injection seam or a shared central mock. A local mock.module is acceptable for a leaf module no other test imports for real, or for an ambient environment hook a component under test calls directly. See standards/web/testing.md.", severity="warn")
 }
