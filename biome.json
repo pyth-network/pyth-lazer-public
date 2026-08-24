@@ -35,7 +35,8 @@
       "!scripts/**/*.py",
       "!**/*.gen.ts",
       "!**/schemas/**",
-      "!apps/operations-dashboard/openapi.json"
+      "!apps/operations-dashboard/openapi.json",
+      "!packages/contract-data/src/store/**"
     ]
   },
   "formatter": {
