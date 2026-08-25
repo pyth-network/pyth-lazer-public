@@ -136,3 +136,6 @@ storybook-static/
 SPECULAR.md
 .vercel
 .env*.local
+
+# NATS load benchmark results (fetched by playbook-nats-bench.yaml)
+nats-bench-results/
