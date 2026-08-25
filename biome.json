@@ -36,7 +36,8 @@
       "!**/*.gen.ts",
       "!**/schemas/**",
       "!apps/operations-dashboard/openapi.json",
-      "!packages/contract-data/src/store/**"
+      "!packages/contract-data/src/store/**",
+      "!apps/developer-hub/**"
     ]
   },
   "formatter": {
