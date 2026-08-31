@@ -1,6 +1,6 @@
 use {
     anyhow::bail,
-    pyth_lazer_protocol::api::SignedGuardianSetUpgrade,
+    pyth_lazer_protocol::api::{SignedGuardianSetUpgrade, SignedPublisherStakeCaps},
     serde::{Deserialize, Serialize, de::DeserializeOwned},
     std::{sync::Arc, time::Duration},
     tracing::warn,
@@ -50,6 +50,13 @@ impl PythLazerRouterClient {
     /// Tries each configured URL in order, falling back to subsequent ones on failure.
     pub async fn guardian_set_upgrade(&self) -> anyhow::Result<Option<SignedGuardianSetUpgrade>> {
         self.get("/v1/guardian_set_upgrade").await
+    }
+
+    /// Fetch this router's share of the publisher stake caps VAA.
+    ///
+    /// Tries each configured URL in order, falling back to subsequent ones on failure.
+    pub async fn publisher_stake_caps(&self) -> anyhow::Result<SignedPublisherStakeCaps> {
+        self.get("/v1/publisher_stake_caps").await
     }
 
     /// `GET` a router path, deserializing the JSON body into `T`.

@@ -1079,6 +1079,21 @@ pub struct SignedGuardianSetUpgrade {
     pub signature: Vec<u8>,
 }
 
+/// One router's share of the publisher stake caps VAA.
+#[serde_as]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct SignedPublisherStakeCaps {
+    /// Hex-encoded serialized VAA body bytes (for downstream VAA assembly)
+    #[serde_as(as = "Hex")]
+    #[cfg_attr(feature = "utoipa", schema(value_type = String, example = "0x1a2b3c..."))]
+    pub body: Vec<u8>,
+    /// Hex-encoded 65-byte ECDSA signature (r || s || v) over the body digest
+    #[serde_as(as = "Hex")]
+    #[cfg_attr(feature = "utoipa", schema(value_type = String, example = "0x1a2b3c..."))]
+    pub signature: Vec<u8>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
