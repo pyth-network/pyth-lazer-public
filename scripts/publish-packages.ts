@@ -22,7 +22,7 @@
  *      pre-packed tarball produces a valid attestation.
  */
 /** biome-ignore-all lint/suspicious/noConsole: it's a script file, we need to output to the console */
-/** biome-ignore-all lint/nursery/noUndeclaredEnvVars: We don't care about turbo in this file */
+/** biome-ignore-all lint/suspicious/noUndeclaredEnvVars: We don't care about turbo in this file */
 /** biome-ignore-all lint/style/noProcessEnv: it's a script file, it needs access to the env */
 
 import { mkdtemp, readdir, rm } from "node:fs/promises";

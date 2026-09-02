@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.16/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.10/schema.json",
   "assist": {
     "actions": {
       "source": {
@@ -143,9 +143,6 @@
         "useValidTypeof": "error",
         "useYield": "error"
       },
-      "nursery": {
-        "noUndeclaredEnvVars": "error"
-      },
       "recommended": false,
       "security": {
         "noDangerouslySetInnerHtmlWithChildren": "error"
@@ -227,6 +224,7 @@
         "noShadowRestrictedNames": "error",
         "noSparseArray": "error",
         "noThenProperty": "error",
+        "noUndeclaredEnvVars": "error",
         "noUnsafeDeclarationMerging": "error",
         "noUnsafeNegation": "error",
         "noUselessRegexBackrefs": "error",
