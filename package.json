@@ -101,6 +101,7 @@
     "idb-keyval": "^6.3.0",
     "isbot": "^5.2.1",
     "isomorphic-ws": "^5.0.0",
+    "jose": "^6.2.10",
     "js-tiktoken": "^1.0.21",
     "jszip": "^3.10.1",
     "katex": "^0.18.4",
