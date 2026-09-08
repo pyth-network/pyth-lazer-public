@@ -278,7 +278,7 @@ features = ["secp256k1", "std"]
 version = "42.0.1"
 
 [workspace.dependencies.rust_decimal]
-features = ["serde-with-str"]
+features = ["maths", "serde-with-str"]
 version = "1.36.0"
 
 [workspace.dependencies.serde]
