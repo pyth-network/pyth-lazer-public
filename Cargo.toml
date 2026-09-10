@@ -13,6 +13,7 @@ members = [
 alloy-primitives = "0.8.5"
 alloy-sol-types = "1.6.1"
 anyhow = "1.0.98"
+apache-avro = "0.22.0"
 arc-swap = "1.7.1"
 assert_float_eq = "1.1.4"
 async-nats = "0.49.0"
@@ -260,6 +261,7 @@ default-features = false
 version = "0.51.0"
 
 [workspace.dependencies.rdkafka]
+features = ["ssl"]
 version = "0.37.0"
 
 [workspace.dependencies.reqwest]
