@@ -86,7 +86,6 @@
     "SYMBOLS_CACHE_ENABLED",
     "SOCIAL_PROVIDERS",
     "VERCEL_ENV",
-    "VERCEL_URL",
     "VERCEL_ENV_OVERRIDE",
     "WORDMARK_URL"
   ],
@@ -156,6 +155,7 @@
         "^build",
         "test:types"
       ],
+      "env": ["!VERCEL_DEPLOYMENT_ID"],
       "inputs": [
         "$TURBO_DEFAULT$",
         "!README.md",
@@ -185,6 +185,7 @@
     },
     "clean": {
       "cache": false,
+      "env": ["!VERCEL_DEPLOYMENT_ID"],
       "outputs": []
     },
     "env:fix": {
@@ -207,6 +208,7 @@
     "pull:env": {
       "cache": false,
       "dependsOn": ["//#install:modules"],
+      "env": ["!VERCEL_DEPLOYMENT_ID"],
       "outputs": [".env.local"]
     },
     "setup:neon-branch": {
@@ -260,7 +262,8 @@
       "dependsOn": ["^build", "//#test:lint:staged", "test:types"]
     },
     "test:types": {
-      "dependsOn": ["//#install:modules", "^build"]
+      "dependsOn": ["//#install:modules", "^build"],
+      "env": ["!VERCEL_DEPLOYMENT_ID"]
     },
     "test:unit": {
       "dependsOn": ["//#install:modules", "^build"]
