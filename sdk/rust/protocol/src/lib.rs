@@ -193,15 +193,6 @@ pub fn parse_proto_json<M: MessageFull>(
 
 #[test]
 fn magics_in_big_endian() {
-    use crate::{
-        binary_update::BINARY_UPDATE_FORMAT_MAGIC,
-        message::format_magics_le::{
-            EVM_FORMAT_MAGIC, JSON_FORMAT_MAGIC, LE_ECDSA_FORMAT_MAGIC, LE_UNSIGNED_FORMAT_MAGIC,
-            SOLANA_FORMAT_MAGIC,
-        },
-        payload::PAYLOAD_FORMAT_MAGIC,
-    };
-
     // The values listed in this test can be used when reading the magic headers in BE format
     // (e.g., on EVM).
 
@@ -214,18 +205,54 @@ fn magics_in_big_endian() {
     assert_eq!(u32::swap_bytes(LE_ECDSA_FORMAT_MAGIC), 3837609805);
     assert_eq!(u32::swap_bytes(LE_UNSIGNED_FORMAT_MAGIC), 206398297);
 
-    for magic in [
-        BINARY_UPDATE_FORMAT_MAGIC,
-        PAYLOAD_FORMAT_MAGIC,
-        SOLANA_FORMAT_MAGIC,
-        JSON_FORMAT_MAGIC,
-        EVM_FORMAT_MAGIC,
-        LE_ECDSA_FORMAT_MAGIC,
-        LE_UNSIGNED_FORMAT_MAGIC,
-    ] {
+    for magic in ALL_MAGICS {
         // Required to distinguish between byte orders.
         assert_ne!(u32::swap_bytes(magic), magic);
     }
+}
+
+#[cfg(test)]
+use crate::{
+    binary_update::BINARY_UPDATE_FORMAT_MAGIC,
+    message::format_magics_le::{
+        EVM_FORMAT_MAGIC, JSON_FORMAT_MAGIC, LE_ECDSA_FORMAT_MAGIC, LE_UNSIGNED_FORMAT_MAGIC,
+        SOLANA_FORMAT_MAGIC,
+    },
+    payload::{packed_evm::PACKED_EVM_PAYLOAD_FORMAT_MAGIC, PAYLOAD_FORMAT_MAGIC},
+};
+
+/// Every magic this crate reads or writes.
+#[cfg(test)]
+const ALL_MAGICS: [u32; 8] = [
+    BINARY_UPDATE_FORMAT_MAGIC,
+    PAYLOAD_FORMAT_MAGIC,
+    PACKED_EVM_PAYLOAD_FORMAT_MAGIC,
+    SOLANA_FORMAT_MAGIC,
+    JSON_FORMAT_MAGIC,
+    EVM_FORMAT_MAGIC,
+    LE_ECDSA_FORMAT_MAGIC,
+    LE_UNSIGNED_FORMAT_MAGIC,
+];
+
+/// A reader that dispatches on a magic has to be able to tell every format
+/// apart, and it may read the four bytes in either order — `PackedEvm` is
+/// big-endian where the older formats are little-endian. So no magic may equal
+/// any other magic, or any other magic's byte-swap.
+#[test]
+fn magics_are_pairwise_distinct() {
+    let mut seen = std::collections::HashSet::new();
+    for magic in ALL_MAGICS {
+        assert!(seen.insert(magic), "{magic} is used twice");
+        assert!(
+            seen.insert(u32::swap_bytes(magic)),
+            "{magic} byte-swapped collides with another magic"
+        );
+    }
+}
+
+#[test]
+fn packed_evm_payload_magic_spells_pevm() {
+    assert_eq!(&PACKED_EVM_PAYLOAD_FORMAT_MAGIC.to_be_bytes(), b"PEVM");
 }
 
 #[test]
