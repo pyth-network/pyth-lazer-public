@@ -132,6 +132,7 @@ storybook-static/
 
 # Claude
 .claude/
+planbot.md
 
 SPECULAR.md
 planbot.md
