@@ -134,6 +134,7 @@ storybook-static/
 .claude/
 
 SPECULAR.md
+planbot.md
 .vercel
 .env*.local
 
