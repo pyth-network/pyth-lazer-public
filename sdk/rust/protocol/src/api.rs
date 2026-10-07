@@ -10,7 +10,7 @@ use serde::{de::Error, Deserialize, Serialize};
 use serde_with::{hex::Hex, serde_as};
 
 use crate::{
-    payload::AggregatedPriceFeedData,
+    payload::{packed_evm::PackedEvmPayloadData, AggregatedPriceFeedData},
     time::{DurationUs, FixedRate, TimestampUs},
     ChannelId, Price, PriceFeedId, PriceFeedProperty, Rate,
 };
@@ -27,6 +27,9 @@ pub struct LatestPriceRequestRepr {
     /// Either feed ids or symbols must be specified.
     pub symbols: Option<Vec<String>>,
     /// List of feed properties the sender is interested in.
+    /// Required unless `formats` is `["packedEvmEcdsa"]`, which fixes the properties
+    /// itself and accepts none here.
+    #[serde(default)]
     pub properties: Vec<PriceFeedProperty>,
     // "chains" was renamed to "formats". "chains" is still supported for compatibility.
     /// Requested formats of the payload.
@@ -74,19 +77,12 @@ impl<'de> Deserialize<'de> for LatestPriceRequest {
 
 impl LatestPriceRequest {
     pub fn new(value: LatestPriceRequestRepr) -> Result<Self, &'static str> {
-        validate_price_feed_ids_or_symbols(&value.price_feed_ids, &value.symbols)?;
-        validate_optional_nonempty_vec_has_unique_elements(
+        validate_price_request(
             &value.price_feed_ids,
-            "no price feed ids specified",
-            "duplicate price feed ids specified",
-        )?;
-        validate_optional_nonempty_vec_has_unique_elements(
             &value.symbols,
-            "no symbols specified",
-            "duplicate symbols specified",
+            &value.properties,
+            &value.formats,
         )?;
-        validate_formats(&value.formats)?;
-        validate_properties(&value.properties)?;
         Ok(Self(value))
     }
 }
@@ -118,6 +114,9 @@ pub struct PriceRequestRepr {
     #[cfg_attr(feature = "utoipa", schema(default))]
     pub symbols: Option<Vec<String>>,
     /// List of feed properties the sender is interested in.
+    /// Required unless `formats` is `["packedEvmEcdsa"]`, which fixes the properties
+    /// itself and accepts none here.
+    #[serde(default)]
     pub properties: Vec<PriceFeedProperty>,
     /// Requested formats of the payload.
     pub formats: Vec<Format>,
@@ -148,19 +147,12 @@ impl<'de> Deserialize<'de> for PriceRequest {
 
 impl PriceRequest {
     pub fn new(value: PriceRequestRepr) -> Result<Self, &'static str> {
-        validate_price_feed_ids_or_symbols(&value.price_feed_ids, &value.symbols)?;
-        validate_optional_nonempty_vec_has_unique_elements(
+        validate_price_request(
             &value.price_feed_ids,
-            "no price feed ids specified",
-            "duplicate price feed ids specified",
-        )?;
-        validate_optional_nonempty_vec_has_unique_elements(
             &value.symbols,
-            "no symbols specified",
-            "duplicate symbols specified",
+            &value.properties,
+            &value.formats,
         )?;
-        validate_formats(&value.formats)?;
-        validate_properties(&value.properties)?;
         Ok(Self(value))
     }
 }
@@ -223,6 +215,16 @@ pub enum Format {
     Solana,
     LeEcdsa,
     LeUnsigned,
+    PackedEvmEcdsa,
+}
+
+impl Format {
+    pub fn requires_signing(&self) -> bool {
+        match self {
+            Format::Evm | Format::Solana | Format::LeEcdsa | Format::PackedEvmEcdsa => true,
+            Format::LeUnsigned => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
@@ -475,6 +477,9 @@ pub struct SubscriptionParamsRepr {
     #[cfg_attr(feature = "utoipa", schema(default))]
     pub symbols: Option<Vec<String>>,
     /// List of feed properties the sender is interested in.
+    /// Required unless `formats` is `["packedEvmEcdsa"]`, which fixes the properties
+    /// itself and accepts none here.
+    #[serde(default)]
     pub properties: Vec<PriceFeedProperty>,
     /// Requested formats of the payload.
     /// As part of each feed update, the server will send on-chain payloads required
@@ -519,19 +524,12 @@ impl<'de> Deserialize<'de> for SubscriptionParams {
 
 impl SubscriptionParams {
     pub fn new(value: SubscriptionParamsRepr) -> Result<Self, &'static str> {
-        validate_price_feed_ids_or_symbols(&value.price_feed_ids, &value.symbols)?;
-        validate_optional_nonempty_vec_has_unique_elements(
+        validate_price_request(
             &value.price_feed_ids,
-            "no price feed ids specified",
-            "duplicate price feed ids specified",
-        )?;
-        validate_optional_nonempty_vec_has_unique_elements(
             &value.symbols,
-            "no symbols specified",
-            "duplicate symbols specified",
+            &value.properties,
+            &value.formats,
         )?;
-        validate_formats(&value.formats)?;
-        validate_properties(&value.properties)?;
         Ok(Self(value))
     }
 }
@@ -579,6 +577,9 @@ pub struct JsonUpdate {
     /// Unsigned binary payload. Only present if `LeUnsigned` is present in `formats` in subscription params.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub le_unsigned: Option<JsonBinaryData>,
+    /// Signed on-chain payload for EVM designed to fit price data for up to 4 feeds in a single storage slot. Only present if `PackedEvmEcdsa` is present in `formats` in subscription params.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub packed_evm_ecdsa: Option<JsonBinaryData>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -925,6 +926,27 @@ pub struct StreamUpdatedResponse {
     pub payload: JsonUpdate,
 }
 
+fn validate_price_request(
+    price_feed_ids: &Option<Vec<PriceFeedId>>,
+    symbols: &Option<Vec<String>>,
+    properties: &[PriceFeedProperty],
+    formats: &[Format],
+) -> Result<(), &'static str> {
+    validate_price_feed_ids_or_symbols(price_feed_ids, symbols)?;
+    validate_optional_nonempty_vec_has_unique_elements(
+        price_feed_ids,
+        "no price feed ids specified",
+        "duplicate price feed ids specified",
+    )?;
+    validate_optional_nonempty_vec_has_unique_elements(
+        symbols,
+        "no symbols specified",
+        "duplicate symbols specified",
+    )?;
+    validate_requested_payload(properties, formats)?;
+    Ok(())
+}
+
 // Common validation functions
 fn validate_price_feed_ids_or_symbols(
     price_feed_ids: &Option<Vec<PriceFeedId>>,
@@ -958,21 +980,225 @@ where
     Ok(())
 }
 
-fn validate_properties(properties: &[PriceFeedProperty]) -> Result<(), &'static str> {
-    if properties.is_empty() {
-        return Err("no properties specified");
-    }
-    if !properties.iter().all_unique() {
-        return Err("duplicate properties specified");
-    }
-    Ok(())
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum PayloadLayout {
+    Standard {
+        properties: Vec<PriceFeedProperty>,
+        formats: Vec<Format>,
+    },
+    PackedEvm,
 }
 
-fn validate_formats(formats: &[Format]) -> Result<(), &'static str> {
+impl PayloadLayout {
+    pub fn properties(&self) -> &[PriceFeedProperty] {
+        match self {
+            PayloadLayout::Standard { properties, .. } => properties,
+            PayloadLayout::PackedEvm => &PackedEvmPayloadData::PROPERTIES,
+        }
+    }
+}
+
+impl PayloadLayout {
+    pub fn formats(&self) -> &[Format] {
+        match self {
+            PayloadLayout::Standard { formats, .. } => formats,
+            PayloadLayout::PackedEvm => &[Format::PackedEvmEcdsa],
+        }
+    }
+}
+pub trait RequestWithPayloadLayout {
+    fn payload_layout(&self) -> PayloadLayout;
+}
+impl RequestWithPayloadLayout for SubscriptionParams {
+    fn payload_layout(&self) -> PayloadLayout {
+        if self.formats.contains(&Format::PackedEvmEcdsa) {
+            PayloadLayout::PackedEvm
+        } else {
+            PayloadLayout::Standard {
+                properties: self.properties.clone(),
+                formats: self.formats.clone(),
+            }
+        }
+    }
+}
+
+impl RequestWithPayloadLayout for LatestPriceRequest {
+    fn payload_layout(&self) -> PayloadLayout {
+        if self.formats.contains(&Format::PackedEvmEcdsa) {
+            PayloadLayout::PackedEvm
+        } else {
+            PayloadLayout::Standard {
+                properties: self.properties.clone(),
+                formats: self.formats.clone(),
+            }
+        }
+    }
+}
+
+impl RequestWithPayloadLayout for PriceRequest {
+    fn payload_layout(&self) -> PayloadLayout {
+        if self.formats.contains(&Format::PackedEvmEcdsa) {
+            PayloadLayout::PackedEvm
+        } else {
+            PayloadLayout::Standard {
+                properties: self.properties.clone(),
+                formats: self.formats.clone(),
+            }
+        }
+    }
+}
+
+fn validate_requested_payload(
+    properties: &[PriceFeedProperty],
+    formats: &[Format],
+) -> Result<(), &'static str> {
     if !formats.iter().all_unique() {
         return Err("duplicate formats or chains specified");
     }
+    if formats.contains(&Format::PackedEvmEcdsa) {
+        if formats.len() != 1 {
+            return Err("packedEvmEcdsa cannot be combined with other formats");
+        }
+        if !properties.is_empty() {
+            return Err("packedEvmEcdsa fixes the properties it carries; do not specify any");
+        }
+    } else {
+        if properties.is_empty() {
+            return Err("no properties specified");
+        }
+        if !properties.iter().all_unique() {
+            return Err("duplicate properties specified");
+        }
+    }
+
     Ok(())
+}
+
+#[cfg(test)]
+mod requested_payload_tests {
+    use super::*;
+
+    fn ids(count: u32) -> Vec<PriceFeedId> {
+        (1..=count).map(PriceFeedId).collect()
+    }
+
+    fn subscription(
+        price_feed_ids: Option<Vec<PriceFeedId>>,
+        symbols: Option<Vec<String>>,
+        properties: Vec<PriceFeedProperty>,
+        formats: Vec<Format>,
+    ) -> Result<SubscriptionParams, &'static str> {
+        SubscriptionParams::new(SubscriptionParamsRepr {
+            price_feed_ids,
+            symbols,
+            properties,
+            formats,
+            delivery_format: DeliveryFormat::Json,
+            json_binary_encoding: JsonBinaryEncoding::Base64,
+            parsed: true,
+            channel: Channel::RealTime,
+            ignore_invalid_feeds: false,
+        })
+    }
+
+    #[test]
+    fn packed_evm_fixes_its_properties_and_stands_alone() {
+        let params =
+            subscription(Some(ids(4)), None, vec![], vec![Format::PackedEvmEcdsa]).unwrap();
+        assert_eq!(params.payload_layout(), PayloadLayout::PackedEvm);
+    }
+
+    #[test]
+    fn packed_evm_rejects_properties_and_other_formats() {
+        assert_eq!(
+            subscription(
+                Some(ids(1)),
+                None,
+                vec![PriceFeedProperty::Price],
+                vec![Format::PackedEvmEcdsa]
+            )
+            .unwrap_err(),
+            "packedEvmEcdsa fixes the properties it carries; do not specify any"
+        );
+        assert_eq!(
+            subscription(
+                Some(ids(1)),
+                None,
+                vec![],
+                vec![Format::Evm, Format::PackedEvmEcdsa]
+            )
+            .unwrap_err(),
+            "packedEvmEcdsa cannot be combined with other formats"
+        );
+    }
+
+    #[test]
+    fn standard_formats_still_require_properties_and_take_any_feed_count() {
+        assert_eq!(
+            subscription(Some(ids(1)), None, vec![], vec![Format::Evm]).unwrap_err(),
+            "no properties specified"
+        );
+        let params = subscription(
+            Some(ids(5)),
+            None,
+            vec![PriceFeedProperty::Price],
+            vec![Format::Evm, Format::LeUnsigned],
+        )
+        .unwrap();
+        assert_eq!(
+            params.payload_layout(),
+            PayloadLayout::Standard {
+                properties: vec![PriceFeedProperty::Price],
+                formats: vec![Format::Evm, Format::LeUnsigned],
+            }
+        );
+    }
+
+    #[test]
+    fn properties_may_be_omitted_on_the_wire_only_for_packed_evm() {
+        let params: SubscriptionParams = serde_json::from_str(
+            r#"{"priceFeedIds":[1,2],"formats":["packedEvmEcdsa"],"channel":"real_time"}"#,
+        )
+        .unwrap();
+        assert_eq!(params.payload_layout(), PayloadLayout::PackedEvm);
+
+        let error = serde_json::from_str::<SubscriptionParams>(
+            r#"{"priceFeedIds":[1,2],"formats":["evm"],"channel":"real_time"}"#,
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(error.contains("no properties specified"), "{error}");
+    }
+
+    #[test]
+    fn the_http_requests_follow_the_same_rules() {
+        let latest = LatestPriceRequest::new(LatestPriceRequestRepr {
+            price_feed_ids: Some(ids(2)),
+            symbols: None,
+            properties: vec![PriceFeedProperty::Price],
+            formats: vec![Format::PackedEvmEcdsa],
+            json_binary_encoding: JsonBinaryEncoding::Hex,
+            parsed: true,
+            channel: Channel::RealTime,
+        });
+        assert_eq!(
+            latest.unwrap_err(),
+            "packedEvmEcdsa fixes the properties it carries; do not specify any"
+        );
+
+        let price = PriceRequest::new(PriceRequestRepr {
+            timestamp: TimestampUs::from_micros(1),
+            price_feed_ids: Some(ids(2)),
+            symbols: None,
+            properties: vec![],
+            formats: vec![Format::PackedEvmEcdsa],
+            json_binary_encoding: JsonBinaryEncoding::Hex,
+            parsed: true,
+            channel: Channel::RealTime,
+        })
+        .unwrap();
+        assert_eq!(price.payload_layout(), PayloadLayout::PackedEvm);
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, From, Default)]
