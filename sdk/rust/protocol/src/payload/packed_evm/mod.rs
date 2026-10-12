@@ -32,15 +32,15 @@ pub struct PackedEvmFeed {
 impl PackedEvmFeed {
     /// The lane for `data` in a payload timestamped `payload_timestamp_us`.
     ///
-    /// A feed with no data at all, no price, a price the format cannot hold, or
+    /// A feed with no data at all, no price or
     /// an update older than [`PACKED_EVM_MAX_PRICE_AGE`] gets
-    /// [`Lane::SENTINEL`].
+    /// [`Lane::UNAVAILABLE`].
     pub fn lane_for(
         data: Option<&AggregatedPriceFeedData>,
         payload_timestamp_us: TimestampUs,
     ) -> Lane {
         let Some(data) = data else {
-            return Lane::SENTINEL;
+            return Lane::UNAVAILABLE;
         };
         let fresh = data
             .feed_update_timestamp
@@ -49,10 +49,10 @@ impl PackedEvmFeed {
             })
             .unwrap_or(false);
         if !fresh {
-            return Lane::SENTINEL;
+            return Lane::UNAVAILABLE;
         }
         let Some(price) = data.price else {
-            return Lane::SENTINEL;
+            return Lane::UNAVAILABLE;
         };
         Lane::encode(Quote {
             price: price.mantissa_i64(),
@@ -61,7 +61,6 @@ impl PackedEvmFeed {
             confidence: data.confidence.map(Price::mantissa_i64),
             exponent: data.exponent,
         })
-        .unwrap_or(Lane::SENTINEL)
     }
 }
 
@@ -198,7 +197,7 @@ impl PackedEvmPayloadData {
     ///
     /// `feeds` is matched to `feed_ids` by id, not by position: it may be in
     /// any order and may omit feeds the server has no data for, which get
-    /// [`Lane::SENTINEL`] in their slot. Feeds outside `feed_ids` are ignored.
+    /// [`Lane::UNAVAILABLE`] in their slot. Feeds outside `feed_ids` are ignored.
     pub fn from_aggregated(
         timestamp_us: TimestampUs,
         channel_id: ChannelId,
@@ -702,7 +701,7 @@ mod tests {
 
     /// The two fills mean opposite things. A slot past `num_feeds` holds no feed at
     /// all and is zero. A feed that is present but has no usable price gets
-    /// [`Lane::SENTINEL`], every byte `0xFF`.
+    /// [`Lane::UNAVAILABLE`], every byte `0xFF`.
     #[test]
     fn unused_slots_are_zero_filled_while_a_failed_feed_is_sentinel_filled() {
         let stale = TIMESTAMP_US - PACKED_EVM_MAX_PRICE_AGE.as_micros() - 1;
@@ -715,7 +714,7 @@ mod tests {
         assert_ne!(lane_bytes(&bytes, 0, 0), [0xFF; Lane::SIZE]);
         assert_eq!(
             lane_bytes(&bytes, 0, 1),
-            Lane::SENTINEL.to_bytes(),
+            Lane::UNAVAILABLE.to_bytes(),
             "a present but unusable feed"
         );
         for slot in 2..Block::NUM_FEEDS {
@@ -830,8 +829,8 @@ mod tests {
             (
                 "price does not pack",
                 FeedValues {
-                    // A positive exponent is not a scale this format can hold.
-                    exponent: 1,
+                    // A negative price is not a scale this format can hold.
+                    price: Some(-1),
                     ..FeedValues::typical()
                 },
                 TIMESTAMP_US,
@@ -850,9 +849,9 @@ mod tests {
                 fresh_feed(3, FeedValues::typical()),
             ]);
             let lanes = payload.feeds();
-            assert_eq!(lanes[1].lane, Lane::SENTINEL, "{name}");
-            assert_ne!(lanes[0].lane, Lane::SENTINEL, "{name}: sibling before");
-            assert_ne!(lanes[2].lane, Lane::SENTINEL, "{name}: sibling after");
+            assert_eq!(lanes[1].lane, Lane::UNAVAILABLE, "{name}");
+            assert_ne!(lanes[0].lane, Lane::UNAVAILABLE, "{name}: sibling before");
+            assert_ne!(lanes[2].lane, Lane::UNAVAILABLE, "{name}: sibling after");
             assert_eq!(
                 serialize(&payload).len(),
                 payload.serialized_size(),
@@ -868,7 +867,7 @@ mod tests {
         let (feed_id, mut data) = fresh_feed(1, FeedValues::typical());
         data.feed_update_timestamp = None;
         let payload = pack(&[(feed_id, data)]);
-        assert_eq!(payload.feeds()[0].lane, Lane::SENTINEL);
+        assert_eq!(payload.feeds()[0].lane, Lane::UNAVAILABLE);
     }
 
     /// A subscribed feed the router has no data for still occupies its slot: the
@@ -886,9 +885,9 @@ mod tests {
         let lanes = payload.feeds();
         assert_eq!(lanes.len(), 2);
         assert_eq!(lanes[0].feed_id, PriceFeedId(2));
-        assert_ne!(lanes[0].lane, Lane::SENTINEL);
+        assert_ne!(lanes[0].lane, Lane::UNAVAILABLE);
         assert_eq!(lanes[1].feed_id, PriceFeedId(1));
-        assert_eq!(lanes[1].lane, Lane::SENTINEL);
+        assert_eq!(lanes[1].lane, Lane::UNAVAILABLE);
     }
 
     /// Data the format does not read is simply ignored.

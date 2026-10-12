@@ -4,7 +4,7 @@ mod codebook_256;
 mod packed_price;
 
 use codebook_256::{Code, Codebook256};
-use packed_price::{pack_price, U64x32, U27, U5};
+use packed_price::{pack_price, PackedPrice};
 
 /// One feed's slot in a `PackedEvm` word: 48 bits, packed most-significant
 /// bit first.
@@ -23,7 +23,7 @@ use packed_price::{pack_price, U64x32, U27, U5};
 /// Every 48-bit pattern is a lane, so [`Lane::from_bytes`] cannot fail.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Lane {
-    price: U64x32,
+    price: PackedPrice,
     confidence: Code,
     spread: Code,
 }
@@ -34,17 +34,14 @@ impl Lane {
     pub const SIZE: usize = 6;
 
     /// The lane that says "this feed has no price in this payload".
-    pub const SENTINEL: Self = Self {
-        price: U64x32 {
-            neg_exponent: U5(U5::MAX_VALUE),
-            mantissa: U27(U27::MAX_VALUE),
-        },
+    pub const UNAVAILABLE: Self = Self {
+        price: PackedPrice::Unavailable,
         confidence: Code::Unavailable,
         spread: Code::Unavailable,
     };
 
     /// Builds a lane from one feed's quote.
-    pub fn encode(quote: Quote) -> Option<Self> {
+    pub fn encode(quote: Quote) -> Self {
         let Quote {
             price,
             bid,
@@ -67,23 +64,19 @@ impl Lane {
             .and_then(|spread| Codebook256::encode(spread).map(Code::Index))
             .unwrap_or(Code::Unavailable);
 
-        Some(Self {
-            price: pack_price(price, exponent)?,
+        Self {
+            price: pack_price(price, exponent),
             confidence,
             spread,
-        })
+        }
     }
 
     pub fn is_unavailable(self) -> bool {
-        self.confidence == Code::Unavailable && self.spread == Code::Unavailable
+        self == Self::UNAVAILABLE
     }
 
-    pub fn price(&self) -> Option<U64x32> {
-        if self.is_unavailable() {
-            None
-        } else {
-            Some(self.price)
-        }
+    pub fn price(&self) -> PackedPrice {
+        self.price
     }
 
     pub fn confidence(self) -> Code {
@@ -95,8 +88,7 @@ impl Lane {
     }
 
     pub fn to_bytes(self) -> [u8; Self::SIZE] {
-        let packed = (u64::from(self.price.neg_exponent.get()) << 43)
-            | (u64::from(self.price.mantissa.get()) << 16)
+        let packed = u64::from(u32::from_be_bytes(self.price.to_bytes())) << 16
             | (u64::from(self.confidence.to_byte()) << 8)
             | u64::from(self.spread.to_byte());
         // The packed value is 48 bits wide, so the first two bytes are zero.
@@ -107,15 +99,7 @@ impl Lane {
     pub fn from_bytes(lane: [u8; Self::SIZE]) -> Self {
         let [first, second, third, fourth, confidence, spread] = lane;
         Self {
-            price: U64x32 {
-                // The exponent is the top 5 bits; the mantissa's 27 run from the
-                // bottom 3 bits of the same byte through the next three bytes.
-                neg_exponent: U5(first >> 3),
-                mantissa: U27(u32::from(first & 0b111) << 24
-                    | u32::from(second) << 16
-                    | u32::from(third) << 8
-                    | u32::from(fourth)),
-            },
+            price: PackedPrice::from_bytes([first, second, third, fourth]),
             confidence: Code::from_byte(confidence),
             spread: Code::from_byte(spread),
         }
@@ -169,7 +153,7 @@ mod tests {
     }
 
     fn encode(quote: Quote) -> Lane {
-        Lane::encode(quote).unwrap()
+        Lane::encode(quote)
     }
 
     // -----------------------------------------------------------------------
@@ -178,9 +162,9 @@ mod tests {
 
     #[test]
     fn the_sentinel_lane_is_six_0xff_bytes() {
-        assert_eq!(Lane::SENTINEL.to_bytes(), [0xFF; Lane::SIZE]);
-        assert_eq!(Lane::from_bytes([0xFF; Lane::SIZE]), Lane::SENTINEL);
-        assert!(Lane::SENTINEL.is_unavailable());
+        assert_eq!(Lane::UNAVAILABLE.to_bytes(), [0xFF; Lane::SIZE]);
+        assert_eq!(Lane::from_bytes([0xFF; Lane::SIZE]), Lane::UNAVAILABLE);
+        assert!(Lane::UNAVAILABLE.is_unavailable());
     }
 
     #[test]
@@ -231,45 +215,30 @@ mod tests {
         assert_eq!(live.spread().hundredths_bps(), Some(86));
         assert!(matches!(live.confidence(), Code::Index(_)));
 
-        assert_eq!(Lane::SENTINEL.confidence(), Code::Unavailable);
-        assert_eq!(Lane::SENTINEL.spread(), Code::Unavailable);
-        assert_eq!(Lane::SENTINEL.confidence().hundredths_bps(), None);
+        assert_eq!(Lane::UNAVAILABLE.confidence(), Code::Unavailable);
+        assert_eq!(Lane::UNAVAILABLE.spread(), Code::Unavailable);
+        assert_eq!(Lane::UNAVAILABLE.confidence().hundredths_bps(), None);
     }
 
-    // -----------------------------------------------------------------------
-    // Only the price can sink a lane
-    // -----------------------------------------------------------------------
-
-    /// A confidence or a book that cannot be encoded costs its own byte and
-    /// leaves the rest of the lane standing (see
-    /// `losing_one_code_leaves_the_other_alone`); a price the format cannot
-    /// hold costs the whole lane.
     #[test]
-    fn only_a_price_the_format_cannot_hold_fails_the_lane() {
+    fn a_price_the_format_cannot_hold_only_fails_the_price() {
         // A positive exponent is not a scale this format can hold.
+        let postive_exponent_lane = Lane::encode(Quote {
+            exponent: 1,
+            ..typical()
+        });
+        assert_eq!(postive_exponent_lane.price(), PackedPrice::Unavailable);
+        assert_ne!(postive_exponent_lane.confidence(), Code::Unavailable);
+        assert_ne!(postive_exponent_lane.spread(), Code::Unavailable);
+
+        // Roundtrip the lane
         assert_eq!(
-            Lane::encode(Quote {
-                exponent: 1,
-                ..typical()
-            }),
-            None
-        );
-        // The lane carries an unsigned price.
-        assert_eq!(
-            Lane::encode(Quote {
-                price: 0,
-                ..typical()
-            }),
-            None
+            Lane::from_bytes(postive_exponent_lane.to_bytes()),
+            postive_exponent_lane
         );
     }
 
     /// A quote that loses both codes still has a price, and keeps it.
-    ///
-    /// This is the one case where `Lane::is_unavailable` and `Lane::SENTINEL` come
-    /// apart: the lane reports both codes unavailable, but its price is real and a
-    /// consumer that threw the lane away on `is_unavailable` alone would be
-    /// discarding good data.
     #[test]
     fn a_lane_with_neither_code_still_carries_its_price() {
         let lane = encode(Quote {
@@ -281,8 +250,8 @@ mod tests {
 
         assert_eq!(lane.confidence(), Code::Unavailable);
         assert_eq!(lane.spread(), Code::Unavailable);
-        assert!(lane.is_unavailable());
-        assert_ne!(lane, Lane::SENTINEL);
+        assert!(!lane.is_unavailable());
+        assert_ne!(lane, Lane::UNAVAILABLE);
         // The price is the one the quote carried, packed as it always is.
         assert_eq!(hex::encode(lane.to_bytes()), "1c00639bffff");
     }
