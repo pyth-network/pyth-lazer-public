@@ -8,9 +8,15 @@ import {
   spyOn,
 } from "bun:test";
 
-import type { LazerClientConfig } from "../client.js";
+import type { JsonOrBinaryResponse, LazerClientConfig } from "../client.js";
 import { PythLazerClient } from "../client.js";
 import type { Request, SymbolResponse } from "../protocol.js";
+import {
+  BINARY_UPDATE_FORMAT_MAGIC_LE,
+  FORMAT_MAGICS_LE,
+  PACKED_EVM_PAYLOAD_FORMAT_MAGIC_BE,
+  PAYLOAD_FORMAT_MAGIC_BE,
+} from "../protocol.js";
 import type { WebSocketPoolConfig } from "../socket/websocket-pool.js";
 import { WebSocketPool } from "../socket/websocket-pool.js";
 
@@ -535,6 +541,147 @@ describe("PythLazerClient", () => {
       // The client wraps the handler, so we verify a function was passed
       const listenerArg = mockWspInstance.addMessageListener.mock.calls[0]?.[0];
       expect(typeof listenerArg).toBe("function");
+    });
+  });
+
+  describe("binary messages", () => {
+    const u32Le = (value: number) => {
+      const buf = Buffer.alloc(4);
+      buf.writeUint32LE(value);
+      return buf;
+    };
+    const u32Be = (value: number) => {
+      const buf = Buffer.alloc(4);
+      buf.writeUint32BE(value);
+      return buf;
+    };
+    const u16Be = (value: number) => {
+      const buf = Buffer.alloc(2);
+      buf.writeUint16BE(value);
+      return buf;
+    };
+
+    // magic, 64-byte signature, recovery id, u16 BE payload length, payload
+    const evmEnvelope = (payload: Buffer) =>
+      Buffer.concat([
+        u32Le(FORMAT_MAGICS_LE.EVM),
+        Buffer.alloc(64, 0xab),
+        Buffer.from([1]),
+        u16Be(payload.length),
+        payload,
+      ]);
+
+    const binaryUpdate = (subscriptionId: number, messages: Buffer[]) => {
+      const header = Buffer.alloc(12);
+      header.writeUint32LE(BINARY_UPDATE_FORMAT_MAGIC_LE, 0);
+      header.writeBigInt64BE(BigInt(subscriptionId), 4);
+      return Buffer.concat([
+        header,
+        ...messages.flatMap((message) => [u16Be(message.length), message]),
+      ]);
+    };
+
+    const evmMessage = evmEnvelope(
+      Buffer.concat([u32Be(PAYLOAD_FORMAT_MAGIC_BE), Buffer.alloc(8, 7)]),
+    );
+    // A one-feed packed payload: header, then one 48-byte block.
+    const packedEvmMessage = evmEnvelope(
+      Buffer.concat([
+        u32Be(PACKED_EVM_PAYLOAD_FORMAT_MAGIC_BE),
+        Buffer.from([3, 1]),
+        u32Be(1),
+        Buffer.alloc(12),
+        Buffer.alloc(32, 0xff),
+      ]),
+    );
+
+    const receive = async (data: Buffer) => {
+      const client = await PythLazerClient.create({
+        token: "test-token",
+        webSocketPoolConfig: {},
+      });
+      const received: JsonOrBinaryResponse[] = [];
+      client.addMessageListener((event) => {
+        received.push(event);
+      });
+      const listener = mockWspInstance.addMessageListener.mock.calls[0]?.[0];
+      if (!listener) {
+        throw new Error("message listener was not registered");
+      }
+      await listener(data);
+      expect(received).toHaveLength(1);
+      const [event] = received;
+      if (event?.type !== "binary") {
+        throw new Error("expected a binary response");
+      }
+      return event.value;
+    };
+
+    it("should route evm and packedEvmEcdsa messages to their own fields", async () => {
+      expect(packedEvmMessage.readUint32LE(0)).toBe(evmMessage.readUint32LE(0));
+
+      const evmValue = await receive(binaryUpdate(1, [evmMessage]));
+      expect(evmValue.evm).toEqual(evmMessage);
+      expect(evmValue.packedEvmEcdsa).toBeUndefined();
+
+      mockWspInstance.addMessageListener.mockClear();
+      const packedValue = await receive(binaryUpdate(2, [packedEvmMessage]));
+      expect(packedValue.subscriptionId).toBe(2);
+      expect(packedValue.packedEvmEcdsa).toEqual(packedEvmMessage);
+      expect(packedValue.evm).toBeUndefined();
+    });
+
+    it("should reject an EVM message whose payload magic is neither PEVM nor the standard magic", async () => {
+      const otherMagic = evmEnvelope(
+        Buffer.concat([u32Be(0x12_34_56_78), Buffer.alloc(8)]),
+      );
+      await expect(receive(binaryUpdate(1, [otherMagic]))).rejects.toThrow(
+        "unknown payload magic: 305419896",
+      );
+
+      mockWspInstance.addMessageListener.mockClear();
+      const shortPayload = evmEnvelope(Buffer.from([0x50, 0x45]));
+      await expect(receive(binaryUpdate(1, [shortPayload]))).rejects.toThrow(
+        "payload too short to hold a magic: 2 bytes",
+      );
+    });
+
+    it("should decode the existing formats as before", async () => {
+      const solanaMessage = Buffer.concat([
+        u32Le(FORMAT_MAGICS_LE.SOLANA),
+        Buffer.alloc(16, 1),
+      ]);
+      const leEcdsaMessage = Buffer.concat([
+        u32Le(FORMAT_MAGICS_LE.LE_ECDSA),
+        Buffer.alloc(16, 2),
+      ]);
+      const leUnsignedMessage = Buffer.concat([
+        u32Le(FORMAT_MAGICS_LE.LE_UNSIGNED),
+        Buffer.alloc(16, 3),
+      ]);
+      const parsed = { priceFeeds: [{ priceFeedId: 1 }], timestampUs: "1" };
+      const jsonMessage = Buffer.concat([
+        u32Le(FORMAT_MAGICS_LE.JSON),
+        Buffer.from(JSON.stringify(parsed)),
+      ]);
+
+      const value = await receive(
+        binaryUpdate(5, [
+          evmMessage,
+          solanaMessage,
+          leEcdsaMessage,
+          leUnsignedMessage,
+          jsonMessage,
+        ]),
+      );
+      expect(value).toEqual({
+        evm: evmMessage,
+        leEcdsa: leEcdsaMessage,
+        leUnsigned: leUnsignedMessage,
+        parsed,
+        solana: solanaMessage,
+        subscriptionId: 5,
+      });
     });
   });
 

@@ -1,4 +1,9 @@
-export type Format = "evm" | "solana" | "leEcdsa" | "leUnsigned";
+export type Format =
+  | "evm"
+  | "solana"
+  | "leEcdsa"
+  | "leUnsigned"
+  | "packedEvmEcdsa";
 export type DeliveryFormat = "json" | "binary";
 export type JsonBinaryEncoding = "base64" | "hex";
 export type PriceFeedProperty =
@@ -27,7 +32,8 @@ export type Request =
       subscriptionId: number;
       priceFeedIds?: number[] | undefined;
       symbols?: string[] | undefined;
-      properties: PriceFeedProperty[];
+      /** Required unless `formats` is `["packedEvmEcdsa"]`, which fixes the properties itself and accepts none. */
+      properties?: PriceFeedProperty[] | undefined;
       formats: Format[];
       deliveryFormat?: DeliveryFormat | undefined;
       jsonBinaryEncoding?: JsonBinaryEncoding | undefined;
@@ -106,6 +112,7 @@ export type Response =
       solana?: JsonBinaryData | undefined;
       leEcdsa?: JsonBinaryData | undefined;
       leUnsigned?: JsonBinaryData | undefined;
+      packedEvmEcdsa?: JsonBinaryData | undefined;
     };
 
 export const BINARY_UPDATE_FORMAT_MAGIC_LE = 461_928_307;
@@ -117,6 +124,12 @@ export const FORMAT_MAGICS_LE = {
   LE_UNSIGNED: 1_499_680_012,
   SOLANA: 2_182_742_457,
 };
+
+/** The magic at the start of a standard payload serialized as big-endian, read as a big-endian u32. */
+export const PAYLOAD_FORMAT_MAGIC_BE = 2_479_346_549;
+
+/** The magic at the start of a `packedEvmEcdsa` payload: `PEVM`, read as a big-endian u32. */
+export const PACKED_EVM_PAYLOAD_FORMAT_MAGIC_BE = 1_346_721_357;
 
 export type AssetType =
   | "crypto"
@@ -154,7 +167,8 @@ export type SymbolResponse = {
 export type LatestPriceRequest = {
   priceFeedIds?: number[];
   symbols?: string[];
-  properties: PriceFeedProperty[];
+  /** Required unless `formats` is `["packedEvmEcdsa"]`, which fixes the properties itself and accepts none. */
+  properties?: PriceFeedProperty[];
   formats: Format[];
   jsonBinaryEncoding?: JsonBinaryEncoding;
   parsed?: boolean;
@@ -165,7 +179,8 @@ export type PriceRequest = {
   timestamp: number;
   priceFeedIds?: number[];
   symbols?: string[];
-  properties: PriceFeedProperty[];
+  /** Required unless `formats` is `["packedEvmEcdsa"]`, which fixes the properties itself and accepts none. */
+  properties?: PriceFeedProperty[];
   formats: Format[];
   jsonBinaryEncoding?: JsonBinaryEncoding;
   parsed?: boolean;
@@ -178,6 +193,7 @@ export type JsonUpdate = {
   solana?: JsonBinaryData;
   leEcdsa?: JsonBinaryData;
   leUnsigned?: JsonBinaryData;
+  packedEvmEcdsa?: JsonBinaryData;
 };
 
 export enum CustomSocketClosureCodes {

@@ -1,6 +1,5 @@
-/* eslint-disable no-console */
-/* eslint-disable @typescript-eslint/no-empty-function */
-/* eslint-disable unicorn/prefer-top-level-await */
+/** biome-ignore-all lint/suspicious/noConsole: example script that prints feed updates to the console */
+/** biome-ignore-all lint/suspicious/noEmptyBlockStatements: debug logging is silenced with a no-op */
 
 import type { JsonUpdate } from "../src/index.js";
 import { PythLazerClient } from "../src/index.js";
@@ -55,7 +54,7 @@ void client.getSymbols().then((symbols) => {
 client.addMessageListener((message) => {
   switch (message.type) {
     case "json": {
-      if (message.value.type == "streamUpdated") {
+      if (message.value.type === "streamUpdated") {
         refreshFeedDisplay(message.value as JsonUpdate, feedData, symbolsMap);
       }
       break;
@@ -141,12 +140,24 @@ client.subscribe({
   subscriptionId: 3,
   type: "subscribe",
 });
+client.subscribe({
+  channel: "real_time",
+  deliveryFormat: "json",
+  formats: ["packedEvmEcdsa"],
+  jsonBinaryEncoding: "hex",
+  parsed: true,
+  priceFeedIds: [1, 2, 3, 4],
+  properties: [],
+  subscriptionId: 4,
+  type: "subscribe",
+});
 
 await new Promise((resolve) => setTimeout(resolve, 30_000));
 
 client.unsubscribe(1);
 client.unsubscribe(2);
 client.unsubscribe(3);
+client.unsubscribe(4);
 
 // Clear screen and move cursor to top
 process.stdout.write("\u001B[2J\u001B[H");

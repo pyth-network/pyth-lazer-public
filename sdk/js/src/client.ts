@@ -16,7 +16,12 @@ import type {
   SymbolResponse,
   SymbolsQueryParams,
 } from "./protocol.js";
-import { BINARY_UPDATE_FORMAT_MAGIC_LE, FORMAT_MAGICS_LE } from "./protocol.js";
+import {
+  BINARY_UPDATE_FORMAT_MAGIC_LE,
+  FORMAT_MAGICS_LE,
+  PACKED_EVM_PAYLOAD_FORMAT_MAGIC_BE,
+  PAYLOAD_FORMAT_MAGIC_BE,
+} from "./protocol.js";
 import type { WebSocketPoolConfig } from "./socket/websocket-pool.js";
 import { WebSocketPool } from "./socket/websocket-pool.js";
 import { bufferFromWebsocketData } from "./util/buffer-util.js";
@@ -28,6 +33,7 @@ export type BinaryResponse = {
   parsed?: ParsedPayload | undefined;
   leEcdsa?: Buffer | undefined;
   leUnsigned?: Buffer | undefined;
+  packedEvmEcdsa?: Buffer | undefined;
 };
 export type JsonOrBinaryResponse =
   | {
@@ -203,7 +209,21 @@ export class PythLazerClient {
           .subarray(pos, pos + UINT32_NUM_BYTES)
           .readUint32LE();
         if (magic === FORMAT_MAGICS_LE.EVM) {
-          value.evm = buffData.subarray(pos, pos + len);
+          // `evm` and `packedEvmEcdsa` messages share the EVM envelope and its
+          // magic. Only the magic at the start of the payload tells them apart.
+          const message = buffData.subarray(pos, pos + len);
+          const payloadMagic = readPayloadMagicBE(
+            message.subarray(71), // EVM envelope: magic (4), signature (64), recovery id (1), payload length (2).
+          );
+          if (payloadMagic === PACKED_EVM_PAYLOAD_FORMAT_MAGIC_BE) {
+            value.packedEvmEcdsa = message;
+          } else if (payloadMagic === PAYLOAD_FORMAT_MAGIC_BE) {
+            value.evm = message;
+          } else {
+            throw new Error(
+              `unknown payload magic: ${payloadMagic.toString()}`,
+            );
+          }
         } else if (magic === FORMAT_MAGICS_LE.SOLANA) {
           value.solana = buffData.subarray(pos, pos + len);
         } else if (magic === FORMAT_MAGICS_LE.LE_ECDSA) {
@@ -393,4 +413,13 @@ export class PythLazerClient {
       );
     }
   }
+}
+
+function readPayloadMagicBE(payload: Buffer): number {
+  if (payload.length < UINT32_NUM_BYTES) {
+    throw new Error(
+      `payload too short to hold a magic: ${payload.length.toString()} bytes`,
+    );
+  }
+  return payload.readUint32BE(0);
 }
