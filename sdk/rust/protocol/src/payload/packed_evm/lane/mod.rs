@@ -4,7 +4,9 @@ mod codebook_256;
 mod packed_price;
 
 use codebook_256::{Code, Codebook256};
-use packed_price::{pack_price, PackedPrice};
+use packed_price::pack_price;
+
+pub use packed_price::PackedPrice;
 
 /// One feed's slot in a `PackedEvm` word: 48 bits, packed most-significant
 /// bit first.

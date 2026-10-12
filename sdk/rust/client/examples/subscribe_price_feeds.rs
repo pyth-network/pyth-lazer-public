@@ -12,6 +12,9 @@ use pyth_lazer_protocol::message::{
     EvmMessage, LeEcdsaMessage, LeUnsignedMessage, Message, SolanaMessage,
 };
 use pyth_lazer_protocol::payload::PayloadData;
+use pyth_lazer_protocol::payload::packed_evm::{
+    PACKED_EVM_PAYLOAD_FORMAT_MAGIC, PackedEvmPayloadData, PackedPrice,
+};
 use pyth_lazer_protocol::time::FixedRate;
 use pyth_lazer_protocol::{PriceFeedId, PriceFeedProperty};
 use tokio::pin;
@@ -102,6 +105,24 @@ async fn main() -> anyhow::Result<()> {
             })
             .expect("invalid subscription params"),
         },
+        // Example subscription: packed EVM feed, which fits four feeds in one EVM storage slot.
+        // `packedEvmEcdsa` must be the only format, and it fixes its own properties,
+        // so the subscription sends none.
+        SubscribeRequest {
+            subscription_id: SubscriptionId(3),
+            params: SubscriptionParams::new(SubscriptionParamsRepr {
+                price_feed_ids: Some(vec![PriceFeedId(1), PriceFeedId(2), PriceFeedId(5)]),
+                symbols: None,
+                properties: vec![],
+                formats: vec![Format::PackedEvmEcdsa],
+                delivery_format: DeliveryFormat::Binary,
+                json_binary_encoding: JsonBinaryEncoding::Base64,
+                parsed: false,
+                channel: Channel::FixedRate(FixedRate::RATE_200_MS),
+                ignore_invalid_feeds: false,
+            })
+            .expect("invalid subscription params"),
+        },
     ];
 
     for req in subscription_requests {
@@ -162,6 +183,17 @@ async fn main() -> anyhow::Result<()> {
                         println!("LE unsigned payload: {payload:?}");
                     }
 
+                    if let Some(data) = update.payload.packed_evm_ecdsa {
+                        // Decode binary data
+                        let binary_data =
+                            base64::engine::general_purpose::STANDARD.decode(&data.data)?;
+                        let message = EvmMessage::deserialize_slice(&binary_data)?;
+
+                        // Parse and verify the packed EVM message
+                        let payload = parse_and_verify_packed_evm_message(&message)?;
+                        print_packed_evm_payload(&payload);
+                    }
+
                     if let Some(parsed) = update.payload.parsed {
                         // Parsed payloads (`parsed: true`) are already decoded and ready to use
                         for feed in parsed.price_feeds {
@@ -178,6 +210,12 @@ async fn main() -> anyhow::Result<()> {
                 println!("Received a binary update for {:?}", msg.subscription_id);
                 for message in msg.messages {
                     match message {
+                        // `packedEvmEcdsa` messages use the EVM envelope, so they arrive as
+                        // `Message::Evm`. The magic at the start of the payload tells them apart.
+                        Message::Evm(message) if is_packed_evm_payload(&message.payload) => {
+                            let payload = parse_and_verify_packed_evm_message(&message)?;
+                            print_packed_evm_payload(&payload);
+                        }
                         Message::Evm(message) => {
                             // Parse and verify the EVM message
                             let payload = parse_and_verify_evm_message(&message);
@@ -217,7 +255,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // Unsubscribe example
-    for sub_id in [SubscriptionId(1), SubscriptionId(2)] {
+    for sub_id in [SubscriptionId(1), SubscriptionId(2), SubscriptionId(3)] {
         client.unsubscribe(sub_id).await?;
         println!("Unsubscribed from {sub_id:?}");
     }
@@ -267,4 +305,55 @@ fn parse_and_verify_le_ecdsa_message(message: &LeEcdsaMessage) -> anyhow::Result
 
     let payload = PayloadData::deserialize_slice_le(&message.payload)?;
     Ok(payload)
+}
+
+fn is_packed_evm_payload(payload: &[u8]) -> bool {
+    payload.starts_with(&PACKED_EVM_PAYLOAD_FORMAT_MAGIC.to_be_bytes())
+}
+
+fn parse_and_verify_packed_evm_message(
+    evm_message: &EvmMessage,
+) -> anyhow::Result<PackedEvmPayloadData> {
+    // `packedEvmEcdsa` is signed with the same key and scheme as `evm`
+    let public_key = libsecp256k1::recover(
+        &libsecp256k1::Message::parse(&alloy_primitives::keccak256(&evm_message.payload)),
+        &libsecp256k1::Signature::parse_standard(&evm_message.signature)?,
+        &libsecp256k1::RecoveryId::parse(evm_message.recovery_id)?,
+    )?;
+    println!(
+        "evm address recovered from signature: {:?}",
+        hex::encode(&alloy_primitives::keccak256(&public_key.serialize()[1..])[12..])
+    );
+
+    PackedEvmPayloadData::deserialize_slice(&evm_message.payload)
+}
+
+fn print_packed_evm_payload(payload: &PackedEvmPayloadData) {
+    println!(
+        "PackedEvm payload: channel {:?} at {:?}",
+        payload.channel_id(),
+        payload.timestamp_us().get()
+    );
+    for feed in payload.feeds() {
+        let lane = feed.lane;
+        // All six bytes 0xFF is the sentinel: the feed has no fresh price that fits
+        // the format. `price()` also returns `None` when both codes are 0xFF.
+        let PackedPrice::U64x27 {
+            neg_exponent,
+            mantissa,
+        } = lane.price()
+        else {
+            println!("  {:?}: no price", feed.feed_id);
+            continue;
+        };
+        println!(
+            "  {:?}: price {} x 10^-{}, confidence {:?}, spread {:?} (hundredths of a bp, None if unavailable), lane {}",
+            feed.feed_id,
+            mantissa.get(),
+            neg_exponent.get(),
+            lane.confidence().hundredths_bps(),
+            lane.spread().hundredths_bps(),
+            hex::encode(lane.to_bytes()),
+        );
+    }
 }

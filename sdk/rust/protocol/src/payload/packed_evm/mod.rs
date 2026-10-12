@@ -18,6 +18,8 @@ use {
     timestamp::TimestampUs56,
 };
 
+pub use lane::PackedPrice;
+
 /// `50 45 56 4d` — `PEVM` in ASCII
 pub const PACKED_EVM_PAYLOAD_FORMAT_MAGIC: u32 = 1346721357;
 

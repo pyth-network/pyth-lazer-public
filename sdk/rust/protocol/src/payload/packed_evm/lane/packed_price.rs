@@ -15,7 +15,7 @@ impl U5 {
         (value <= Self::MAX_VALUE).then_some(Self(value))
     }
 
-    pub fn get(&self) -> u8 {
+    pub fn get(self) -> u8 {
         self.0
     }
 }
@@ -29,7 +29,7 @@ impl U27 {
         (value <= Self::MAX_VALUE).then_some(Self(value))
     }
 
-    pub fn get(&self) -> u32 {
+    pub fn get(self) -> u32 {
         self.0
     }
 }
