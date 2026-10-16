@@ -1,17 +1,15 @@
 //! A packed representation of 4 price updates and their aggregator timestamp to be consumed by the EVM.
 
 mod lane;
+mod staleness_marker;
 mod timestamp;
 
 use {
     super::AggregatedPriceFeedData,
-    crate::{
-        price::Price,
-        time::{DurationUs, TimestampUs},
-        ChannelId, PriceFeedId, PriceFeedProperty,
-    },
+    crate::{price::Price, time::TimestampUs, ChannelId, PriceFeedId, PriceFeedProperty},
     anyhow::bail,
     byteorder::{ReadBytesExt, WriteBytesExt, BE},
+    itertools::izip,
     itertools::Itertools,
     lane::{Lane, Quote},
     std::io::{Cursor, Read, Write},
@@ -19,40 +17,28 @@ use {
 };
 
 pub use lane::PackedPrice;
+pub use staleness_marker::StalenessMarker;
 
 /// `50 45 56 4d` — `PEVM` in ASCII
 pub const PACKED_EVM_PAYLOAD_FORMAT_MAGIC: u32 = 1346721357;
 
-/// How far behind a payload's own timestamp a feed's last update may be.
-pub const PACKED_EVM_MAX_PRICE_AGE: DurationUs = DurationUs::from_secs_u32(5);
+/// One feed of a `PackedEvm` payload: its price, as a [`Lane`], and how old
+/// that price was when the payload was built, as a [`StalenessMarker`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PackedEvmFeed {
     pub feed_id: PriceFeedId,
     pub lane: Lane,
+    pub staleness_marker: StalenessMarker,
 }
 
 impl PackedEvmFeed {
-    /// The lane for `data` in a payload timestamped `payload_timestamp_us`.
+    /// The lane for `data`.
     ///
-    /// A feed with no data at all, no price or
-    /// an update older than [`PACKED_EVM_MAX_PRICE_AGE`] gets
-    /// [`Lane::UNAVAILABLE`].
-    pub fn lane_for(
-        data: Option<&AggregatedPriceFeedData>,
-        payload_timestamp_us: TimestampUs,
-    ) -> Lane {
+    /// A feed with no data at all or no price gets [`Lane::UNAVAILABLE`].
+    pub fn lane_for(data: Option<&AggregatedPriceFeedData>) -> Lane {
         let Some(data) = data else {
             return Lane::UNAVAILABLE;
         };
-        let fresh = data
-            .feed_update_timestamp
-            .map(|updated| {
-                payload_timestamp_us.saturating_duration_since(updated) <= PACKED_EVM_MAX_PRICE_AGE
-            })
-            .unwrap_or(false);
-        if !fresh {
-            return Lane::UNAVAILABLE;
-        }
         let Some(price) = data.price else {
             return Lane::UNAVAILABLE;
         };
@@ -63,6 +49,25 @@ impl PackedEvmFeed {
             confidence: data.confidence.map(Price::mantissa_i64),
             exponent: data.exponent,
         })
+    }
+
+    /// The staleness marker for `data` in a payload timestamped `timestamp_us`:
+    /// how far behind that timestamp the feed's last update is.
+    ///
+    /// A feed with no data at all, or no update timestamp to measure from,
+    /// cannot be shown to be fresh and is marked
+    /// [`StalenessMarker::MoreThanFiveSeconds`].
+    pub fn staleness_marker_for(
+        data: Option<&AggregatedPriceFeedData>,
+        timestamp_us: TimestampUs,
+    ) -> StalenessMarker {
+        let Some(data) = data else {
+            return StalenessMarker::MoreThanFiveSeconds;
+        };
+        let Some(feed_update_timestamp) = data.feed_update_timestamp else {
+            return StalenessMarker::MoreThanFiveSeconds;
+        };
+        StalenessMarker::from_age(timestamp_us.saturating_duration_since(feed_update_timestamp))
     }
 }
 
@@ -91,13 +96,13 @@ impl PackedEvmFeed {
 /// |---|---|---|
 /// | 0 | 24 | four [`Lane`]s, in the same order as the feed ids |
 /// | 24 | 7 | timestamp, a [`TimestampUs56`] |
-/// | 31 | 1 | reserved, zero |
+/// | 31 | 1 | four [`StalenessMarker`]s, two bits each, the first feed's in the highest bits |
 ///
 /// The feeds keep the order they were given in.
 /// Every block carries the same timestamp, the payload's.
 /// If num_feeds is not a multiple of 4,
 /// the last block will be partially filled and will be padded at the end
-/// with zero-ed feed ids and lanes.
+/// with zero-ed feed ids, lanes and staleness markers.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PackedEvmPayloadData {
     timestamp_us: TimestampUs56,
@@ -117,21 +122,36 @@ impl Block {
     const SERIALIZED_SIZE: usize = 48;
 
     fn serialize(&self, mut writer: impl Write) -> anyhow::Result<()> {
-        for PackedEvmFeed { feed_id, lane: _ } in &self.feeds {
+        for PackedEvmFeed {
+            feed_id,
+            lane: _,
+            staleness_marker: _,
+        } in &self.feeds
+        {
             writer.write_u32::<BE>(feed_id.0)?;
         }
         for _ in self.feeds.len()..Self::NUM_FEEDS {
             writer.write_u32::<BE>(0)?;
         }
 
-        for PackedEvmFeed { feed_id: _, lane } in &self.feeds {
+        for PackedEvmFeed {
+            feed_id: _,
+            lane,
+            staleness_marker: _,
+        } in &self.feeds
+        {
             writer.write_all(&lane.to_bytes())?;
         }
         for _ in self.feeds.len()..Self::NUM_FEEDS {
             writer.write_all(&[0; Lane::SIZE])?;
         }
         writer.write_all(&self.timestamp_us.to_bytes())?;
-        writer.write_u8(0)?;
+
+        let mut markers = [StalenessMarker::Zero; StalenessMarker::PER_BYTE];
+        for (marker, feed) in markers.iter_mut().zip(self.feeds.iter()) {
+            *marker = feed.staleness_marker;
+        }
+        writer.write_u8(StalenessMarker::pack(markers))?;
         Ok(())
     }
 
@@ -166,14 +186,22 @@ impl Block {
         let mut timestamp_us = [0u8; TimestampUs56::SIZE];
         reader.read_exact(&mut timestamp_us)?;
         let timestamp_us = TimestampUs56::from_bytes(timestamp_us);
-        if reader.read_u8()? != 0 {
-            bail!("PackedEvm reserved byte is not zero");
+
+        let markers = StalenessMarker::unpack(reader.read_u8()?);
+        if markers
+            .iter()
+            .skip(expected_num_feeds)
+            .any(|marker| *marker != StalenessMarker::Zero)
+        {
+            bail!("PackedEvm staleness marker past num_feeds is not zero");
         }
         Ok(Self {
-            feeds: feed_ids
-                .into_iter()
-                .zip(lanes)
-                .map(|(feed_id, lane)| PackedEvmFeed { feed_id, lane })
+            feeds: izip!(feed_ids.into_iter(), lanes.into_iter(), markers.into_iter())
+                .map(|(feed_id, lane, staleness_marker)| PackedEvmFeed {
+                    feed_id,
+                    lane,
+                    staleness_marker,
+                })
                 .collect(),
             timestamp_us,
         })
@@ -199,7 +227,8 @@ impl PackedEvmPayloadData {
     ///
     /// `feeds` is matched to `feed_ids` by id, not by position: it may be in
     /// any order and may omit feeds the server has no data for, which get
-    /// [`Lane::UNAVAILABLE`] in their slot. Feeds outside `feed_ids` are ignored.
+    /// [`Lane::UNAVAILABLE`] and [`StalenessMarker::MoreThanFiveSeconds`] in
+    /// their slot. Feeds outside `feed_ids` are ignored.
     pub fn from_aggregated(
         timestamp_us: TimestampUs,
         channel_id: ChannelId,
@@ -219,7 +248,8 @@ impl PackedEvmPayloadData {
             })
             .map(|(feed_id, data)| PackedEvmFeed {
                 feed_id: *feed_id,
-                lane: PackedEvmFeed::lane_for(data, timestamp_us),
+                lane: PackedEvmFeed::lane_for(data),
+                staleness_marker: PackedEvmFeed::staleness_marker_for(data, timestamp_us),
             })
             .collect();
 
@@ -449,6 +479,21 @@ mod tests {
         start..start + TimestampUs56::SIZE
     }
 
+    /// Where the staleness marker byte of block `block` is: the last byte of
+    /// its word.
+    fn markers_offset(block: usize) -> usize {
+        timestamp_range(block).end
+    }
+
+    /// A feed `age_us` microseconds behind the payload's timestamp.
+    fn aged_feed(feed_id: u32, values: FeedValues, age_us: u64) -> Feed {
+        feed(feed_id, values, TIMESTAMP_US - age_us)
+    }
+
+    /// One microsecond past five seconds, the ceiling of the last bounded
+    /// bucket, so [`StalenessMarker::MoreThanFiveSeconds`].
+    const STALE_AGE_US: u64 = 5_000_001;
+
     /// `count` fresh feeds with ids `1..=count`, enough to need
     /// `count.div_ceil(4)` blocks.
     fn fresh_feeds(count: usize) -> Vec<Feed> {
@@ -556,7 +601,7 @@ mod tests {
     /// | 22 | `1c00639b1a2f` | lane 0 |
     /// | 28 | `000000000000` x3 | three unused lanes, zero |
     /// | 46 | `064b0615d17740` | timestamp 1771339368200000 µs |
-    /// | 53 | `00` | reserved |
+    /// | 53 | `00` | staleness markers: feed 1 updated at the timestamp, so `0`, and three unused slots, zero |
     ///
     /// Lane 0 unpacks as exponent `-3`, mantissa `67134363`, confidence index `26`
     /// (`0x1a`), spread index `47` (`0x2f`):
@@ -574,7 +619,7 @@ mod tests {
     const GOLDEN_ONE_FEED: &str = "5045564d0101000000010000000000000000000000001c00639b1a2f\
 000000000000000000000000000000000000064b0615d1774000";
 
-    /// Four feeds, one of them stale.
+    /// Four feeds, one in each staleness bucket.
     ///
     /// | offset | bytes | field |
     /// |---|---|---|
@@ -584,12 +629,21 @@ mod tests {
     /// | 6 | `0000000a 00000014 0000001e 00000028` | feed ids 10, 20, 30, 40 |
     /// | 22 | `10002710364f` | lane for feed 10 |
     /// | 28 | `10004e201db7` | lane for feed 20 |
-    /// | 34 | `ffffffffffff` | lane for feed 30, stale, so the sentinel |
+    /// | 34 | `100075301526` | lane for feed 30 |
     /// | 40 | `10009c401100` | lane for feed 40 |
     /// | 46 | `064b0615d17740` | timestamp 1771339368200000 µs |
-    /// | 53 | `00` | reserved |
+    /// | 53 | `1e` | staleness markers `00 01 11 10`: feeds 10, 20, 30, 40 in turn |
     ///
-    /// The three live lanes all carry exponent `-2`, and every one of them has a
+    /// The markers, most significant pair first:
+    ///
+    /// - feed 10 was updated at the payload's timestamp, so `0`,
+    /// - feed 20 exactly one second before it, so `1`, one second or less,
+    /// - feed 30 one microsecond more than five seconds before it, so `3`, more
+    ///   than five seconds. It keeps its lane all the same: staleness is the
+    ///   marker's business, not the lane's,
+    /// - feed 40 three seconds before it, so `2`, five seconds or less.
+    ///
+    /// The four lanes all carry exponent `-2`, and every one of them has a
     /// confidence of one cent:
     ///
     /// - feed 10, `$100.00` quoted `99.99`/`100.01`: mantissa `10000` (`0x2710`),
@@ -598,12 +652,17 @@ mod tests {
     /// - feed 20, `$200.00` quoted `199.90`/`200.10`: mantissa `20000` (`0x4e20`),
     ///   confidence index `29` (`0x1d`) for 50, spread index `183` (`0xb7`) — the
     ///   book is 1000 wide and 998 is the nearest entry,
+    /// - feed 30, `$300.00` quoted `299.99`/`300.01`: mantissa `30000` (`0x7530`),
+    ///   confidence index `21` (`0x15`) — one cent is 33 hundredths of a bp,
+    ///   which ties between entries 32 and 34 and so rounds up to 34 — and
+    ///   spread index `38` (`0x26`) — the book is 67 wide, which ties between 66
+    ///   and 68 and rounds up to 68,
     /// - feed 40, `$400.00` with bid and ask both on the price: mantissa `40000`
     ///   (`0x9c40`), confidence index `17` (`0x11`) — 25 ties between entries 24
     ///   and 26, so it rounds up to 26 — and spread index `0`, a book of no width
     ///   at all.
     const GOLDEN_FOUR_FEEDS: &str = "5045564d02040000000a000000140000001e0000002810002710364f\
-10004e201db7ffffffffffff10009c401100064b0615d1774000";
+10004e201db710007530152610009c401100064b0615d177401e";
 
     /// Five feeds, so a full block and then a second one holding only the
     /// fifth. The second block repeats the timestamp and zero-fills its three
@@ -617,17 +676,17 @@ mod tests {
     /// | 6 | `00000001 00000002 00000003 00000004` | block 0: feed ids 1 to 4 |
     /// | 22 | `1c00639b1a2f` | lane for feed 1, as in [`GOLDEN_ONE_FEED`] |
     /// | 28 | `10002710364f` | lane for feed 2, as feed 10 in [`GOLDEN_FOUR_FEEDS`] |
-    /// | 34 | `ffffffffffff` | lane for feed 3, stale, so the sentinel |
+    /// | 34 | `1c00639b1a2f` | lane for feed 3, which is stale but keeps its lane |
     /// | 40 | `1c00639b1a2f` | lane for feed 4 |
     /// | 46 | `064b0615d17740` | timestamp 1771339368200000 µs |
-    /// | 53 | `00` | reserved |
+    /// | 53 | `0c` | staleness markers `00 00 11 00`: only feed 3 is more than five seconds old |
     /// | 54 | `00000005 00000000 00000000 00000000` | block 1: feed id 5, three unused slots |
     /// | 70 | `10002710364f` | lane for feed 5 |
     /// | 76 | `000000000000` x3 | three unused lanes, zero |
     /// | 94 | `064b0615d17740` | the same timestamp again |
-    /// | 101 | `00` | reserved |
+    /// | 101 | `00` | staleness markers: feed 5 is fresh, and the unused slots are zero |
     const GOLDEN_FIVE_FEEDS: &str = "5045564d0105000000010000000200000003000000041c00639b1a2f\
-10002710364fffffffffffff1c00639b1a2f064b0615d1774000000000050000000000000000000000001000\
+10002710364f1c00639b1a2f1c00639b1a2f064b0615d177400c000000050000000000000000000000001000\
 2710364f000000000000000000000000000000000000064b0615d1774000";
 
     #[test]
@@ -643,10 +702,9 @@ mod tests {
 
     #[test]
     fn golden_vector_four_feeds() {
-        let stale = TIMESTAMP_US - PACKED_EVM_MAX_PRICE_AGE.as_micros() - 1;
         let feeds = [
             fresh_feed(10, FeedValues::round(100)),
-            feed(
+            aged_feed(
                 20,
                 FeedValues {
                     price: Some(20_000),
@@ -655,10 +713,10 @@ mod tests {
                     confidence: Some(1),
                     exponent: -2,
                 },
-                TIMESTAMP_US,
+                1_000_000,
             ),
-            feed(30, FeedValues::round(300), stale),
-            feed(
+            aged_feed(30, FeedValues::round(300), STALE_AGE_US),
+            aged_feed(
                 40,
                 FeedValues {
                     price: Some(40_000),
@@ -667,10 +725,23 @@ mod tests {
                     confidence: Some(1),
                     exponent: -2,
                 },
-                TIMESTAMP_US,
+                3_000_000,
             ),
         ];
         let payload = pack_on(ChannelId::FIXED_RATE_50, &feeds);
+        assert_eq!(
+            payload
+                .feeds()
+                .iter()
+                .map(|feed| feed.staleness_marker)
+                .collect::<Vec<_>>(),
+            [
+                StalenessMarker::Zero,
+                StalenessMarker::OneSecondOrLess,
+                StalenessMarker::MoreThanFiveSeconds,
+                StalenessMarker::FiveSecondsOrLess,
+            ]
+        );
         assert_eq!(hex::encode(serialize(&payload)), GOLDEN_FOUR_FEEDS);
         assert_eq!(
             PackedEvmPayloadData::deserialize_slice(&hex::decode(GOLDEN_FOUR_FEEDS).unwrap())
@@ -681,11 +752,10 @@ mod tests {
 
     #[test]
     fn golden_vector_five_feeds() {
-        let stale = TIMESTAMP_US - PACKED_EVM_MAX_PRICE_AGE.as_micros() - 1;
         let payload = pack(&[
             fresh_feed(1, FeedValues::typical()),
             fresh_feed(2, FeedValues::round(100)),
-            feed(3, FeedValues::typical(), stale),
+            aged_feed(3, FeedValues::typical(), STALE_AGE_US),
             fresh_feed(4, FeedValues::typical()),
             fresh_feed(5, FeedValues::round(100)),
         ]);
@@ -706,10 +776,15 @@ mod tests {
     /// [`Lane::UNAVAILABLE`], every byte `0xFF`.
     #[test]
     fn unused_slots_are_zero_filled_while_a_failed_feed_is_sentinel_filled() {
-        let stale = TIMESTAMP_US - PACKED_EVM_MAX_PRICE_AGE.as_micros() - 1;
         let bytes = serialize(&pack(&[
             fresh_feed(1, FeedValues::typical()),
-            feed(2, FeedValues::typical(), stale),
+            fresh_feed(
+                2,
+                FeedValues {
+                    price: None,
+                    ..FeedValues::typical()
+                },
+            ),
         ]));
 
         assert_eq!(bytes[5], 2, "num_feeds");
@@ -784,26 +859,116 @@ mod tests {
     // Staleness
     // -----------------------------------------------------------------------
 
-    /// A feed exactly `PACKED_EVM_MAX_PRICE_AGE` behind the payload is still
-    /// fresh. One microsecond older is stale.
+    /// Each bucket's upper bound belongs to it: a feed exactly one second behind
+    /// the payload is "one second or less", and one exactly five seconds behind
+    /// is "five seconds or less". One microsecond more tips it into the next
+    /// bucket. Whatever the bucket, the feed keeps its lane.
+    ///
+    /// The ceilings themselves are the marker's business, pinned down in the
+    /// `staleness_marker` tests; this checks the payload hands it the right age.
     #[test]
-    fn staleness_boundary_is_inclusive() {
-        let max_age = PACKED_EVM_MAX_PRICE_AGE.as_micros();
-        for (updated_us, stale, name) in [
-            (TIMESTAMP_US - max_age, false, "exactly at the boundary"),
-            (TIMESTAMP_US - max_age - 1, true, "one microsecond past it"),
+    fn staleness_bucket_boundaries_are_inclusive() {
+        for (age_us, marker, name) in [
+            (0, StalenessMarker::Zero, "at the timestamp"),
+            (
+                1,
+                StalenessMarker::OneSecondOrLess,
+                "one microsecond behind",
+            ),
+            (
+                1_000_000,
+                StalenessMarker::OneSecondOrLess,
+                "exactly one second behind",
+            ),
+            (
+                1_000_001,
+                StalenessMarker::FiveSecondsOrLess,
+                "a microsecond past one second",
+            ),
+            (
+                5_000_000,
+                StalenessMarker::FiveSecondsOrLess,
+                "exactly five seconds behind",
+            ),
+            (
+                STALE_AGE_US,
+                StalenessMarker::MoreThanFiveSeconds,
+                "a microsecond past five seconds",
+            ),
         ] {
-            let payload = pack(&[feed(1, FeedValues::typical(), updated_us)]);
-            assert_eq!(payload.feeds()[0].lane.is_unavailable(), stale, "{name}");
+            let payload = pack(&[aged_feed(1, FeedValues::typical(), age_us)]);
+            let feed = payload.feeds()[0];
+            assert_eq!(feed.staleness_marker, marker, "{name}");
+            assert!(!feed.lane.is_unavailable(), "{name}");
         }
     }
 
-    /// A feed whose update timestamp is ahead of the payload is not stale; the age
-    /// saturates at zero rather than wrapping into the distant past.
+    /// A feed whose update timestamp is ahead of the payload has an age of zero;
+    /// it saturates rather than wrapping into the distant past.
     #[test]
-    fn a_feed_from_the_future_is_not_stale() {
+    fn a_feed_from_the_future_has_an_age_of_zero() {
         let payload = pack(&[feed(1, FeedValues::typical(), TIMESTAMP_US + 1_000_000)]);
-        assert!(!payload.feeds()[0].lane.is_unavailable());
+        let feed = payload.feeds()[0];
+        assert_eq!(feed.staleness_marker, StalenessMarker::Zero);
+        assert!(!feed.lane.is_unavailable());
+    }
+
+    /// A stale feed is reported, not dropped: its lane still carries the price
+    /// it had, and the marker alone says how old that price is. The caller
+    /// decides what to make of it.
+    #[test]
+    fn a_stale_feed_keeps_its_lane() {
+        let fresh = pack(&[fresh_feed(1, FeedValues::typical())]);
+        let stale = pack(&[aged_feed(1, FeedValues::typical(), STALE_AGE_US)]);
+        assert_eq!(stale.feeds()[0].lane, fresh.feeds()[0].lane);
+        assert_eq!(
+            stale.feeds()[0].staleness_marker,
+            StalenessMarker::MoreThanFiveSeconds
+        );
+        assert_eq!(fresh.feeds()[0].staleness_marker, StalenessMarker::Zero);
+    }
+
+    /// The four markers of a block share one byte, two bits each, with the
+    /// first slot's in the most significant bits. Each block's byte describes
+    /// its own four feeds.
+    #[test]
+    fn staleness_markers_pack_into_the_last_byte_of_each_word_first_slot_highest() {
+        let bytes = serialize(&pack(&[
+            aged_feed(1, FeedValues::typical(), STALE_AGE_US),
+            fresh_feed(2, FeedValues::typical()),
+            aged_feed(3, FeedValues::typical(), 1),
+            aged_feed(4, FeedValues::typical(), 2_000_000),
+            fresh_feed(5, FeedValues::typical()),
+            aged_feed(6, FeedValues::typical(), 1),
+        ]));
+        assert_eq!(bytes[markers_offset(0)], 0b11_00_01_10, "block 0");
+        assert_eq!(bytes[markers_offset(1)], 0b00_01_00_00, "block 1");
+    }
+
+    /// Every combination of the four markers survives the trip through the
+    /// byte, in a full block and in a partial one.
+    #[test]
+    fn staleness_markers_round_trip() {
+        let ages = [0, 1, 2_000_000, STALE_AGE_US];
+        for count in 1..=Block::NUM_FEEDS {
+            for combination in std::iter::repeat_n(ages.iter(), count).multi_cartesian_product() {
+                let feeds: Vec<_> = combination
+                    .iter()
+                    .enumerate()
+                    .map(|(index, age_us)| {
+                        aged_feed(
+                            u32::try_from(index).unwrap() + 1,
+                            FeedValues::typical(),
+                            **age_us,
+                        )
+                    })
+                    .collect();
+                let payload = pack(&feeds);
+                let decoded =
+                    PackedEvmPayloadData::deserialize_slice(&serialize(&payload)).unwrap();
+                assert_eq!(decoded, payload, "ages {combination:?}");
+            }
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -816,17 +981,17 @@ mod tests {
     /// The list is short because only the price can sink a lane. A confidence or a
     /// book that cannot be encoded costs its own byte and leaves the rest of the
     /// lane standing — see `losing_one_code_leaves_the_other_alone` in the
-    /// `lane` tests.
+    /// `lane` tests. Staleness is not on the list either: it goes in the marker
+    /// and leaves the lane alone — see `a_stale_feed_keeps_its_lane`.
     #[test]
     fn every_lane_failure_mode_sentinels_only_its_own_lane() {
-        let cases: [(&str, FeedValues, u64); 3] = [
+        let cases: [(&str, FeedValues); 2] = [
             (
                 "price absent",
                 FeedValues {
                     price: None,
                     ..FeedValues::typical()
                 },
-                TIMESTAMP_US,
             ),
             (
                 "price does not pack",
@@ -835,19 +1000,13 @@ mod tests {
                     price: Some(-1),
                     ..FeedValues::typical()
                 },
-                TIMESTAMP_US,
-            ),
-            (
-                "stale",
-                FeedValues::typical(),
-                TIMESTAMP_US - PACKED_EVM_MAX_PRICE_AGE.as_micros() - 1,
             ),
         ];
 
-        for (name, values, updated_us) in cases {
+        for (name, values) in cases {
             let payload = pack(&[
                 fresh_feed(1, FeedValues::typical()),
-                feed(2, values, updated_us),
+                fresh_feed(2, values),
                 fresh_feed(3, FeedValues::typical()),
             ]);
             let lanes = payload.feeds();
@@ -862,18 +1021,38 @@ mod tests {
         }
     }
 
-    /// A feed with no update timestamp at all cannot be shown to be fresh, so it
-    /// loses its lane rather than being taken on trust.
+    /// Losing the lane does not touch the marker: a feed with a fresh update
+    /// but no usable price is marked fresh, and the sentinel says the rest.
     #[test]
-    fn a_feed_without_an_update_timestamp_gets_the_sentinel() {
+    fn a_feed_without_a_price_keeps_its_staleness_marker() {
+        let payload = pack(&[fresh_feed(
+            1,
+            FeedValues {
+                price: None,
+                ..FeedValues::typical()
+            },
+        )]);
+        let feed = payload.feeds()[0];
+        assert_eq!(feed.lane, Lane::UNAVAILABLE);
+        assert_eq!(feed.staleness_marker, StalenessMarker::Zero);
+    }
+
+    /// A feed with no update timestamp at all cannot be shown to be fresh, so it
+    /// is marked as old as a feed can be rather than being taken on trust. Its
+    /// lane is unaffected.
+    #[test]
+    fn a_feed_without_an_update_timestamp_is_marked_more_than_five_seconds_old() {
         let (feed_id, mut data) = fresh_feed(1, FeedValues::typical());
         data.feed_update_timestamp = None;
         let payload = pack(&[(feed_id, data)]);
-        assert_eq!(payload.feeds()[0].lane, Lane::UNAVAILABLE);
+        let feed = payload.feeds()[0];
+        assert_eq!(feed.staleness_marker, StalenessMarker::MoreThanFiveSeconds);
+        assert_ne!(feed.lane, Lane::UNAVAILABLE);
     }
 
     /// A subscribed feed the router has no data for still occupies its slot: the
     /// payload always carries every feed of the subscription, sentinel or not.
+    /// With nothing to measure, it is also marked as old as a feed can be.
     #[test]
     fn a_subscribed_feed_with_no_data_keeps_its_slot_with_the_sentinel() {
         let feeds = [fresh_feed(2, FeedValues::typical())];
@@ -888,8 +1067,13 @@ mod tests {
         assert_eq!(lanes.len(), 2);
         assert_eq!(lanes[0].feed_id, PriceFeedId(2));
         assert_ne!(lanes[0].lane, Lane::UNAVAILABLE);
+        assert_eq!(lanes[0].staleness_marker, StalenessMarker::Zero);
         assert_eq!(lanes[1].feed_id, PriceFeedId(1));
         assert_eq!(lanes[1].lane, Lane::UNAVAILABLE);
+        assert_eq!(
+            lanes[1].staleness_marker,
+            StalenessMarker::MoreThanFiveSeconds
+        );
     }
 
     /// Data the format does not read is simply ignored.
@@ -1032,20 +1216,46 @@ mod tests {
     fn deserialize_rejects_non_canonical_padding() {
         for (count, block) in [(1, 0), (5, 1)] {
             let bytes = serialize(&pack(&fresh_feeds(count)));
-            // An unused feed-id slot, an unused lane, and the reserved byte.
+            // An unused feed-id slot and an unused lane.
             let unused_feed_id = block_offset(block) + 4;
             let unused_lane = block_offset(block) + Block::NUM_FEEDS * 4 + Lane::SIZE;
-            let reserved = timestamp_range(block).end;
             for (name, offset) in [
                 ("unused feed id", unused_feed_id),
                 ("unused lane", unused_lane),
-                ("reserved byte", reserved),
             ] {
                 let mut bytes = bytes.clone();
                 bytes[offset] = 0xFF;
                 assert!(
                     PackedEvmPayloadData::deserialize_slice(&bytes).is_err(),
                     "{count} feeds, block {block}, {name} at offset {offset}"
+                );
+            }
+        }
+    }
+
+    /// The marker byte is padding too, two bits at a time: a marker in a slot past
+    /// `num_feeds` must be zero, while the markers of the feeds that are there may
+    /// be anything.
+    #[test]
+    fn deserialize_rejects_a_non_zero_staleness_marker_in_an_unused_slot() {
+        for (count, block) in [(1, 0), (5, 1)] {
+            let bytes = serialize(&pack(&fresh_feeds(count)));
+            let offset = markers_offset(block);
+            // The one used slot in the block is the first, so its marker is the
+            // top pair of bits.
+            for (name, byte, accepted) in [
+                ("used slot marked stale", 0b11_00_00_00, true),
+                ("second slot marked", 0b00_01_00_00, false),
+                ("last slot marked", 0b00_00_00_11, false),
+                ("every slot marked", 0xFF, false),
+            ] {
+                let mut bytes = bytes.clone();
+                bytes[offset] = byte;
+                let decoded = PackedEvmPayloadData::deserialize_slice(&bytes);
+                assert_eq!(
+                    decoded.is_ok(),
+                    accepted,
+                    "{count} feeds, block {block}, {name}: {decoded:?}"
                 );
             }
         }

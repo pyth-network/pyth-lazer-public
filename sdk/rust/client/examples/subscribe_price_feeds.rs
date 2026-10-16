@@ -13,7 +13,7 @@ use pyth_lazer_protocol::message::{
 };
 use pyth_lazer_protocol::payload::PayloadData;
 use pyth_lazer_protocol::payload::packed_evm::{
-    PACKED_EVM_PAYLOAD_FORMAT_MAGIC, PackedEvmPayloadData, PackedPrice,
+    PACKED_EVM_PAYLOAD_FORMAT_MAGIC, PackedEvmPayloadData, PackedPrice, StalenessMarker,
 };
 use pyth_lazer_protocol::time::FixedRate;
 use pyth_lazer_protocol::{PriceFeedId, PriceFeedProperty};
@@ -336,8 +336,16 @@ fn print_packed_evm_payload(payload: &PackedEvmPayloadData) {
     );
     for feed in payload.feeds() {
         let lane = feed.lane;
-        // All six bytes 0xFF is the sentinel: the feed has no fresh price that fits
-        // the format. `price()` also returns `None` when both codes are 0xFF.
+        // The staleness marker says how far the feed's last update was behind the
+        // payload's timestamp. A stale feed keeps its lane: the marker is the only
+        // thing that says its price is old, so check it before using the price.
+        // A feed the server had no data for is marked more than five seconds old.
+        let age = match feed.staleness_marker {
+            StalenessMarker::Zero => "updated at the payload timestamp",
+            StalenessMarker::OneSecondOrLess => "at most 1s old",
+            StalenessMarker::FiveSecondsOrLess => "at most 5s old",
+            StalenessMarker::MoreThanFiveSeconds => "more than 5s old",
+        };
         let PackedPrice::U64x27 {
             neg_exponent,
             mantissa,
@@ -347,7 +355,7 @@ fn print_packed_evm_payload(payload: &PackedEvmPayloadData) {
             continue;
         };
         println!(
-            "  {:?}: price {} x 10^-{}, confidence {:?}, spread {:?} (hundredths of a bp, None if unavailable), lane {}",
+            "  {:?}: price {} x 10^-{}, confidence {:?}, spread {:?} (hundredths of a bp, None if unavailable), {age}, lane {}",
             feed.feed_id,
             mantissa.get(),
             neg_exponent.get(),
