@@ -346,21 +346,24 @@ fn print_packed_evm_payload(payload: &PackedEvmPayloadData) {
             StalenessMarker::FiveSecondsOrLess => "at most 5s old",
             StalenessMarker::MoreThanFiveSeconds => "more than 5s old",
         };
-        let PackedPrice::U64x27 {
-            neg_exponent,
-            mantissa,
-        } = lane.price()
-        else {
+        let PackedPrice::U64x27(price) = lane.price() else {
             println!("  {:?}: no price", feed.feed_id);
             continue;
         };
+        // The confidence is relative to the price, in hundredths of a basis point
+        // (1e-6 of the price), so it has no exponent of its own. A feed can carry
+        // a price without a confidence.
+        let confidence = match lane.confidence().hundredths_bps() {
+            Some(hundredths_bps) => {
+                format!("{hundredths_bps} hundredths of a bp of the price")
+            }
+            None => "unavailable".to_string(),
+        };
         println!(
-            "  {:?}: price {} x 10^-{}, confidence {:?}, spread {:?} (hundredths of a bp, None if unavailable), {age}, lane {}",
+            "  {:?}: price {} x 10^-{}, confidence {confidence}, {age}, lane {}",
             feed.feed_id,
-            mantissa.get(),
-            neg_exponent.get(),
-            lane.confidence().hundredths_bps(),
-            lane.spread().hundredths_bps(),
+            price.mantissa().get(),
+            price.neg_exponent().get(),
             hex::encode(lane.to_bytes()),
         );
     }

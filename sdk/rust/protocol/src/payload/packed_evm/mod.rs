@@ -11,12 +11,13 @@ use {
     byteorder::{ReadBytesExt, WriteBytesExt, BE},
     itertools::izip,
     itertools::Itertools,
-    lane::{Lane, Quote},
+    lane::Lane,
+    lane::Quote,
     std::io::{Cursor, Read, Write},
     timestamp::TimestampUs56,
 };
 
-pub use lane::PackedPrice;
+pub use lane::{PackedPrice, U64x27};
 pub use staleness_marker::StalenessMarker;
 
 /// `50 45 56 4d` — `PEVM` in ASCII
@@ -44,8 +45,6 @@ impl PackedEvmFeed {
         };
         Lane::encode(Quote {
             price: price.mantissa_i64(),
-            bid: data.best_bid_price.map(Price::mantissa_i64),
-            ask: data.best_ask_price.map(Price::mantissa_i64),
             confidence: data.confidence.map(Price::mantissa_i64),
             exponent: data.exponent,
         })
@@ -214,10 +213,8 @@ impl PackedEvmPayloadData {
 
     /// The properties a lane is built from. A `PackedEvm` request cannot
     /// choose others.
-    pub const PROPERTIES: [PriceFeedProperty; 6] = [
+    pub const PROPERTIES: [PriceFeedProperty; 4] = [
         PriceFeedProperty::Price,
-        PriceFeedProperty::BestBidPrice,
-        PriceFeedProperty::BestAskPrice,
         PriceFeedProperty::Confidence,
         PriceFeedProperty::Exponent,
         PriceFeedProperty::FeedUpdateTimestamp,
@@ -366,15 +363,9 @@ mod tests {
 
     /// The values a feed's properties carry. Distinct from [`Quote`], which is
     /// what a lane is built from: here even the price may be absent.
-    ///
-    /// `typical()` is deliberately asymmetric — the confidence, the bid's distance
-    /// from the price and the ask's are all different — so a test that reads the
-    /// wrong one of them fails rather than coincidentally passing.
     #[derive(Clone, Copy)]
     struct FeedValues {
         price: Option<i64>,
-        bid: Option<i64>,
-        ask: Option<i64>,
         confidence: Option<i64>,
         exponent: i16,
     }
@@ -384,21 +375,16 @@ mod tests {
         fn typical() -> Self {
             Self {
                 price: Some(6_713_436_287_632),
-                bid: Some(6_713_017_907_790),
-                ask: Some(6_713_596_631_740),
-                // 43 hundredths of a bp of the price, which ties between two
-                // codebook entries and so rounds up to 44.
+                // 43 hundredths of a bp of the price.
                 confidence: Some(288_677_760),
                 exponent: -8,
             }
         }
 
-        /// A round quote of `dollars`, one cent wide on each side.
+        /// A round quote of `dollars`, with a confidence of one cent.
         fn round(dollars: i64) -> Self {
             Self {
                 price: Some(dollars * 100),
-                bid: Some(dollars * 100 - 1),
-                ask: Some(dollars * 100 + 1),
                 confidence: Some(1),
                 exponent: -2,
             }
@@ -412,8 +398,6 @@ mod tests {
         let price = |mantissa: Option<i64>| mantissa.map(|m| Price::from_mantissa(m).unwrap());
         let data = AggregatedPriceFeedData {
             price: price(values.price),
-            best_bid_price: price(values.bid),
-            best_ask_price: price(values.ask),
             confidence: price(values.confidence),
             ..AggregatedPriceFeedData::empty(
                 values.exponent,
@@ -598,25 +582,19 @@ mod tests {
     /// | 5 | `01` | one feed |
     /// | 6 | `00000001` | feed id 1 |
     /// | 10 | `00000000 00000000 00000000` | three unused slots, zero |
-    /// | 22 | `1c00639b1a2f` | lane 0 |
+    /// | 22 | `1c00639b002b` | lane 0 |
     /// | 28 | `000000000000` x3 | three unused lanes, zero |
     /// | 46 | `064b0615d17740` | timestamp 1771339368200000 µs |
     /// | 53 | `00` | staleness markers: feed 1 updated at the timestamp, so `0`, and three unused slots, zero |
     ///
-    /// Lane 0 unpacks as exponent `-3`, mantissa `67134363`, confidence index `26`
-    /// (`0x1a`), spread index `47` (`0x2f`):
+    /// Lane 0 unpacks as exponent `-3`, mantissa `67134363`, confidence `43`
+    /// (`0x002b`):
     ///
     /// - price `6713436287632e-8` re-normalised to `67134363e-3`,
-    /// - the confidence, `288677760`, is 43 hundredths of a bp of the price. That
-    ///   falls exactly between codebook entries 42 and 44, and a tie goes to the
-    ///   higher index, so it encodes as index 26, whose entry is 44.
-    /// - the book runs `6713017907790` to `6713596631740`, so it is 86 hundredths
-    ///   of a bp wide. Index 47 holds 86 exactly.
-    ///
-    /// Note that the spread is the width of the whole book, bid to ask. The price
-    /// sets the scale it is measured against and nothing else, so where the price
-    /// sits inside the book does not enter into it.
-    const GOLDEN_ONE_FEED: &str = "5045564d0101000000010000000000000000000000001c00639b1a2f\
+    /// - the confidence, `288677760e-8`, is 43 hundredths of a bp of the price.
+    ///   It is a ratio, so it is stored as that `43`, with no exponent of its
+    ///   own.
+    const GOLDEN_ONE_FEED: &str = "5045564d0101000000010000000000000000000000001c00639b002b\
 000000000000000000000000000000000000064b0615d1774000";
 
     /// Four feeds, one in each staleness bucket.
@@ -627,10 +605,10 @@ mod tests {
     /// | 4 | `02` | channel id 2 (fixed rate 50) |
     /// | 5 | `04` | four feeds |
     /// | 6 | `0000000a 00000014 0000001e 00000028` | feed ids 10, 20, 30, 40 |
-    /// | 22 | `10002710364f` | lane for feed 10 |
-    /// | 28 | `10004e201db7` | lane for feed 20 |
-    /// | 34 | `100075301526` | lane for feed 30 |
-    /// | 40 | `10009c401100` | lane for feed 40 |
+    /// | 22 | `100027100064` | lane for feed 10 |
+    /// | 28 | `10004e200032` | lane for feed 20 |
+    /// | 34 | `100075300021` | lane for feed 30 |
+    /// | 40 | `10009c400019` | lane for feed 40 |
     /// | 46 | `064b0615d17740` | timestamp 1771339368200000 µs |
     /// | 53 | `1e` | staleness markers `00 01 11 10`: feeds 10, 20, 30, 40 in turn |
     ///
@@ -644,25 +622,18 @@ mod tests {
     /// - feed 40 three seconds before it, so `2`, five seconds or less.
     ///
     /// The four lanes all carry exponent `-2`, and every one of them has a
-    /// confidence of one cent:
+    /// confidence of one cent, which is a different ratio at each price:
     ///
-    /// - feed 10, `$100.00` quoted `99.99`/`100.01`: mantissa `10000` (`0x2710`),
-    ///   confidence index `54` (`0x36`) for 100 hundredths of a bp, spread index
-    ///   `79` (`0x4f`) — the book is 200 wide and 198 is the nearest entry,
-    /// - feed 20, `$200.00` quoted `199.90`/`200.10`: mantissa `20000` (`0x4e20`),
-    ///   confidence index `29` (`0x1d`) for 50, spread index `183` (`0xb7`) — the
-    ///   book is 1000 wide and 998 is the nearest entry,
-    /// - feed 30, `$300.00` quoted `299.99`/`300.01`: mantissa `30000` (`0x7530`),
-    ///   confidence index `21` (`0x15`) — one cent is 33 hundredths of a bp,
-    ///   which ties between entries 32 and 34 and so rounds up to 34 — and
-    ///   spread index `38` (`0x26`) — the book is 67 wide, which ties between 66
-    ///   and 68 and rounds up to 68,
-    /// - feed 40, `$400.00` with bid and ask both on the price: mantissa `40000`
-    ///   (`0x9c40`), confidence index `17` (`0x11`) — 25 ties between entries 24
-    ///   and 26, so it rounds up to 26 — and spread index `0`, a book of no width
-    ///   at all.
-    const GOLDEN_FOUR_FEEDS: &str = "5045564d02040000000a000000140000001e0000002810002710364f\
-10004e201db710007530152610009c401100064b0615d177401e";
+    /// - feed 10, `$100.00`: mantissa `10000` (`0x2710`), confidence `100`
+    ///   (`0x0064`) hundredths of a bp,
+    /// - feed 20, `$200.00`: mantissa `20000` (`0x4e20`), confidence `50`
+    ///   (`0x0032`),
+    /// - feed 30, `$300.00`: mantissa `30000` (`0x7530`), confidence `33`
+    ///   (`0x0021`) — one cent is 33.3 hundredths of a bp, rounded to 33,
+    /// - feed 40, `$400.00`: mantissa `40000` (`0x9c40`), confidence `25`
+    ///   (`0x0019`).
+    const GOLDEN_FOUR_FEEDS: &str = "5045564d02040000000a000000140000001e00000028100027100064\
+10004e20003210007530002110009c400019064b0615d177401e";
 
     /// Five feeds, so a full block and then a second one holding only the
     /// fifth. The second block repeats the timestamp and zero-fills its three
@@ -674,20 +645,20 @@ mod tests {
     /// | 4 | `01` | channel id 1 (real time) |
     /// | 5 | `05` | five feeds |
     /// | 6 | `00000001 00000002 00000003 00000004` | block 0: feed ids 1 to 4 |
-    /// | 22 | `1c00639b1a2f` | lane for feed 1, as in [`GOLDEN_ONE_FEED`] |
-    /// | 28 | `10002710364f` | lane for feed 2, as feed 10 in [`GOLDEN_FOUR_FEEDS`] |
-    /// | 34 | `1c00639b1a2f` | lane for feed 3, which is stale but keeps its lane |
-    /// | 40 | `1c00639b1a2f` | lane for feed 4 |
+    /// | 22 | `1c00639b002b` | lane for feed 1, as in [`GOLDEN_ONE_FEED`] |
+    /// | 28 | `100027100064` | lane for feed 2, as feed 10 in [`GOLDEN_FOUR_FEEDS`] |
+    /// | 34 | `1c00639b002b` | lane for feed 3, which is stale but keeps its lane |
+    /// | 40 | `1c00639b002b` | lane for feed 4 |
     /// | 46 | `064b0615d17740` | timestamp 1771339368200000 µs |
     /// | 53 | `0c` | staleness markers `00 00 11 00`: only feed 3 is more than five seconds old |
     /// | 54 | `00000005 00000000 00000000 00000000` | block 1: feed id 5, three unused slots |
-    /// | 70 | `10002710364f` | lane for feed 5 |
+    /// | 70 | `100027100064` | lane for feed 5 |
     /// | 76 | `000000000000` x3 | three unused lanes, zero |
     /// | 94 | `064b0615d17740` | the same timestamp again |
     /// | 101 | `00` | staleness markers: feed 5 is fresh, and the unused slots are zero |
-    const GOLDEN_FIVE_FEEDS: &str = "5045564d0105000000010000000200000003000000041c00639b1a2f\
-10002710364f1c00639b1a2f1c00639b1a2f064b0615d177400c000000050000000000000000000000001000\
-2710364f000000000000000000000000000000000000064b0615d1774000";
+    const GOLDEN_FIVE_FEEDS: &str = "5045564d0105000000010000000200000003000000041c00639b002b\
+1000271000641c00639b002b1c00639b002b064b0615d177400c000000050000000000000000000000001000\
+27100064000000000000000000000000000000000000064b0615d1774000";
 
     #[test]
     fn golden_vector_one_feed() {
@@ -704,29 +675,9 @@ mod tests {
     fn golden_vector_four_feeds() {
         let feeds = [
             fresh_feed(10, FeedValues::round(100)),
-            aged_feed(
-                20,
-                FeedValues {
-                    price: Some(20_000),
-                    bid: Some(19_990),
-                    ask: Some(20_010),
-                    confidence: Some(1),
-                    exponent: -2,
-                },
-                1_000_000,
-            ),
+            aged_feed(20, FeedValues::round(200), 1_000_000),
             aged_feed(30, FeedValues::round(300), STALE_AGE_US),
-            aged_feed(
-                40,
-                FeedValues {
-                    price: Some(40_000),
-                    bid: Some(40_000),
-                    ask: Some(40_000),
-                    confidence: Some(1),
-                    exponent: -2,
-                },
-                3_000_000,
-            ),
+            aged_feed(40, FeedValues::round(400), 3_000_000),
         ];
         let payload = pack_on(ChannelId::FIXED_RATE_50, &feeds);
         assert_eq!(
@@ -978,11 +929,11 @@ mod tests {
     /// Each of these costs one feed its lane and nothing else. The payload still
     /// serialises and its other feeds still carry good data.
     ///
-    /// The list is short because only the price can sink a lane. A confidence or a
-    /// book that cannot be encoded costs its own byte and leaves the rest of the
-    /// lane standing — see `losing_one_code_leaves_the_other_alone` in the
-    /// `lane` tests. Staleness is not on the list either: it goes in the marker
-    /// and leaves the lane alone — see `a_stale_feed_keeps_its_lane`.
+    /// The list is short because only the price can sink a lane. A confidence
+    /// that cannot be encoded costs its own two bytes and leaves the price
+    /// standing — see `losing_one_field_leaves_the_other_alone` in the `lane`
+    /// tests. Staleness is not on the list either: it goes in the marker and
+    /// leaves the lane alone — see `a_stale_feed_keeps_its_lane`.
     #[test]
     fn every_lane_failure_mode_sentinels_only_its_own_lane() {
         let cases: [(&str, FeedValues); 2] = [
@@ -1076,13 +1027,16 @@ mod tests {
         );
     }
 
-    /// Data the format does not read is simply ignored.
+    /// Data the format does not read is simply ignored. The book is on that
+    /// list: the lane's confidence is the feed's confidence, not its spread.
     #[test]
     fn unrelated_aggregated_fields_do_not_change_the_lane() {
         let (feed_id, mut data) = fresh_feed(1, FeedValues::typical());
         let plain = pack(&[(feed_id, data.clone())]);
         data.publisher_count = 18;
         data.ema_price = data.price;
+        data.best_bid_price = Some(Price::from_mantissa(6_713_017_907_790).unwrap());
+        data.best_ask_price = Some(Price::from_mantissa(6_713_596_631_740).unwrap());
         let decorated = pack(&[(feed_id, data)]);
         assert_eq!(plain, decorated);
     }

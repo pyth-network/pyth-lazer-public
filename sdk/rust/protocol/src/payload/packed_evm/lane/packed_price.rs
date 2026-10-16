@@ -73,43 +73,61 @@ impl RoundingMethod {
     }
 }
 
+/// An available price in a `PackedEvm` lane: `mantissa * 10^-neg_exponent`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct U64x27 {
+    neg_exponent: U5,
+    mantissa: U27,
+}
+
+impl U64x27 {
+    /// Returns `None` for the bit pattern reserved for the unavailable sentinel.
+    fn new(neg_exponent: U5, mantissa: U27) -> Option<Self> {
+        (neg_exponent != U5::MAX || mantissa != U27::MAX).then_some(Self {
+            neg_exponent,
+            mantissa,
+        })
+    }
+
+    pub fn neg_exponent(self) -> U5 {
+        self.neg_exponent
+    }
+
+    pub fn mantissa(self) -> U27 {
+        self.mantissa
+    }
+
+    fn to_bytes(self) -> [u8; 4] {
+        let packed = u32::from(self.neg_exponent.get()) << 27 | self.mantissa.get();
+        packed.to_be_bytes()
+    }
+}
+
 /// A Lazer price re-normalised to fit a `PackedEvm` lane.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PackedPrice {
-    U64x27 { neg_exponent: U5, mantissa: U27 },
+    U64x27(U64x27),
     Unavailable,
 }
 
 impl PackedPrice {
     pub fn neg_exponent(&self) -> Option<U5> {
         match self {
-            PackedPrice::U64x27 {
-                neg_exponent,
-                mantissa: _,
-            } => Some(*neg_exponent),
+            PackedPrice::U64x27(price) => Some(price.neg_exponent()),
             PackedPrice::Unavailable => None,
         }
     }
 
     pub fn mantissa(&self) -> Option<U27> {
         match self {
-            PackedPrice::U64x27 {
-                neg_exponent: _,
-                mantissa,
-            } => Some(*mantissa),
+            PackedPrice::U64x27(price) => Some(price.mantissa()),
             PackedPrice::Unavailable => None,
         }
     }
 
     pub fn to_bytes(self) -> [u8; 4] {
         match self {
-            PackedPrice::U64x27 {
-                neg_exponent,
-                mantissa,
-            } => {
-                let packed = u32::from(neg_exponent.get()) << 27 | mantissa.get();
-                packed.to_be_bytes()
-            }
+            PackedPrice::U64x27(price) => price.to_bytes(),
             PackedPrice::Unavailable => [u8::MAX; 4],
         }
     }
@@ -122,14 +140,7 @@ impl PackedPrice {
             | u32::from(third) << 8
             | u32::from(fourth));
 
-        if neg_exponent == U5::MAX && mantissa == U27::MAX {
-            PackedPrice::Unavailable
-        } else {
-            PackedPrice::U64x27 {
-                neg_exponent,
-                mantissa,
-            }
-        }
+        U64x27::new(neg_exponent, mantissa).map_or(PackedPrice::Unavailable, PackedPrice::U64x27)
     }
 }
 
@@ -147,11 +158,8 @@ fn pack_price_inner(mantissa: i64, exponent: i16) -> Option<PackedPrice> {
             U5::new(exponent.unsigned_abs()),
             U27::new(rounding_method.round(mantissa)),
         ) {
-            if !(neg_exponent == U5::MAX && mantissa == U27::MAX) {
-                return Some(PackedPrice::U64x27 {
-                    neg_exponent,
-                    mantissa,
-                });
+            if let Some(price) = U64x27::new(neg_exponent, mantissa) {
+                return Some(PackedPrice::U64x27(price));
             }
         }
         let remainder = mantissa % 10;
@@ -174,17 +182,27 @@ pub fn pack_price(mantissa: i64, exponent: i16) -> PackedPrice {
 mod tests {
     use super::*;
 
+    fn u64x27(neg_exponent: u16, mantissa: i64) -> PackedPrice {
+        PackedPrice::U64x27(
+            U64x27::new(U5::new(neg_exponent).unwrap(), U27::new(mantissa).unwrap()).unwrap(),
+        )
+    }
+
+    #[test]
+    fn u64x27_refuses_the_sentinel_bit_pattern() {
+        assert_eq!(U64x27::new(U5::MAX, U27::MAX), None);
+        assert!(U64x27::new(U5::MAX, U27::new(0).unwrap()).is_some());
+        assert!(U64x27::new(U5::new(0).unwrap(), U27::MAX).is_some());
+    }
+
     /// Asserts that the packed price is within one third relative error of the
     /// input, measuring in the input's own units.
     #[track_caller]
     fn assert_packs_within_one_third(mantissa: i64, exponent: i16) {
-        let PackedPrice::U64x27 {
-            neg_exponent,
-            mantissa: packed_mantissa,
-        } = pack_price(mantissa, exponent)
-        else {
+        let PackedPrice::U64x27(packed) = pack_price(mantissa, exponent) else {
             panic!("{mantissa}e{exponent} did not pack");
         };
+        let (neg_exponent, packed_mantissa) = (packed.neg_exponent(), packed.mantissa());
         assert!(packed_mantissa.0 <= U27::MAX_VALUE);
         let packed_exponent = -i16::from(neg_exponent.0);
         assert!(
@@ -238,26 +256,14 @@ mod tests {
 
     #[test]
     fn pack_price_keeps_a_price_that_already_fits() {
-        assert_eq!(
-            pack_price(1_234_567, -12),
-            PackedPrice::U64x27 {
-                neg_exponent: U5::new(12).unwrap(),
-                mantissa: U27::new(1_234_567).unwrap()
-            }
-        );
+        assert_eq!(pack_price(1_234_567, -12), u64x27(12, 1_234_567));
     }
 
     #[test]
     fn pack_price_walks_the_exponent_up_to_the_representable_range() {
         // Exponent -35 is outside the 5-bit field, so the mantissa has to come up
         // four decimal places even though it already fits in 27 bits.
-        assert_eq!(
-            pack_price(123_456_789_012, -35),
-            PackedPrice::U64x27 {
-                neg_exponent: U5::new(31).unwrap(),
-                mantissa: U27::new(12_345_679).unwrap()
-            }
-        );
+        assert_eq!(pack_price(123_456_789_012, -35), u64x27(31, 12_345_679));
     }
 
     #[test]
@@ -265,13 +271,7 @@ mod tests {
         // The literals pin the 27-bit field width itself: 2^27 - 1 is the largest
         // mantissa a lane can hold, and 2^27 is one too many.
         assert_eq!(U27::MAX_VALUE, 134_217_727);
-        assert_eq!(
-            pack_price(134_217_727, 0),
-            PackedPrice::U64x27 {
-                neg_exponent: U5::new(0).unwrap(),
-                mantissa: U27::new(134_217_727).unwrap()
-            }
-        );
+        assert_eq!(pack_price(134_217_727, 0), u64x27(0, 134_217_727));
         assert_eq!(pack_price(134_217_728, 0), PackedPrice::Unavailable);
         assert_eq!(pack_price(i64::MAX, 0), PackedPrice::Unavailable);
         assert_eq!(pack_price(i64::MAX, -1), PackedPrice::Unavailable);
@@ -288,13 +288,7 @@ mod tests {
         assert_eq!((mantissa, exponent), (134_217_727, -31));
 
         let packed = pack_price(mantissa, exponent);
-        assert_eq!(
-            packed,
-            PackedPrice::U64x27 {
-                neg_exponent: U5::new(30).unwrap(),
-                mantissa: U27::new(13_421_773).unwrap()
-            }
-        );
+        assert_eq!(packed, u64x27(30, 13_421_773));
         assert_ne!(packed.to_bytes(), [u8::MAX; 4]);
         assert_eq!(PackedPrice::from_bytes(packed.to_bytes()), packed);
 
@@ -325,33 +319,15 @@ mod tests {
     #[test]
     fn pack_price_rounds_halves_to_even() {
         // 134_217_724.5 -> 134_217_724: the tie rounds down, to the even digit.
-        assert_eq!(
-            pack_price(1_342_177_245, -1),
-            PackedPrice::U64x27 {
-                neg_exponent: U5::new(0).unwrap(),
-                mantissa: U27::new(134_217_724).unwrap()
-            }
-        );
+        assert_eq!(pack_price(1_342_177_245, -1), u64x27(0, 134_217_724));
         // 134_217_723.5 -> 134_217_724: the tie rounds up, to the even digit.
-        assert_eq!(
-            pack_price(1_342_177_235, -1),
-            PackedPrice::U64x27 {
-                neg_exponent: U5::new(0).unwrap(),
-                mantissa: U27::new(134_217_724).unwrap()
-            }
-        );
+        assert_eq!(pack_price(1_342_177_235, -1), u64x27(0, 134_217_724));
     }
 
     /// A discarded digit above 5 rounds up even when an earlier discarded digit
     /// was below it: only the digit nearest the kept ones decides.
     #[test]
     fn pack_price_rounds_on_the_nearest_discarded_digit() {
-        assert_eq!(
-            pack_price(1_342_177_349, -2),
-            PackedPrice::U64x27 {
-                neg_exponent: U5::new(0).unwrap(),
-                mantissa: U27::new(13_421_773).unwrap()
-            }
-        );
+        assert_eq!(pack_price(1_342_177_349, -2), u64x27(0, 13_421_773));
     }
 }
