@@ -1,0 +1,10 @@
+relayer_urls = [
+  "ws://localhost:10001/v1/transaction",
+  "ws://localhost:10002/v1/transaction",
+]
+publish_keypair_path = "./publishers/example-jrpc/agent.keypair.json"
+# Corresponding public key: rb27x2tJ69gNW74M7hmm3oAUhhaIfBORLjwo5p2Sxig=
+publish_interval_duration = "25ms"
+authorization_token = "example-publisher"
+# tilt's example-publisher token maps to publisher #6, which is registered with
+# the same public key as integration-test publisher #1.

@@ -3455,21 +3455,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pyth-lazer-example-publisher"
-version = "1.0.0"
-dependencies = [
- "anyhow",
- "bincode",
- "futures-util",
- "pyth-lazer-protocol",
- "tokio",
- "tokio-tungstenite",
- "tracing",
- "tracing-subscriber",
- "url",
-]
-
-[[package]]
 name = "pyth-lazer-example-publisher-jrpc"
 version = "1.0.0"
 dependencies = [

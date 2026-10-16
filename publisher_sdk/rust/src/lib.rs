@@ -3,6 +3,7 @@ use crate::publisher_update::{FeedUpdate, FundingRateUpdate, PriceUpdate};
 use crate::state::FeedState;
 use ::protobuf::{EnumOrUnknown, MessageField};
 use pyth_lazer_protocol::jrpc::{FeedUpdateParams, UpdateParams};
+use pyth_lazer_protocol::publisher::PriceFeedDataV2;
 use pyth_lazer_protocol::{
     ExchangeAssetClass, ExchangeAssetSector, ExchangeAssetSubclass, FeedKind, SymbolState,
 };
@@ -50,6 +51,34 @@ impl From<FeedUpdateParams> for FeedUpdate {
             feed_id: Some(value.feed_id.0),
             source_timestamp: value.source_timestamp.into(),
             update: Some(value.update.into()),
+            special_fields: Default::default(),
+        }
+    }
+}
+
+impl From<PriceFeedDataV2> for FeedUpdate {
+    fn from(value: PriceFeedDataV2) -> Self {
+        let update = if value.funding_rate.is_some() {
+            Update::FundingRateUpdate(FundingRateUpdate {
+                price: value.price.map(|p| p.mantissa_i64()),
+                rate: value.funding_rate.map(|r| r.mantissa()),
+                funding_rate_interval: MessageField::none(),
+                special_fields: Default::default(),
+            })
+        } else {
+            Update::PriceUpdate(PriceUpdate {
+                price: value.price.map(|p| p.mantissa_i64()),
+                best_bid_price: value.best_bid_price.map(|p| p.mantissa_i64()),
+                best_ask_price: value.best_ask_price.map(|p| p.mantissa_i64()),
+                trading_status: None,
+                market_session: None,
+                special_fields: Default::default(),
+            })
+        };
+        FeedUpdate {
+            feed_id: Some(value.price_feed_id.0),
+            source_timestamp: MessageField::some(value.source_timestamp_us.into()),
+            update: Some(update),
             special_fields: Default::default(),
         }
     }
@@ -425,5 +454,58 @@ impl From<ExchangeAssetSector> for state::ExchangeAssetSector {
                 state::ExchangeAssetSector::EXCHANGE_ASSET_SECTOR_AGRICULTURE
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pyth_lazer_protocol::time::TimestampUs;
+    use pyth_lazer_protocol::{Price, PriceFeedId, Rate};
+
+    fn price_feed_data(funding_rate: Option<Rate>) -> PriceFeedDataV2 {
+        PriceFeedDataV2 {
+            price_feed_id: PriceFeedId(7),
+            source_timestamp_us: TimestampUs::from_micros(1_000),
+            publisher_timestamp_us: TimestampUs::from_micros(2_000),
+            price: Some(Price::from_mantissa(100).unwrap()),
+            best_bid_price: Some(Price::from_mantissa(99).unwrap()),
+            best_ask_price: Some(Price::from_mantissa(101).unwrap()),
+            funding_rate,
+        }
+    }
+
+    #[test]
+    fn price_feed_data_v2_to_price_update() {
+        let update = FeedUpdate::from(price_feed_data(None));
+        assert_eq!(update.feed_id, Some(7));
+        assert_eq!(
+            update.source_timestamp,
+            MessageField::some(TimestampUs::from_micros(1_000).into())
+        );
+        let Some(Update::PriceUpdate(price_update)) = update.update else {
+            panic!("expected a price update, got {:?}", update.update);
+        };
+        assert_eq!(price_update.price, Some(100));
+        assert_eq!(price_update.best_bid_price, Some(99));
+        assert_eq!(price_update.best_ask_price, Some(101));
+        assert_eq!(price_update.trading_status, None);
+        assert_eq!(price_update.market_session, None);
+    }
+
+    #[test]
+    fn price_feed_data_v2_to_funding_rate_update() {
+        let update = FeedUpdate::from(price_feed_data(Some(Rate::from_mantissa(-5))));
+        assert_eq!(update.feed_id, Some(7));
+        assert_eq!(
+            update.source_timestamp,
+            MessageField::some(TimestampUs::from_micros(1_000).into())
+        );
+        let Some(Update::FundingRateUpdate(funding_rate_update)) = update.update else {
+            panic!("expected a funding rate update, got {:?}", update.update);
+        };
+        assert_eq!(funding_rate_update.price, Some(100));
+        assert_eq!(funding_rate_update.rate, Some(-5));
+        assert!(funding_rate_update.funding_rate_interval.is_none());
     }
 }

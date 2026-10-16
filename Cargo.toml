@@ -3,7 +3,6 @@ resolver = "2"
 members = [
   "agent",
   "publisher_sdk/rust",
-  "publishers/example",
   "publishers/example-jrpc",
   "sdk/rust/client",
   "sdk/rust/protocol",
