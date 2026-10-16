@@ -33,6 +33,7 @@
       "!ansible/**/*",
       "!scripts/**/*.sh",
       "!scripts/**/*.py",
+      "!scripts/lazer-holiday-check/tests/fixtures/**",
       "!**/*.gen.ts",
       "!**/*.gen.css",
       "!**/schemas/**",
