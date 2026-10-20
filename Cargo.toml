@@ -7,6 +7,7 @@ members = [
   "sdk/rust/client",
   "sdk/rust/protocol",
 ]
+exclude = ["vendor/libtailscale-sys"]
 
 [workspace.dependencies]
 alloy-primitives = "0.8.5"
