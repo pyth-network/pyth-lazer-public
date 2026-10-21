@@ -13,7 +13,7 @@ WORKDIR /app
 
 RUN cargo build -p pyth-lazer-agent --release --locked
 
-FROM debian:12-slim
+FROM debian:bookworm-20261020-slim
 
 RUN apt update && apt install -y libssl-dev ca-certificates && apt clean all
 
