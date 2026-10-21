@@ -413,3 +413,7 @@ suspicious_xor_used_as_pow = "warn"
 unused_self = "warn"
 used_underscore_binding = "warn"
 while_float = "warn"
+
+[patch.crates-io.fefix]
+git = "https://github.com/dourolabs/ferrumfix.git"
+rev = "e44dcea23307173f59d638c00c2d7233d49a7f4b"
