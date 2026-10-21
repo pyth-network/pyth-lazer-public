@@ -23,7 +23,6 @@ async-stripe-shared = "=1.0.0-rc.6"
 async-trait = "0.1.88"
 atomicwrites = "0.4.4"
 aws-config = "1.8.17"
-aws-sdk-s3 = "1.124.0"
 axum-otel-metrics = "0.10.0"
 base64 = "0.22.1"
 bimap = "0.6.3"
@@ -153,6 +152,11 @@ version = "=1.0.0-rc.6"
 [workspace.dependencies.async-stripe-misc]
 features = ["entitlements_active_entitlement", "entitlements_feature"]
 version = "=1.0.0-rc.6"
+
+[workspace.dependencies.aws-sdk-s3]
+default-features = false
+features = ["default-https-client", "http-1x", "rt-tokio", "sigv4a"]
+version = "1.124.0"
 
 [workspace.dependencies.axum]
 features = ["ws"]
