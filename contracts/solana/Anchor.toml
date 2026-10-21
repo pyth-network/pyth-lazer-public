@@ -1,4 +1,6 @@
 [toolchain]
+solana_version = "2.3.13"
+anchor_version = "0.32.2"
 
 [features]
 resolution = true

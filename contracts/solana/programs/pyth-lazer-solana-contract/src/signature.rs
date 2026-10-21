@@ -1,17 +1,20 @@
 use {
     crate::Storage,
     anchor_lang::{
-        prelude::{borsh, AccountInfo, ProgramError, Pubkey},
-        solana_program::{
-            ed25519_program, program_memory::sol_memcmp, pubkey::PUBKEY_BYTES, sysvar,
-        },
+        prelude::{AccountInfo, ProgramError, Pubkey},
+        solana_program::{program_memory::sol_memcmp, pubkey::PUBKEY_BYTES},
         AnchorDeserialize, AnchorSerialize,
     },
     bytemuck::{cast_slice, checked::try_cast_slice, Pod, Zeroable},
     byteorder::{ByteOrder, LE},
     pyth_lazer_protocol::message::format_magics_le::SOLANA_FORMAT_MAGIC,
+    solana_program::ed25519_program,
+    solana_program::sysvar,
     thiserror::Error,
 };
+
+#[allow(unused_imports)] // borsh is needed for anchor 0.29.0
+use anchor_lang::prelude::borsh;
 
 const ED25519_PROGRAM_INPUT_HEADER_LEN: usize = 2;
 

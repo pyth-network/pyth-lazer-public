@@ -6,9 +6,9 @@ use {
     crate::signature::VerifiedMessage,
     anchor_lang::{
         prelude::*,
-        solana_program::{keccak, pubkey::PUBKEY_BYTES, secp256k1_recover::secp256k1_recover},
-        system_program,
+        solana_program::{program::invoke, pubkey::PUBKEY_BYTES, system_instruction},
     },
+    solana_program::{keccak, secp256k1_recover::secp256k1_recover},
     std::mem::size_of,
 };
 
@@ -167,15 +167,17 @@ pub mod pyth_lazer_solana_contract {
         ed25519_instruction_index: u16,
         signature_index: u8,
     ) -> Result<VerifiedMessage> {
-        system_program::transfer(
-            CpiContext::new(
-                ctx.accounts.system_program.to_account_info(),
-                system_program::Transfer {
-                    from: ctx.accounts.payer.to_account_info(),
-                    to: ctx.accounts.treasury.to_account_info(),
-                },
-            ),
+        let ix = system_instruction::transfer(
+            &ctx.accounts.payer.key(),
+            &ctx.accounts.treasury.key(),
             ctx.accounts.storage.single_update_fee_in_lamports,
+        );
+        invoke(
+            &ix,
+            &[
+                ctx.accounts.payer.to_account_info(),
+                ctx.accounts.treasury.to_account_info(),
+            ],
         )?;
 
         signature::verify_message(
@@ -195,22 +197,24 @@ pub mod pyth_lazer_solana_contract {
         ctx: Context<VerifyEcdsaMessage>,
         message_data: Vec<u8>,
     ) -> Result<()> {
-        system_program::transfer(
-            CpiContext::new(
-                ctx.accounts.system_program.to_account_info(),
-                system_program::Transfer {
-                    from: ctx.accounts.payer.to_account_info(),
-                    to: ctx.accounts.treasury.to_account_info(),
-                },
-            ),
+        let ix = system_instruction::transfer(
+            &ctx.accounts.payer.key(),
+            &ctx.accounts.treasury.key(),
             ctx.accounts.storage.single_update_fee_in_lamports,
+        );
+        invoke(
+            &ix,
+            &[
+                ctx.accounts.payer.to_account_info(),
+                ctx.accounts.treasury.to_account_info(),
+            ],
         )?;
 
         let message = LeEcdsaMessage::deserialize_slice(&message_data)
             .map_err(|_| ProgramError::InvalidInstructionData)?;
 
         let pubkey = secp256k1_recover(
-            &keccak::hash(&message.payload).0,
+            keccak::hash(&message.payload).as_ref(),
             message.recovery_id,
             &message.signature,
         )
@@ -218,7 +222,7 @@ pub mod pyth_lazer_solana_contract {
             msg!("secp256k1_recover failed: {:?}", err);
             ProgramError::InvalidInstructionData
         })?;
-        let addr: EvmAddress = keccak::hash(&pubkey.0).0[12..]
+        let addr: EvmAddress = keccak::hash(&pubkey.0).as_ref()[12..]
             .try_into()
             .expect("invalid addr len");
         if addr == EvmAddress::default() {
