@@ -145,10 +145,6 @@
     "//#test:unit": {
       "dependsOn": ["//#install:modules", "^build"]
     },
-    "auth:db:migrate": {
-      "cache": false,
-      "dependsOn": ["pull:env"]
-    },
     "build": {
       "dependsOn": [
         "//#install:modules",
@@ -189,6 +185,10 @@
       "cache": false,
       "env": ["!VERCEL_DEPLOYMENT_ID"],
       "outputs": []
+    },
+    "db:migrate": {
+      "cache": false,
+      "dependsOn": ["pull:env"]
     },
     "env:fix": {
       "cache": false,
