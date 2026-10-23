@@ -52,7 +52,7 @@
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.7",
     "@types/bn.js": "^5.2.0",
-    "@types/bun": "^1.4.2",
+    "@types/bun": "^1.4.4",
     "@types/chroma-js": "^3.1.2",
     "@types/d3-scale": "^4.0.9",
     "@types/d3-selection": "^3.0.12",
@@ -196,13 +196,13 @@
     "yargs": "catalog:"
   },
   "engines": {
-    "bun": ">=1.4.2"
+    "bun": ">=1.4.4"
   },
   "name": "@pythnetwork/pyth-lazer",
   "overrides": {
     "kysely": "~0.29.6"
   },
-  "packageManager": "bun@1.4.2",
+  "packageManager": "bun@1.4.4",
   "private": true,
   "scripts": {
     "dep:check": "bun scripts/check-outdated.ts",
