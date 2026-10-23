@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@coral-xyz/anchor": "catalog:",
+    "@anchor-lang/core": "catalog:",
     "@pythnetwork/pyth-lazer-sdk": "workspace:",
     "@solana/buffer-layout": "catalog:",
     "@solana/web3.js": "catalog:",

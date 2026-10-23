@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
-import * as anchor from "@coral-xyz/anchor";
-import { Program } from "@coral-xyz/anchor";
-import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
+import * as anchor from "@anchor-lang/core";
+import { Program } from "@anchor-lang/core";
+import NodeWallet from "@anchor-lang/core/dist/cjs/nodewallet";
 import {
   SendTransactionError,
   SYSVAR_INSTRUCTIONS_PUBKEY,

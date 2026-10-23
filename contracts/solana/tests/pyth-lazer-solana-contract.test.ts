@@ -1,6 +1,6 @@
 import { describe, it } from "bun:test";
-import type { Program } from "@coral-xyz/anchor";
-import * as anchor from "@coral-xyz/anchor";
+import type { Program } from "@anchor-lang/core";
+import * as anchor from "@anchor-lang/core";
 import { BN } from "bn.js";
 import type { PythLazerSolanaContract } from "../target/types/pyth_lazer_solana_contract";
 

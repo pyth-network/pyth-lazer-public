@@ -1504,7 +1504,7 @@ dependencies = [
 
 [[package]]
 name = "pyth-lazer-solana-contract"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "anchor-lang",
  "bytemuck",

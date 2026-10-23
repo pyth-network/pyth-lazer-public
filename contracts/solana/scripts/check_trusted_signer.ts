@@ -1,5 +1,5 @@
-import * as anchor from "@coral-xyz/anchor";
-import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
+import * as anchor from "@anchor-lang/core";
+import NodeWallet from "@anchor-lang/core/dist/cjs/nodewallet";
 import yargs from "yargs/yargs";
 import * as pythLazerSolanaContractIdl from "../target/idl/pyth_lazer_solana_contract.json";
 import type { PythLazerSolanaContract } from "../target/types/pyth_lazer_solana_contract";
