@@ -1,6 +1,6 @@
 [package]
 name = "pyth-lazer-solana-contract"
-version = "0.10.0"
+version = "0.11.0"
 edition = "2021"
 description = "Pyth Lazer Solana contract and SDK."
 license = "Apache-2.0"
@@ -21,15 +21,17 @@ idl-build = ["anchor-lang/idl-build"]
 [dependencies]
 pyth-lazer-protocol = { path = "../../../../sdk/rust/protocol", version = "0.46.0" }
 
-anchor-lang = "1.0.0"
+anchor-lang = { version = "1.2.1", default-features = false, features = [
+  "solana-v4",
+] }
 bytemuck = { version = "1.20.0", features = ["derive"] }
 byteorder = "1.5.0"
-solana-program = "3.0.0"
+solana-program = "4.0.0"
 thiserror = "2.0.3"
 
 [dev-dependencies]
 hex = "0.4.3"
-solana-program-test = { version = "3.1.12", features = ["agave-unstable-api"] }
-solana-sdk = "3.0.0"
-solana-system-interface = { version = "2.0.0", features = ["bincode"] }
+solana-program-test = { version = "4.3.2", features = ["agave-unstable-api"] }
+solana-sdk = "4.0.0"
+solana-system-interface = { version = "3.0.0", features = ["bincode"] }
 tokio = { version = "1.40.0", features = ["full"] }
