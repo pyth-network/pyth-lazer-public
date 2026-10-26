@@ -138,6 +138,7 @@ SPECULAR.md
 planbot.md
 .vercel
 .env*.local
+*.key
 
 # NATS load benchmark results (fetched by playbook-nats-bench.yaml)
 nats-bench-results/
