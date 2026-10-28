@@ -159,6 +159,18 @@ pub struct SymbolMetadata {
     pub hermes_id: Option<String>,
     pub quote_currency: Option<String>,
     pub nasdaq_symbol: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cusip: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auction_date: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub issue_date: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub maturity_date: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub coupon: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub next_auction_date: Option<String>,
 }
 
 #[cfg(test)]
@@ -191,6 +203,79 @@ mod tests {
 
         let symbol: SymbolMetadata = serde_json::from_str(json).unwrap();
         assert_eq!(symbol.state, SymbolState::Unknown);
+    }
+
+    #[test]
+    fn symbol_metadata_round_trips_bond_fields() {
+        let json = r#"
+        {
+          "pyth_lazer_id": 2,
+          "name": "US10Y",
+          "symbol": "InterestRate.US10Y",
+          "description": "US 10Y",
+          "asset_type": "rates",
+          "exponent": -8,
+          "cmc_id": null,
+          "interval": null,
+          "min_publishers": 1,
+          "min_channel": "real_time",
+          "state": "stable",
+          "hermes_id": null,
+          "quote_currency": null,
+          "cusip": "91282CNT4",
+          "auction_date": "2026-08-12",
+          "issue_date": "2026-08-15",
+          "maturity_date": "2036-08-15",
+          "coupon": "4.625",
+          "next_auction_date": "pending"
+        }
+        "#;
+
+        let symbol: SymbolMetadata = serde_json::from_str(json).unwrap();
+        assert_eq!(symbol.cusip.as_deref(), Some("91282CNT4"));
+        assert_eq!(symbol.auction_date.as_deref(), Some("2026-08-12"));
+        assert_eq!(symbol.issue_date.as_deref(), Some("2026-08-15"));
+        assert_eq!(symbol.maturity_date.as_deref(), Some("2036-08-15"));
+        assert_eq!(symbol.coupon.as_deref(), Some("4.625"));
+        assert_eq!(symbol.next_auction_date.as_deref(), Some("pending"));
+
+        let out = serde_json::to_value(&symbol).unwrap();
+        assert_eq!(out["cusip"], "91282CNT4");
+        assert_eq!(out["next_auction_date"], "pending");
+    }
+
+    #[test]
+    fn symbol_metadata_omits_absent_bond_fields() {
+        let json = r#"
+        {
+          "pyth_lazer_id": 1,
+          "name": "BTCUSD",
+          "symbol": "Crypto.BTC/USD",
+          "description": "BITCOIN / US DOLLAR",
+          "asset_type": "crypto",
+          "exponent": -8,
+          "cmc_id": null,
+          "interval": null,
+          "min_publishers": 3,
+          "min_channel": "real_time",
+          "state": "stable",
+          "hermes_id": null,
+          "quote_currency": "USD"
+        }
+        "#;
+
+        let symbol: SymbolMetadata = serde_json::from_str(json).unwrap();
+        let out = serde_json::to_value(&symbol).unwrap();
+        for field in [
+            "cusip",
+            "auction_date",
+            "issue_date",
+            "maturity_date",
+            "coupon",
+            "next_auction_date",
+        ] {
+            assert!(out.get(field).is_none(), "{field} should be omitted");
+        }
     }
 
     #[test]

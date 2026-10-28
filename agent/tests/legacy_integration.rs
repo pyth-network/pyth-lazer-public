@@ -40,22 +40,52 @@ fn get_private_key_file() -> NamedTempFile {
 }
 
 fn test_metadata_json() -> String {
-    let metadata = vec![SymbolMetadata {
-        pyth_lazer_id: PriceFeedId(42),
-        name: "BTC".to_string(),
-        symbol: "Crypto.BTC/USD".to_string(),
-        description: "BTC/USD".to_string(),
-        asset_type: "Crypto".to_string(),
-        exponent: -8,
-        cmc_id: None,
-        funding_rate_interval: None,
-        min_publishers: 1,
-        min_channel: Channel::FixedRate(FixedRate::MIN),
-        state: SymbolState::Stable,
-        hermes_id: None,
-        quote_currency: Some("USD".to_string()),
-        nasdaq_symbol: None,
-    }];
+    let metadata = vec![
+        SymbolMetadata {
+            pyth_lazer_id: PriceFeedId(42),
+            name: "BTC".to_string(),
+            symbol: "Crypto.BTC/USD".to_string(),
+            description: "BTC/USD".to_string(),
+            asset_type: "Crypto".to_string(),
+            exponent: -8,
+            cmc_id: None,
+            funding_rate_interval: None,
+            min_publishers: 1,
+            min_channel: Channel::FixedRate(FixedRate::MIN),
+            state: SymbolState::Stable,
+            hermes_id: None,
+            quote_currency: Some("USD".to_string()),
+            nasdaq_symbol: None,
+            cusip: None,
+            auction_date: None,
+            issue_date: None,
+            maturity_date: None,
+            coupon: None,
+            next_auction_date: None,
+        },
+        SymbolMetadata {
+            pyth_lazer_id: PriceFeedId(1527),
+            name: "US10Y".to_string(),
+            symbol: "InterestRate.US10Y".to_string(),
+            description: "US 10Y".to_string(),
+            asset_type: "Rates".to_string(),
+            exponent: -8,
+            cmc_id: None,
+            funding_rate_interval: None,
+            min_publishers: 1,
+            min_channel: Channel::FixedRate(FixedRate::MIN),
+            state: SymbolState::Stable,
+            hermes_id: None,
+            quote_currency: None,
+            nasdaq_symbol: None,
+            cusip: Some("91282CRF0".to_string()),
+            auction_date: Some("2026-08-12".to_string()),
+            issue_date: Some("2026-08-17".to_string()),
+            maturity_date: Some("2036-08-15".to_string()),
+            coupon: Some("4.625".to_string()),
+            next_auction_date: Some("pending".to_string()),
+        },
+    ];
     serde_json::to_string(&metadata).unwrap()
 }
 
@@ -104,6 +134,38 @@ async fn start_mock_history_service() -> (u16, tokio::task::JoinHandle<()>) {
     (port, handle)
 }
 
+async fn start_agent(legacy_sched_interval_duration: Duration) -> (u16, NamedTempFile) {
+    let (history_port, _history_handle) = start_mock_history_service().await;
+    let history_url = Url::from_str(&format!("http://127.0.0.1:{history_port}")).unwrap();
+
+    let signing_key_file = get_private_key_file();
+
+    let agent_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let agent_port = agent_listener.local_addr().unwrap().port();
+    drop(agent_listener);
+
+    let config = Config {
+        listen_address: format!("127.0.0.1:{agent_port}").parse().unwrap(),
+        relayer_urls: vec![],
+        relayer_connections: None,
+        authorization_token: None,
+        publish_keypair_path: PathBuf::from(signing_key_file.path()),
+        publish_interval_duration: Duration::from_millis(25),
+        history_service_url: history_url,
+        enable_update_deduplication: false,
+        update_deduplication_ttl: Default::default(),
+        proxy_url: None,
+        legacy_sched_interval_duration,
+    };
+
+    #[allow(clippy::disallowed_methods, reason = "instrumented")]
+    tokio::spawn(pyth_lazer_agent::run(config).instrument(info_span!("lazer publisher task")));
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    (agent_port, signing_key_file)
+}
+
 async fn send_jrpc(
     ws: &mut futures_util::stream::SplitSink<
         tokio_tungstenite::WebSocketStream<
@@ -142,33 +204,7 @@ async fn recv_json(
 
 #[tokio::test]
 async fn test_legacy_user_journey() {
-    let (history_port, _history_handle) = start_mock_history_service().await;
-    let history_url = Url::from_str(&format!("http://127.0.0.1:{history_port}")).unwrap();
-
-    let signing_key_file = get_private_key_file();
-
-    let agent_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let agent_port = agent_listener.local_addr().unwrap().port();
-    drop(agent_listener);
-
-    let config = Config {
-        listen_address: format!("127.0.0.1:{agent_port}").parse().unwrap(),
-        relayer_urls: vec![],
-        relayer_connections: None,
-        authorization_token: None,
-        publish_keypair_path: PathBuf::from(signing_key_file.path()),
-        publish_interval_duration: Duration::from_millis(25),
-        history_service_url: history_url,
-        enable_update_deduplication: false,
-        update_deduplication_ttl: Default::default(),
-        proxy_url: None,
-        legacy_sched_interval_duration: Duration::from_millis(200),
-    };
-
-    #[allow(clippy::disallowed_methods, reason = "instrumented")]
-    tokio::spawn(pyth_lazer_agent::run(config).instrument(info_span!("lazer publisher task")));
-
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    let (agent_port, _signing_key_file) = start_agent(Duration::from_millis(200)).await;
 
     let url = format!("ws://127.0.0.1:{agent_port}/v1/legacy");
     let (ws_stream, _) = tokio_tungstenite::connect_async(&url).await.unwrap();
@@ -185,7 +221,7 @@ async fn test_legacy_user_journey() {
     assert_eq!(resp["jsonrpc"], "2.0");
     assert_eq!(resp["id"], 1);
     let products = resp["result"].as_array().expect("result should be array");
-    assert_eq!(products.len(), 1);
+    assert_eq!(products.len(), 2);
     let product = &products[0];
     assert_eq!(product["attr_dict"]["symbol"], "Crypto.BTC/USD");
     let price = product["price"].as_array().unwrap();
@@ -270,34 +306,8 @@ async fn test_legacy_user_journey() {
 /// notification arrives a full interval after the update, not sooner.
 #[tokio::test]
 async fn test_update_price_resets_sched_timer() {
-    let (history_port, _history_handle) = start_mock_history_service().await;
-    let history_url = Url::from_str(&format!("http://127.0.0.1:{history_port}")).unwrap();
-
-    let signing_key_file = get_private_key_file();
-
-    let agent_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let agent_port = agent_listener.local_addr().unwrap().port();
-    drop(agent_listener);
-
     let sched_interval = Duration::from_millis(300);
-    let config = Config {
-        listen_address: format!("127.0.0.1:{agent_port}").parse().unwrap(),
-        relayer_urls: vec![],
-        relayer_connections: None,
-        authorization_token: None,
-        publish_keypair_path: PathBuf::from(signing_key_file.path()),
-        publish_interval_duration: Duration::from_millis(25),
-        history_service_url: history_url,
-        enable_update_deduplication: false,
-        update_deduplication_ttl: Default::default(),
-        proxy_url: None,
-        legacy_sched_interval_duration: sched_interval,
-    };
-
-    #[allow(clippy::disallowed_methods, reason = "instrumented")]
-    tokio::spawn(pyth_lazer_agent::run(config).instrument(info_span!("lazer publisher task")));
-
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    let (agent_port, _signing_key_file) = start_agent(sched_interval).await;
 
     let url = format!("ws://127.0.0.1:{agent_port}/v1/legacy");
     let (ws_stream, _) = tokio_tungstenite::connect_async(&url).await.unwrap();
@@ -363,4 +373,51 @@ async fn test_update_price_resets_sched_timer() {
     );
 
     ws_sink.close().await.unwrap();
+}
+
+#[tokio::test]
+async fn test_bond_metadata_passthrough() {
+    let (agent_port, _signing_key_file) = start_agent(Duration::from_millis(200)).await;
+    let expected = serde_json::json!({
+        "cusip": "91282CRF0",
+        "auction_date": "2026-08-12",
+        "issue_date": "2026-08-17",
+        "maturity_date": "2036-08-15",
+        "coupon": "4.625",
+        "next_auction_date": "pending",
+    });
+
+    let (ws_stream, _) =
+        tokio_tungstenite::connect_async(format!("ws://127.0.0.1:{agent_port}/v1/jrpc"))
+            .await
+            .unwrap();
+    let (mut ws_sink, mut ws_stream) = ws_stream.split();
+    send_jrpc(
+        &mut ws_sink,
+        &serde_json::json!({"jsonrpc": "2.0", "method": "get_metadata", "params": {}, "id": 1}),
+    )
+    .await;
+    let resp = recv_json(&mut ws_stream).await;
+    let bond = &resp["result"][1];
+    assert_eq!(bond["symbol"], "InterestRate.US10Y");
+    for (key, value) in expected.as_object().unwrap() {
+        assert_eq!(&bond[key], value, "get_metadata {key}");
+    }
+
+    let (ws_stream, _) =
+        tokio_tungstenite::connect_async(format!("ws://127.0.0.1:{agent_port}/v1/legacy"))
+            .await
+            .unwrap();
+    let (mut ws_sink, mut ws_stream) = ws_stream.split();
+    send_jrpc(
+        &mut ws_sink,
+        &serde_json::json!({"jsonrpc": "2.0", "method": "get_product_list", "id": 1}),
+    )
+    .await;
+    let resp = recv_json(&mut ws_stream).await;
+    let attr_dict = &resp["result"][1]["attr_dict"];
+    assert_eq!(attr_dict["symbol"], "InterestRate.US10Y");
+    for (key, value) in expected.as_object().unwrap() {
+        assert_eq!(&attr_dict[key], value, "get_product_list {key}");
+    }
 }

@@ -286,6 +286,12 @@ mod tests {
             hermes_id: None,
             quote_currency: None,
             nasdaq_symbol: None,
+            cusip: None,
+            auction_date: None,
+            issue_date: None,
+            maturity_date: None,
+            coupon: None,
+            next_auction_date: None,
         }
     }
 

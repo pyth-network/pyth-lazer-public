@@ -169,8 +169,18 @@ fn product_detail_from_metadata(sym: &SymbolMetadata) -> ProductAccountDetail {
     attr_dict.insert("symbol".to_string(), sym.symbol.clone());
     attr_dict.insert("asset_type".to_string(), sym.asset_type.clone());
     attr_dict.insert("description".to_string(), sym.description.clone());
-    if let Some(ref qc) = sym.quote_currency {
-        attr_dict.insert("quote_currency".to_string(), qc.clone());
+    for (key, value) in [
+        ("quote_currency", &sym.quote_currency),
+        ("cusip", &sym.cusip),
+        ("auction_date", &sym.auction_date),
+        ("issue_date", &sym.issue_date),
+        ("maturity_date", &sym.maturity_date),
+        ("coupon", &sym.coupon),
+        ("next_auction_date", &sym.next_auction_date),
+    ] {
+        if let Some(value) = value {
+            attr_dict.insert(key.to_string(), value.clone());
+        }
     }
 
     ProductAccountDetail {
@@ -691,6 +701,12 @@ mod tests {
             hermes_id: None,
             quote_currency: Some("USD".to_string()),
             nasdaq_symbol: None,
+            cusip: None,
+            auction_date: None,
+            issue_date: None,
+            maturity_date: None,
+            coupon: None,
+            next_auction_date: None,
         };
 
         let detail = product_detail_from_metadata(&sym);
@@ -707,6 +723,46 @@ mod tests {
         assert_eq!(pa.account, "1");
         assert_eq!(pa.price_exponent, -8);
         assert_eq!(pa.price_type, "price");
+    }
+
+    #[test]
+    fn test_product_detail_includes_bond_metadata() {
+        use pyth_lazer_protocol::SymbolState;
+        use pyth_lazer_protocol::api::Channel;
+        use pyth_lazer_protocol::time::FixedRate;
+
+        let sym = SymbolMetadata {
+            pyth_lazer_id: PriceFeedId(7),
+            name: "US10Y".to_string(),
+            symbol: "InterestRate.US10Y".to_string(),
+            description: "US 10Y".to_string(),
+            asset_type: "Rates".to_string(),
+            exponent: -8,
+            cmc_id: None,
+            funding_rate_interval: None,
+            min_publishers: 1,
+            min_channel: Channel::FixedRate(FixedRate::MIN),
+            state: SymbolState::Stable,
+            hermes_id: None,
+            quote_currency: None,
+            nasdaq_symbol: None,
+            cusip: Some("91282CNT4".to_string()),
+            auction_date: Some("2026-08-12".to_string()),
+            issue_date: Some("2026-08-15".to_string()),
+            maturity_date: Some("2036-08-15".to_string()),
+            coupon: Some("4.625".to_string()),
+            next_auction_date: Some("pending".to_string()),
+        };
+
+        let detail = product_detail_from_metadata(&sym);
+
+        assert_eq!(detail.attr_dict.len(), 9);
+        assert_eq!(detail.attr_dict["cusip"], "91282CNT4");
+        assert_eq!(detail.attr_dict["auction_date"], "2026-08-12");
+        assert_eq!(detail.attr_dict["issue_date"], "2026-08-15");
+        assert_eq!(detail.attr_dict["maturity_date"], "2036-08-15");
+        assert_eq!(detail.attr_dict["coupon"], "4.625");
+        assert_eq!(detail.attr_dict["next_auction_date"], "pending");
     }
 
     #[test]
@@ -730,6 +786,12 @@ mod tests {
             hermes_id: None,
             quote_currency: None,
             nasdaq_symbol: None,
+            cusip: None,
+            auction_date: None,
+            issue_date: None,
+            maturity_date: None,
+            coupon: None,
+            next_auction_date: None,
         };
 
         let detail = product_detail_from_metadata(&sym);
