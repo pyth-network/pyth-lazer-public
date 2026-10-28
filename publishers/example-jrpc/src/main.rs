@@ -16,7 +16,7 @@ use {
     },
     tokio::{net::TcpStream, time::sleep},
     tokio_util::compat::{Compat, TokioAsyncReadCompatExt},
-    tracing::{Instrument, debug, error, info, info_span, level_filters::LevelFilter},
+    tracing::{Instrument, debug, error, info, info_span, level_filters::LevelFilter, trace},
     tracing_subscriber::EnvFilter,
 };
 
@@ -95,7 +95,7 @@ async fn main() -> Result<()> {
                             "Received a message from relayer {i}: {}",
                             String::from_utf8_lossy(&data)
                         ),
-                        Ok(Incoming::Pong(_)) => println!("Received a pong from relayer {i}"),
+                        Ok(Incoming::Pong(_)) => trace!("Received a pong from relayer {i}"),
                         Ok(_) => {}
                         Err(error) => {
                             error!(?error, "Error receiving from relayer {i}");
