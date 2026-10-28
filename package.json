@@ -75,6 +75,7 @@
     "babel-plugin-react-compiler": "1.0.0",
     "better-auth": "~1.6.30",
     "bn.js": "^5.2.5",
+    "botid": "^1.5.11",
     "bs58": "^6.0.0",
     "buffer": "^6.0.3",
     "change-case": "^5.4.4",
