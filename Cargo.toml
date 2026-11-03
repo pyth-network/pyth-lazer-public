@@ -7,7 +7,7 @@ members = [
   "sdk/rust/client",
   "sdk/rust/protocol",
 ]
-exclude = ["vendor/libtailscale-sys"]
+exclude = ["vendor/libtailscale-sys", "vendor/sqlx-core"]
 
 [workspace.dependencies]
 alloy-primitives = "0.8.5"
@@ -116,6 +116,7 @@ solana-pubkey = "3.0.0"
 solana-sdk-ids = "3.1.0"
 solana-system-interface = "3"
 sqlx = "0.8.1"
+sqlx-core = "0.8.6"
 stream_generator = "0.1.0"
 tempfile = "3.23.0"
 thiserror = "2.0.12"
