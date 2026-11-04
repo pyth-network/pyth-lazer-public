@@ -120,6 +120,7 @@ sqlx-core = "0.8.6"
 stream_generator = "0.1.0"
 tempfile = "3.23.0"
 thiserror = "2.0.12"
+tikv-jemallocator = "0.6"
 tokio-metrics = "0.5.0"
 tokio-native-tls = "0.3"
 tokio-stream = "0.1.17"
@@ -322,6 +323,10 @@ version = "0.27.2"
 [workspace.dependencies.syn]
 features = ["full"]
 version = "2.0"
+
+[workspace.dependencies.tikv-jemalloc-ctl]
+features = ["stats"]
+version = "0.6"
 
 [workspace.dependencies.time]
 features = ["macros", "serde-human-readable", "serde-well-known"]
