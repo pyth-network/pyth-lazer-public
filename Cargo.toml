@@ -12,7 +12,7 @@ exclude = ["vendor/libtailscale-sys", "vendor/sqlx-core"]
 [workspace.dependencies]
 alloy-primitives = "0.8.5"
 alloy-sol-types = "1.6.1"
-anyhow = "1.0.98"
+anyhow = "1.0.103"
 apache-avro = "0.22.0"
 arc-swap = "1.7.1"
 assert_float_eq = "1.1.4"
@@ -338,7 +338,7 @@ version = "0.8"
 
 [workspace.dependencies.tokio]
 features = ["full"]
-version = "1.44.1"
+version = "1.51.6"
 
 [workspace.dependencies.tokio-tungstenite]
 features = ["native-tls", "url"]
