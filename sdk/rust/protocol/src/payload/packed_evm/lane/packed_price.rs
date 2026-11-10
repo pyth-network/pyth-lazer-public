@@ -104,6 +104,11 @@ impl U64x27 {
 }
 
 /// A Lazer price re-normalised to fit a `PackedEvm` lane.
+/// Unlike in the standard payload, the exponent is chosen per value and may change per update.
+/// For example, a price of 134217727 with an exponent of -8 would be packed as 134217727e-8.
+/// But if the price is 134217728, it will be packed as 13421773e-7. Consumers must read the
+/// exponent from every lane, and must scale two prices to a common exponent
+/// before they compare mantissas.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PackedPrice {
     U64x27(U64x27),
@@ -329,5 +334,11 @@ mod tests {
     #[test]
     fn pack_price_rounds_on_the_nearest_discarded_digit() {
         assert_eq!(pack_price(1_342_177_349, -2), u64x27(0, 13_421_773));
+    }
+
+    #[test]
+    fn exponent_changes_as_the_price_crosses_the_mantissa_limit() {
+        assert_eq!(pack_price(134217727, -8), u64x27(8, 134217727));
+        assert_eq!(pack_price(134217728, -8), u64x27(7, 13421773));
     }
 }
