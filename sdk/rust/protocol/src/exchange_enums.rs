@@ -49,6 +49,8 @@ pub enum ExchangeAssetSubclass {
     PreciousMetals,
     BaseMetals,
     Volatility,
+    Wti,
+    Natgas,
 }
 
 impl Display for ExchangeAssetSubclass {
@@ -69,6 +71,8 @@ impl Display for ExchangeAssetSubclass {
             Self::PreciousMetals => write!(f, "precious_metals"),
             Self::BaseMetals => write!(f, "base_metals"),
             Self::Volatility => write!(f, "volatility"),
+            Self::Wti => write!(f, "wti"),
+            Self::Natgas => write!(f, "natgas"),
         }
     }
 }

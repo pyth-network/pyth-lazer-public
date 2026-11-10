@@ -337,6 +337,10 @@ impl From<state::ExchangeAssetSubclass> for ExchangeAssetSubclass {
             state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_VOLATILITY => {
                 ExchangeAssetSubclass::Volatility
             }
+            state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_WTI => ExchangeAssetSubclass::Wti,
+            state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_NATGAS => {
+                ExchangeAssetSubclass::Natgas
+            }
         }
     }
 }
@@ -384,6 +388,10 @@ impl From<ExchangeAssetSubclass> for state::ExchangeAssetSubclass {
             }
             ExchangeAssetSubclass::Volatility => {
                 state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_VOLATILITY
+            }
+            ExchangeAssetSubclass::Wti => state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_WTI,
+            ExchangeAssetSubclass::Natgas => {
+                state::ExchangeAssetSubclass::EXCHANGE_ASSET_SUBCLASS_NATGAS
             }
         }
     }
