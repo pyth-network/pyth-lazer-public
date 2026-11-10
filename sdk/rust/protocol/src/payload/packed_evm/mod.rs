@@ -211,6 +211,9 @@ impl PackedEvmPayloadData {
     /// Serialised header size in bytes.
     pub const HEADER_SIZE: usize = 6;
 
+    /// The most feeds a payload can carry: `num_feeds` is a single byte.
+    pub const MAX_FEEDS: usize = u8::MAX as usize;
+
     /// The properties a lane is built from. A `PackedEvm` request cannot
     /// choose others.
     pub const PROPERTIES: [PriceFeedProperty; 4] = [
@@ -530,7 +533,7 @@ mod tests {
     /// `num_feeds` is a byte, so a 256th feed cannot be written at all.
     #[test]
     fn more_feeds_than_num_feeds_can_count_do_not_serialise() {
-        let payload = pack(&fresh_feeds(usize::from(u8::MAX) + 1));
+        let payload = pack(&fresh_feeds(PackedEvmPayloadData::MAX_FEEDS + 1));
         assert!(payload.serialize(&mut Vec::new()).is_err());
     }
 

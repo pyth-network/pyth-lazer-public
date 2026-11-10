@@ -932,7 +932,7 @@ fn validate_price_request(
     properties: &[PriceFeedProperty],
     formats: &[Format],
 ) -> Result<(), &'static str> {
-    validate_price_feed_ids_or_symbols(price_feed_ids, symbols)?;
+    let num_feeds = validate_price_feed_ids_or_symbols_and_get_num_feeds(price_feed_ids, symbols)?;
     validate_optional_nonempty_vec_has_unique_elements(
         price_feed_ids,
         "no price feed ids specified",
@@ -943,22 +943,21 @@ fn validate_price_request(
         "no symbols specified",
         "duplicate symbols specified",
     )?;
-    validate_requested_payload(properties, formats)?;
+    validate_requested_payload(properties, formats, num_feeds)?;
     Ok(())
 }
 
 // Common validation functions
-fn validate_price_feed_ids_or_symbols(
+fn validate_price_feed_ids_or_symbols_and_get_num_feeds(
     price_feed_ids: &Option<Vec<PriceFeedId>>,
     symbols: &Option<Vec<String>>,
-) -> Result<(), &'static str> {
-    if price_feed_ids.is_none() && symbols.is_none() {
-        return Err("either price feed ids or symbols must be specified");
+) -> Result<usize, &'static str> {
+    match (price_feed_ids, symbols) {
+        (Some(price_feed_ids), None) => Ok(price_feed_ids.len()),
+        (None, Some(symbols)) => Ok(symbols.len()),
+        (Some(_), Some(_)) => Err("either price feed ids or symbols must be specified, not both"),
+        (None, None) => Err("either price feed ids or symbols must be specified"),
     }
-    if price_feed_ids.is_some() && symbols.is_some() {
-        return Err("either price feed ids or symbols must be specified, not both");
-    }
-    Ok(())
 }
 
 fn validate_optional_nonempty_vec_has_unique_elements<T>(
@@ -1051,6 +1050,7 @@ impl RequestWithPayloadLayout for PriceRequest {
 fn validate_requested_payload(
     properties: &[PriceFeedProperty],
     formats: &[Format],
+    num_feeds: usize,
 ) -> Result<(), &'static str> {
     if !formats.iter().all_unique() {
         return Err("duplicate formats or chains specified");
@@ -1061,6 +1061,9 @@ fn validate_requested_payload(
         }
         if !properties.is_empty() {
             return Err("packedEvmEcdsa fixes the properties it carries; do not specify any");
+        }
+        if num_feeds > PackedEvmPayloadData::MAX_FEEDS {
+            return Err("packedEvmEcdsa supports at most 255 feeds");
         }
     } else {
         if properties.is_empty() {
@@ -1133,13 +1136,62 @@ mod requested_payload_tests {
     }
 
     #[test]
+    fn packed_evm_takes_at_most_max_feeds() {
+        let max = u32::try_from(PackedEvmPayloadData::MAX_FEEDS).unwrap();
+        subscription(Some(ids(max)), None, vec![], vec![Format::PackedEvmEcdsa]).unwrap();
+        assert_eq!(
+            subscription(
+                Some(ids(max + 1)),
+                None,
+                vec![],
+                vec![Format::PackedEvmEcdsa]
+            )
+            .unwrap_err(),
+            "packedEvmEcdsa supports at most 255 feeds"
+        );
+        let symbols = (0..=max).map(|i| format!("Crypto.S{i}/USD")).collect();
+        assert_eq!(
+            subscription(None, Some(symbols), vec![], vec![Format::PackedEvmEcdsa]).unwrap_err(),
+            "packedEvmEcdsa supports at most 255 feeds"
+        );
+
+        let latest = LatestPriceRequest::new(LatestPriceRequestRepr {
+            price_feed_ids: Some(ids(max + 1)),
+            symbols: None,
+            properties: vec![],
+            formats: vec![Format::PackedEvmEcdsa],
+            json_binary_encoding: JsonBinaryEncoding::Hex,
+            parsed: true,
+            channel: Channel::RealTime,
+        });
+        assert_eq!(
+            latest.unwrap_err(),
+            "packedEvmEcdsa supports at most 255 feeds"
+        );
+        let price = PriceRequest::new(PriceRequestRepr {
+            timestamp: TimestampUs::from_micros(1),
+            price_feed_ids: Some(ids(max + 1)),
+            symbols: None,
+            properties: vec![],
+            formats: vec![Format::PackedEvmEcdsa],
+            json_binary_encoding: JsonBinaryEncoding::Hex,
+            parsed: true,
+            channel: Channel::RealTime,
+        });
+        assert_eq!(
+            price.unwrap_err(),
+            "packedEvmEcdsa supports at most 255 feeds"
+        );
+    }
+
+    #[test]
     fn standard_formats_still_require_properties_and_take_any_feed_count() {
         assert_eq!(
             subscription(Some(ids(1)), None, vec![], vec![Format::Evm]).unwrap_err(),
             "no properties specified"
         );
         let params = subscription(
-            Some(ids(5)),
+            Some(ids(300)),
             None,
             vec![PriceFeedProperty::Price],
             vec![Format::Evm, Format::LeUnsigned],
