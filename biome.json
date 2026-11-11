@@ -19,7 +19,6 @@
   "files": {
     "ignoreUnknown": true,
     "includes": [
-      "**",
       "!!**/node_modules",
       "!!**/dist",
       "!!**/build",
@@ -43,6 +42,13 @@
       "!!**/*.gen.ts",
       "!!**/*.gen.css",
       "!!apps/operations-dashboard/openapi.json",
+
+      "!!**/*.rs",
+      "!!**/Cargo.toml",
+      "!!**/Cargo.lock",
+
+      "**",
+
       "!**/schemas/**",
       "!scripts/**/*.sh",
       "!scripts/**/*.py"
