@@ -20,8 +20,8 @@ use {
 pub use lane::{PackedPrice, U64x27};
 pub use staleness_marker::StalenessMarker;
 
-/// `50 45 56 4d` — `PEVM` in ASCII
-pub const PACKED_EVM_PAYLOAD_FORMAT_MAGIC: u32 = 1346721357;
+/// `43 45 56 4d` — `CEVM` in ASCII.
+pub const PACKED_EVM_PAYLOAD_FORMAT_MAGIC: u32 = 1128617549;
 
 /// One feed of a `PackedEvm` payload: its price, as a [`Lane`], and how old
 /// that price was when the payload was built, as a [`StalenessMarker`].
@@ -580,7 +580,7 @@ mod tests {
     ///
     /// | offset | bytes | field |
     /// |---|---|---|
-    /// | 0 | `5045564d` | magic, `PEVM` |
+    /// | 0 | `4345564d` | magic, `CEVM` |
     /// | 4 | `01` | channel id 1 (real time) |
     /// | 5 | `01` | one feed |
     /// | 6 | `00000001` | feed id 1 |
@@ -597,14 +597,14 @@ mod tests {
     /// - the confidence, `288677760e-8`, is 43 hundredths of a bp of the price.
     ///   It is a ratio, so it is stored as that `43`, with no exponent of its
     ///   own.
-    const GOLDEN_ONE_FEED: &str = "5045564d0101000000010000000000000000000000001c00639b002b\
+    const GOLDEN_ONE_FEED: &str = "4345564d0101000000010000000000000000000000001c00639b002b\
 000000000000000000000000000000000000064b0615d1774000";
 
     /// Four feeds, one in each staleness bucket.
     ///
     /// | offset | bytes | field |
     /// |---|---|---|
-    /// | 0 | `5045564d` | magic, `PEVM` |
+    /// | 0 | `4345564d` | magic, `CEVM` |
     /// | 4 | `02` | channel id 2 (fixed rate 50) |
     /// | 5 | `04` | four feeds |
     /// | 6 | `0000000a 00000014 0000001e 00000028` | feed ids 10, 20, 30, 40 |
@@ -635,7 +635,7 @@ mod tests {
     ///   (`0x0021`) — one cent is 33.3 hundredths of a bp, rounded to 33,
     /// - feed 40, `$400.00`: mantissa `40000` (`0x9c40`), confidence `25`
     ///   (`0x0019`).
-    const GOLDEN_FOUR_FEEDS: &str = "5045564d02040000000a000000140000001e00000028100027100064\
+    const GOLDEN_FOUR_FEEDS: &str = "4345564d02040000000a000000140000001e00000028100027100064\
 10004e20003210007530002110009c400019064b0615d177401e";
 
     /// Five feeds, so a full block and then a second one holding only the
@@ -644,7 +644,7 @@ mod tests {
     ///
     /// | offset | bytes | field |
     /// |---|---|---|
-    /// | 0 | `5045564d` | magic, `PEVM` |
+    /// | 0 | `4345564d` | magic, `CEVM` |
     /// | 4 | `01` | channel id 1 (real time) |
     /// | 5 | `05` | five feeds |
     /// | 6 | `00000001 00000002 00000003 00000004` | block 0: feed ids 1 to 4 |
@@ -659,7 +659,7 @@ mod tests {
     /// | 76 | `000000000000` x3 | three unused lanes, zero |
     /// | 94 | `064b0615d17740` | the same timestamp again |
     /// | 101 | `00` | staleness markers: feed 5 is fresh, and the unused slots are zero |
-    const GOLDEN_FIVE_FEEDS: &str = "5045564d0105000000010000000200000003000000041c00639b002b\
+    const GOLDEN_FIVE_FEEDS: &str = "4345564d0105000000010000000200000003000000041c00639b002b\
 1000271000641c00639b002b1c00639b002b064b0615d177400c000000050000000000000000000000001000\
 27100064000000000000000000000000000000000000064b0615d1774000";
 

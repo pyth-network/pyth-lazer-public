@@ -631,7 +631,7 @@ describe("PythLazerClient", () => {
       expect(packedValue.evm).toBeUndefined();
     });
 
-    it("should reject an EVM message whose payload magic is neither PEVM nor the standard magic", async () => {
+    it("should reject an EVM message whose payload magic is neither CEVM nor the standard magic", async () => {
       const otherMagic = evmEnvelope(
         Buffer.concat([u32Be(0x12_34_56_78), Buffer.alloc(8)]),
       );

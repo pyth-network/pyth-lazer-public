@@ -221,12 +221,16 @@ use crate::{
     payload::{packed_evm::PACKED_EVM_PAYLOAD_FORMAT_MAGIC, PAYLOAD_FORMAT_MAGIC},
 };
 
+/// `50 45 56 4d` — `PEVM` in ASCII
+pub const PACKED_EVM_PAYLOAD_FORMAT_MAGIC_LEGACY: u32 = 1346721357;
+
 /// Every magic this crate reads or writes.
 #[cfg(test)]
-const ALL_MAGICS: [u32; 8] = [
+const ALL_MAGICS: [u32; 9] = [
     BINARY_UPDATE_FORMAT_MAGIC,
     PAYLOAD_FORMAT_MAGIC,
     PACKED_EVM_PAYLOAD_FORMAT_MAGIC,
+    PACKED_EVM_PAYLOAD_FORMAT_MAGIC_LEGACY,
     SOLANA_FORMAT_MAGIC,
     JSON_FORMAT_MAGIC,
     EVM_FORMAT_MAGIC,
@@ -251,8 +255,8 @@ fn magics_are_pairwise_distinct() {
 }
 
 #[test]
-fn packed_evm_payload_magic_spells_pevm() {
-    assert_eq!(&PACKED_EVM_PAYLOAD_FORMAT_MAGIC.to_be_bytes(), b"PEVM");
+fn packed_evm_payload_magic_spells_cevm() {
+    assert_eq!(&PACKED_EVM_PAYLOAD_FORMAT_MAGIC.to_be_bytes(), b"CEVM");
 }
 
 #[test]

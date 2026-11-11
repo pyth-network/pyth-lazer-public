@@ -128,8 +128,8 @@ export const FORMAT_MAGICS_LE = {
 /** The magic at the start of a standard payload serialized as big-endian, read as a big-endian u32. */
 export const PAYLOAD_FORMAT_MAGIC_BE = 2_479_346_549;
 
-/** The magic at the start of a `packedEvmEcdsa` payload: `PEVM`, read as a big-endian u32. */
-export const PACKED_EVM_PAYLOAD_FORMAT_MAGIC_BE = 1_346_721_357;
+/** The magic at the start of a `packedEvmEcdsa` payload: `CEVM`, read as a big-endian u32. */
+export const PACKED_EVM_PAYLOAD_FORMAT_MAGIC_BE = 1_128_617_549;
 
 export type AssetType =
   | "crypto"

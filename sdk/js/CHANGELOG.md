@@ -1,5 +1,9 @@
 # pyth-lazer-sdk - Changelog
 
+## 7.1.0
+
+- Add support for **`packedEvmEcdsa` payloads**.
+
 ## 7.0.1
 
 - **Default stream URLs** move back to the redundant router instances
