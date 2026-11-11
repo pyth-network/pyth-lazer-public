@@ -7,7 +7,7 @@ members = [
   "sdk/rust/client",
   "sdk/rust/protocol",
 ]
-exclude = ["vendor/libtailscale-sys", "vendor/sqlx-core"]
+exclude = ["vendor/sqlx-core"]
 
 [workspace.dependencies]
 alloy-primitives = "0.8.5"
@@ -421,6 +421,14 @@ suspicious_xor_used_as_pow = "warn"
 unused_self = "warn"
 used_underscore_binding = "warn"
 while_float = "warn"
+
+[patch.crates-io.libtailscale]
+git = "https://github.com/dourolabs/libtailscale-rs"
+rev = "af56c771164cc22f1d61f53464b375d034f4b524"
+
+[patch.crates-io.libtailscale-sys]
+git = "https://github.com/dourolabs/libtailscale-rs"
+rev = "af56c771164cc22f1d61f53464b375d034f4b524"
 
 [patch.crates-io.fefix]
 git = "https://github.com/dourolabs/ferrumfix.git"
