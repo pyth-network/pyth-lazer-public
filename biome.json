@@ -276,6 +276,12 @@
           }
         }
       }
+    },
+    {
+      "formatter": {
+        "enabled": false
+      },
+      "includes": ["apps/pyth-app/src/data/feed-descriptions/**/*.md"]
     }
   ],
   "root": true,
