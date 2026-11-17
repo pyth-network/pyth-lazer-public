@@ -1,6 +1,7 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "globalEnv": [
+    "ALERT_DELIVERY_SECRET",
     "API_GATEWAY_SERVICE_KEY",
     "API_KEY_HUBSPOT",
     "API_KEY_MISTRAL",
