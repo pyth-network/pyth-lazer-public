@@ -3,6 +3,7 @@
   "globalEnv": [
     "API_GATEWAY_SERVICE_KEY",
     "API_KEY_HUBSPOT",
+    "API_KEY_MISTRAL",
     "API_KEY_RESEND",
     "API_KEY_STRIPE",
     "AUTH_BASE_URL",

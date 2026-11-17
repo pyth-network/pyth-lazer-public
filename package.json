@@ -1,5 +1,6 @@
 {
   "catalog": {
+    "@ai-sdk/mistral": "^4.0.81",
     "@anchor-lang/core": "^1.2.2",
     "@axe-core/react": "^4.14.0",
     "@base-ui/react": "^1.9.0",
@@ -73,6 +74,7 @@
     "@vercel/speed-insights": "^2.0.0",
     "@vitejs/plugin-react": "^6.1.2",
     "@xyflow/react": "^12.12.0",
+    "ai": "^7.0.166",
     "autoprefixer": "^10.6.2",
     "babel-plugin-react-compiler": "1.0.0",
     "better-auth": "~1.7.14",
