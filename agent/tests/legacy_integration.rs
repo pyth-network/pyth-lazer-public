@@ -10,11 +10,14 @@ use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::{Response, StatusCode};
 use hyper_util::rt::TokioIo;
+use protobuf::Message;
 use pyth_lazer_agent::Config;
 use pyth_lazer_protocol::api::Channel;
 use pyth_lazer_protocol::jrpc::SymbolMetadata;
 use pyth_lazer_protocol::time::FixedRate;
 use pyth_lazer_protocol::{PriceFeedId, SymbolState};
+use pyth_lazer_publisher_sdk::transaction::lazer_transaction::Payload;
+use pyth_lazer_publisher_sdk::transaction::{LazerTransaction, SignedLazerTransaction};
 use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -76,7 +79,7 @@ fn test_metadata_json() -> String {
             min_channel: Channel::FixedRate(FixedRate::MIN),
             state: SymbolState::Stable,
             hermes_id: None,
-            quote_currency: None,
+            quote_currency: Some("%".to_string()),
             nasdaq_symbol: None,
             cusip: Some("91282CRF0".to_string()),
             auction_date: Some("2026-08-12".to_string()),
@@ -84,6 +87,28 @@ fn test_metadata_json() -> String {
             maturity_date: Some("2036-08-15".to_string()),
             coupon: Some("4.625".to_string()),
             next_auction_date: Some("pending".to_string()),
+        },
+        SymbolMetadata {
+            pyth_lazer_id: PriceFeedId(2903),
+            name: "US10Y/USD".to_string(),
+            symbol: "InterestRate.US10Y/USD".to_string(),
+            description: "US 10Y price".to_string(),
+            asset_type: "Rates".to_string(),
+            exponent: -8,
+            cmc_id: None,
+            funding_rate_interval: None,
+            min_publishers: 1,
+            min_channel: Channel::FixedRate(FixedRate::MIN),
+            state: SymbolState::Stable,
+            hermes_id: None,
+            quote_currency: Some("USD".to_string()),
+            nasdaq_symbol: None,
+            cusip: Some("91282CRF0".to_string()),
+            auction_date: None,
+            issue_date: None,
+            maturity_date: None,
+            coupon: None,
+            next_auction_date: None,
         },
     ];
     serde_json::to_string(&metadata).unwrap()
@@ -135,6 +160,51 @@ async fn start_mock_history_service() -> (u16, tokio::task::JoinHandle<()>) {
 }
 
 async fn start_agent(legacy_sched_interval_duration: Duration) -> (u16, NamedTempFile) {
+    start_agent_with_relayers(legacy_sched_interval_duration, vec![]).await
+}
+
+/// Accepts agent connections and yields the feed ids of every publisher update received.
+async fn start_mock_relayer() -> (Url, tokio::sync::mpsc::Receiver<Vec<u32>>) {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = Url::parse(&format!(
+        "ws://{}/v1/transaction",
+        listener.local_addr().unwrap()
+    ))
+    .unwrap();
+    let (sender, receiver) = tokio::sync::mpsc::channel(64);
+    #[allow(clippy::disallowed_methods, reason = "instrumented")]
+    tokio::spawn(
+        async move {
+            while let Ok((stream, _)) = listener.accept().await {
+                let Ok(ws) = tokio_tungstenite::accept_async(stream).await else {
+                    continue;
+                };
+                let (_writer, mut reader) = ws.split();
+                while let Some(Ok(msg)) = reader.next().await {
+                    let TungsteniteMessage::Binary(bytes) = msg else {
+                        continue;
+                    };
+                    let signed = SignedLazerTransaction::parse_from_bytes(&bytes).unwrap();
+                    let transaction =
+                        LazerTransaction::parse_from_bytes(signed.payload.as_deref().unwrap())
+                            .unwrap();
+                    let Some(Payload::PublisherUpdate(update)) = transaction.payload else {
+                        continue;
+                    };
+                    let feed_ids = update.updates.iter().map(|u| u.feed_id.unwrap()).collect();
+                    let _ = sender.send(feed_ids).await;
+                }
+            }
+        }
+        .instrument(info_span!("mock relayer")),
+    );
+    (url, receiver)
+}
+
+async fn start_agent_with_relayers(
+    legacy_sched_interval_duration: Duration,
+    relayer_urls: Vec<Url>,
+) -> (u16, NamedTempFile) {
     let (history_port, _history_handle) = start_mock_history_service().await;
     let history_url = Url::from_str(&format!("http://127.0.0.1:{history_port}")).unwrap();
 
@@ -146,7 +216,7 @@ async fn start_agent(legacy_sched_interval_duration: Duration) -> (u16, NamedTem
 
     let config = Config {
         listen_address: format!("127.0.0.1:{agent_port}").parse().unwrap(),
-        relayer_urls: vec![],
+        relayer_urls,
         relayer_connections: None,
         authorization_token: None,
         publish_keypair_path: PathBuf::from(signing_key_file.path()),
@@ -221,7 +291,7 @@ async fn test_legacy_user_journey() {
     assert_eq!(resp["jsonrpc"], "2.0");
     assert_eq!(resp["id"], 1);
     let products = resp["result"].as_array().expect("result should be array");
-    assert_eq!(products.len(), 2);
+    assert_eq!(products.len(), 3);
     let product = &products[0];
     assert_eq!(product["attr_dict"]["symbol"], "Crypto.BTC/USD");
     let price = product["price"].as_array().unwrap();
@@ -420,4 +490,102 @@ async fn test_bond_metadata_passthrough() {
     for (key, value) in expected.as_object().unwrap() {
         assert_eq!(&attr_dict[key], value, "get_product_list {key}");
     }
+}
+
+/// Publishing by identifier (CUSIP plus quote currency) reaches the relayer with the feed id the
+/// metadata maps to; the pre-existing feed_id shape still works; unknown identifiers are dropped;
+/// an identifier without a quote currency and a request with neither field are errors.
+#[tokio::test]
+async fn test_push_update_by_cusip_routes_to_feed() {
+    let (relayer_url, mut received) = start_mock_relayer().await;
+    let (agent_port, _signing_key_file) =
+        start_agent_with_relayers(Duration::from_millis(200), vec![relayer_url]).await;
+
+    let (ws_stream, _) =
+        tokio_tungstenite::connect_async(format!("ws://127.0.0.1:{agent_port}/v1/jrpc"))
+            .await
+            .unwrap();
+    let (mut ws_sink, mut ws_stream) = ws_stream.split();
+    let update = serde_json::json!({"type": "price", "price": 9980000000i64});
+
+    // Resend the yield update until the agent has loaded its map and routed it to feed 1527;
+    // before the first load the agent answers with an error.
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+    loop {
+        send_jrpc(
+            &mut ws_sink,
+            &serde_json::json!({"jsonrpc": "2.0", "method": "push_update", "params": {"identifier": {"scheme": "cusip", "value": {"cusip": "91282CRF0", "quote_currency": "%"}}, "source_timestamp": 1, "update": update}, "id": 0}),
+        )
+        .await;
+        recv_json(&mut ws_stream).await;
+        match tokio::time::timeout(Duration::from_millis(300), received.recv()).await {
+            Ok(Some(batch)) if batch.contains(&1527) => break,
+            Ok(Some(batch)) => panic!("unexpected feed ids {batch:?}"),
+            Ok(None) => panic!("relayer channel closed"),
+            Err(_elapsed) => assert!(
+                tokio::time::Instant::now() < deadline,
+                "CUSIP update never reached the relayer"
+            ),
+        }
+    }
+
+    let requests = [
+        (
+            serde_json::json!({"feed_id": 42, "source_timestamp": 1, "update": update}),
+            "success",
+        ),
+        (
+            serde_json::json!({"identifier": {"scheme": "cusip", "value": {"cusip": "91282CRF0", "quote_currency": "USD"}}, "source_timestamp": 1, "update": update}),
+            "success",
+        ),
+        (
+            serde_json::json!({"identifier": {"scheme": "cusip", "value": {"cusip": "000000000", "quote_currency": "%"}}, "source_timestamp": 1, "update": update}),
+            "success",
+        ),
+        (
+            serde_json::json!({"identifier": {"scheme": "cusip", "value": {"cusip": "91282CRF0"}}, "source_timestamp": 1, "update": update}),
+            "parse error",
+        ),
+        (
+            serde_json::json!({"source_timestamp": 1, "update": update}),
+            "invalid params",
+        ),
+    ];
+    for (id, (params, expected)) in (1..).zip(requests) {
+        send_jrpc(
+            &mut ws_sink,
+            &serde_json::json!({"jsonrpc": "2.0", "method": "push_update", "params": params, "id": id}),
+        )
+        .await;
+        let resp = recv_json(&mut ws_stream).await;
+        match expected {
+            "success" => {
+                assert_eq!(resp["id"], id, "{resp}");
+                assert_eq!(resp["result"], "success", "{resp}");
+            }
+            // A malformed request is answered without an id, as before this feature.
+            "parse error" => assert_eq!(resp["error"]["code"], -32700, "{resp}"),
+            _ => {
+                assert_eq!(resp["id"], id, "{resp}");
+                assert_eq!(resp["error"]["code"], -32602, "{resp}");
+            }
+        }
+    }
+
+    let mut feed_ids = std::collections::BTreeSet::new();
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+    while !(feed_ids.contains(&42) && feed_ids.contains(&2903)) {
+        let batch = tokio::time::timeout_at(deadline, received.recv())
+            .await
+            .expect("timeout waiting for relayer updates")
+            .expect("relayer channel closed");
+        feed_ids.extend(batch);
+    }
+    assert_eq!(feed_ids, std::collections::BTreeSet::from([42, 2903]));
+    assert!(
+        tokio::time::timeout(Duration::from_millis(300), received.recv())
+            .await
+            .is_err(),
+        "unexpected extra updates reached the relayer"
+    );
 }

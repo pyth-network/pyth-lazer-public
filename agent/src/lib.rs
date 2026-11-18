@@ -14,5 +14,10 @@ mod websocket_utils;
 
 pub async fn run(config: Config) -> anyhow::Result<()> {
     let lazer_publisher = LazerPublisher::new(&config).await;
-    http_server::run(config, lazer_publisher).await
+    let (identifier_map, refresh) =
+        metadata::spawn_identifier_map_refresh(config.history_service_url.clone());
+    tokio::select! {
+        result = http_server::run(config, lazer_publisher, identifier_map) => result,
+        result = refresh => anyhow::bail!("identifier map refresh task ended: {result:?}"),
+    }
 }

@@ -34,9 +34,48 @@ pub enum JrpcCall {
     GetMetadata(GetMetadataParams),
 }
 
+/// Names one feed by an instrument identifier. The tag matches the feed metadata key and
+/// each scheme carries the fields that make it name exactly one feed.
+#[derive(Serialize, Debug, Eq, PartialEq, Clone, Hash)]
+#[serde(tag = "scheme", content = "value", rename_all = "snake_case")]
+pub enum Identifier {
+    Cusip(Cusip),
+    /// A scheme introduced after this build; never routes.
+    Unknown,
+}
+
+/// Hand-written so an unknown scheme parses as [`Identifier::Unknown`] instead of failing the
+/// whole request; serde's `other` only fits unit variants. Scheme names mirror the `Serialize`.
+impl<'de> Deserialize<'de> for Identifier {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        use serde::de::Error;
+        let raw = serde_json::Value::deserialize(deserializer)?;
+        match raw.get("scheme").and_then(serde_json::Value::as_str) {
+            Some("cusip") => Cusip::deserialize(&raw["value"])
+                .map(Self::Cusip)
+                .map_err(D::Error::custom),
+            Some(_) => Ok(Self::Unknown),
+            None => Err(D::Error::missing_field("scheme")),
+        }
+    }
+}
+
+/// A Treasury CUSIP quoted in `%` is its yield feed, quoted in `USD` its price feed.
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone, Hash)]
+pub struct Cusip {
+    pub cusip: String,
+    pub quote_currency: String,
+}
+
+/// At least one of `feed_id` and `identifier` is required. Without `feed_id`, the agent
+/// routes the update to every feed whose metadata matches `identifier`. With both, `feed_id`
+/// is used as is and the identifier is not checked against metadata yet.
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
 pub struct FeedUpdateParams {
-    pub feed_id: PriceFeedId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feed_id: Option<PriceFeedId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub identifier: Option<Identifier>,
     pub source_timestamp: TimestampUs,
     pub update: UpdateParams,
 }
@@ -59,6 +98,122 @@ pub enum UpdateParams {
         #[serde(default = "default_funding_rate_interval", with = "humantime_serde")]
         funding_rate_interval: Option<Duration>,
     },
+}
+
+/// A feed update whose target feed is known: what the agent sends on after resolving
+/// a [`FeedUpdateParams`].
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub struct ResolvedFeedUpdate {
+    pub feed_id: PriceFeedId,
+    pub identifier: Option<Identifier>,
+    pub source_timestamp: TimestampUs,
+    pub update: UpdateParams,
+}
+
+impl From<ResolvedFeedUpdate> for FeedUpdateParams {
+    fn from(value: ResolvedFeedUpdate) -> Self {
+        Self {
+            feed_id: Some(value.feed_id),
+            identifier: value.identifier,
+            source_timestamp: value.source_timestamp,
+            update: value.update,
+        }
+    }
+}
+
+impl Identifier {
+    /// `quote_currency` is `"%"` for a Treasury yield feed and `"USD"` for its price feed.
+    pub fn cusip(cusip: impl Into<String>, quote_currency: impl Into<String>) -> Self {
+        Self::Cusip(Cusip {
+            cusip: cusip.into(),
+            quote_currency: quote_currency.into(),
+        })
+    }
+
+    /// Trimmed and upper-cased, so a CUSIP and its currency match however they were typed.
+    pub fn normalized(&self) -> Self {
+        match self {
+            Self::Cusip(cusip) => Self::Cusip(Cusip {
+                cusip: cusip.cusip.trim().to_ascii_uppercase(),
+                quote_currency: cusip.quote_currency.trim().to_ascii_uppercase(),
+            }),
+            Self::Unknown => Self::Unknown,
+        }
+    }
+}
+
+impl FeedUpdateParams {
+    pub fn by_feed_id(
+        feed_id: PriceFeedId,
+        source_timestamp: TimestampUs,
+        update: UpdateParams,
+    ) -> Self {
+        Self {
+            feed_id: Some(feed_id),
+            identifier: None,
+            source_timestamp,
+            update,
+        }
+    }
+
+    /// Routed by the agent to every feed whose metadata matches `identifier`.
+    pub fn by_identifier(
+        identifier: Identifier,
+        source_timestamp: TimestampUs,
+        update: UpdateParams,
+    ) -> Self {
+        Self {
+            feed_id: None,
+            identifier: Some(identifier),
+            source_timestamp,
+            update,
+        }
+    }
+
+    /// `quote_currency` is `"%"` for a Treasury yield feed and `"USD"` for its price feed.
+    pub fn by_cusip(
+        cusip: impl Into<String>,
+        quote_currency: impl Into<String>,
+        source_timestamp: TimestampUs,
+        update: UpdateParams,
+    ) -> Self {
+        Self::by_identifier(
+            Identifier::cusip(cusip, quote_currency),
+            source_timestamp,
+            update,
+        )
+    }
+
+    /// Attach the instrument priced to a `feed_id` update.
+    pub fn with_identifier(mut self, identifier: Identifier) -> Self {
+        self.identifier = Some(identifier);
+        self
+    }
+
+    pub fn resolve(self, feed_id: PriceFeedId) -> ResolvedFeedUpdate {
+        ResolvedFeedUpdate {
+            feed_id,
+            identifier: self.identifier,
+            source_timestamp: self.source_timestamp,
+            update: self.update,
+        }
+    }
+}
+
+impl UpdateParams {
+    pub fn price(
+        price: Option<Price>,
+        best_bid_price: Option<Price>,
+        best_ask_price: Option<Price>,
+    ) -> Self {
+        Self::PriceUpdate {
+            price,
+            best_bid_price,
+            best_ask_price,
+            trading_status: None,
+            market_session: None,
+        }
+    }
 }
 
 fn default_funding_rate_interval() -> Option<Duration> {
@@ -115,6 +270,7 @@ pub struct JrpcErrorObject {
 #[derive(Debug, Eq, PartialEq)]
 pub enum JrpcError {
     ParseError(String),
+    InvalidParams(String),
     InternalError(String),
     SendUpdateError(FeedUpdateParams),
 }
@@ -126,6 +282,11 @@ impl From<JrpcError> for JrpcErrorObject {
             JrpcError::ParseError(error_message) => JrpcErrorObject {
                 code: -32700,
                 message: "Parse error".to_string(),
+                data: Some(error_message.into()),
+            },
+            JrpcError::InvalidParams(error_message) => JrpcErrorObject {
+                code: -32602,
+                message: "Invalid params".to_string(),
                 data: Some(error_message.into()),
             },
             JrpcError::InternalError(error_message) => JrpcErrorObject {
@@ -304,7 +465,8 @@ mod tests {
         let expected = PythLazerAgentJrpcV1 {
             jsonrpc: JsonRpcVersion::V2,
             params: PushUpdate(FeedUpdateParams {
-                feed_id: PriceFeedId(1),
+                feed_id: Some(PriceFeedId(1)),
+                identifier: None,
                 source_timestamp: TimestampUs::from_micros(124214124124),
                 update: UpdateParams::PriceUpdate {
                     price: Some(Price::from_integer(1234567890, 0).unwrap()),
@@ -320,6 +482,113 @@ mod tests {
         assert_eq!(
             serde_json::from_str::<PythLazerAgentJrpcV1>(json).unwrap(),
             expected
+        );
+    }
+
+    #[test]
+    fn test_push_update_by_identifier() {
+        let json = r#"
+        {
+          "jsonrpc": "2.0",
+          "method": "push_update",
+          "params": {
+            "identifier": { "scheme": "cusip", "value": { "cusip": "912797NQ4", "quote_currency": "USD" } },
+            "source_timestamp": 124214124124,
+            "update": { "type": "price", "price": 1234567890, "best_bid_price": null, "best_ask_price": null }
+          },
+          "id": 1
+        }
+        "#;
+
+        let expected = PythLazerAgentJrpcV1 {
+            jsonrpc: JsonRpcVersion::V2,
+            params: PushUpdate(FeedUpdateParams {
+                feed_id: None,
+                identifier: Some(Identifier::Cusip(Cusip {
+                    cusip: "912797NQ4".to_string(),
+                    quote_currency: "USD".to_string(),
+                })),
+                source_timestamp: TimestampUs::from_micros(124214124124),
+                update: UpdateParams::PriceUpdate {
+                    price: Some(Price::from_integer(1234567890, 0).unwrap()),
+                    best_bid_price: None,
+                    best_ask_price: None,
+                    trading_status: None,
+                    market_session: None,
+                },
+            }),
+            id: JrpcId::Int(1),
+        };
+
+        let parsed = serde_json::from_str::<PythLazerAgentJrpcV1>(json).unwrap();
+        assert_eq!(parsed, expected);
+        let reserialized = serde_json::to_value(&parsed).unwrap();
+        assert!(reserialized["params"].get("feed_id").is_none());
+        assert_eq!(reserialized["params"]["identifier"]["scheme"], "cusip");
+        assert_eq!(
+            reserialized["params"]["identifier"]["value"]["quote_currency"],
+            "USD"
+        );
+    }
+
+    #[test]
+    fn test_unknown_scheme_still_parses() {
+        let identifier: Identifier = serde_json::from_str(
+            r#"{"scheme": "isin", "value": {"isin": "US91282CRX18", "quote_currency": "USD"}}"#,
+        )
+        .unwrap();
+        assert_eq!(identifier, Identifier::Unknown);
+    }
+
+    #[test]
+    fn test_feed_update_params_helpers() {
+        let update = UpdateParams::price(Some(Price::from_integer(99, 0).unwrap()), None, None);
+        let timestamp = TimestampUs::from_micros(1);
+
+        let by_cusip = FeedUpdateParams::by_cusip("912797NQ4", "USD", timestamp, update.clone());
+        assert_eq!(by_cusip.feed_id, None);
+        assert_eq!(
+            by_cusip.identifier,
+            Some(Identifier::cusip("912797NQ4", "USD"))
+        );
+        assert_eq!(
+            serde_json::to_value(&by_cusip).unwrap()["identifier"],
+            serde_json::json!({"scheme": "cusip", "value": {"cusip": "912797NQ4", "quote_currency": "USD"}})
+        );
+
+        let by_id = FeedUpdateParams::by_feed_id(PriceFeedId(1), timestamp, update)
+            .with_identifier(Identifier::cusip("912797NQ4", "USD"));
+        assert_eq!(by_id.feed_id, Some(PriceFeedId(1)));
+        assert_eq!(by_id.identifier, by_cusip.identifier);
+    }
+
+    /// A feed_id publisher built with the new crate must emit the exact JSON an older agent
+    /// accepts: feed_id as a number and no identifier key.
+    #[test]
+    fn test_feed_id_params_serialize_as_before() {
+        let params = FeedUpdateParams::by_feed_id(
+            PriceFeedId(1),
+            TimestampUs::from_micros(124214124124),
+            UpdateParams::price(
+                Some(Price::from_integer(1234567890, 0).unwrap()),
+                None,
+                None,
+            ),
+        );
+        assert_eq!(
+            serde_json::to_value(&params).unwrap(),
+            serde_json::json!({
+                "feed_id": 1,
+                "source_timestamp": 124214124124u64,
+                "update": {
+                    "type": "price",
+                    "price": 1234567890,
+                    "best_bid_price": null,
+                    "best_ask_price": null,
+                    "trading_status": null,
+                    "market_session": null
+                }
+            })
         );
     }
 
@@ -347,7 +616,8 @@ mod tests {
         let expected = PythLazerAgentJrpcV1 {
             jsonrpc: JsonRpcVersion::V2,
             params: PushUpdate(FeedUpdateParams {
-                feed_id: PriceFeedId(1),
+                feed_id: Some(PriceFeedId(1)),
+                identifier: None,
                 source_timestamp: TimestampUs::from_micros(124214124124),
                 update: UpdateParams::PriceUpdate {
                     price: Some(Price::from_integer(1234567890, 0).unwrap()),
@@ -390,7 +660,8 @@ mod tests {
         let expected = PythLazerAgentJrpcV1 {
             jsonrpc: JsonRpcVersion::V2,
             params: PushUpdate(FeedUpdateParams {
-                feed_id: PriceFeedId(1),
+                feed_id: Some(PriceFeedId(1)),
+                identifier: None,
                 source_timestamp: TimestampUs::from_micros(124214124124),
                 update: UpdateParams::PriceUpdate {
                     price: Some(Price::from_integer(1234567890, 0).unwrap()),
@@ -432,7 +703,8 @@ mod tests {
         let expected = PythLazerAgentJrpcV1 {
             jsonrpc: JsonRpcVersion::V2,
             params: PushUpdate(FeedUpdateParams {
-                feed_id: PriceFeedId(1),
+                feed_id: Some(PriceFeedId(1)),
+                identifier: None,
                 source_timestamp: TimestampUs::from_micros(745214124124),
                 update: UpdateParams::PriceUpdate {
                     price: Some(Price::from_integer(5432, 0).unwrap()),
@@ -473,7 +745,8 @@ mod tests {
         let expected = PythLazerAgentJrpcV1 {
             jsonrpc: JsonRpcVersion::V2,
             params: PushUpdate(FeedUpdateParams {
-                feed_id: PriceFeedId(1),
+                feed_id: Some(PriceFeedId(1)),
+                identifier: None,
                 source_timestamp: TimestampUs::from_micros(124214124124),
                 update: UpdateParams::PriceUpdate {
                     price: Some(Price::from_integer(1234567890, 0).unwrap()),
@@ -516,7 +789,8 @@ mod tests {
         let expected = PythLazerAgentJrpcV1 {
             jsonrpc: JsonRpcVersion::V2,
             params: PushUpdate(FeedUpdateParams {
-                feed_id: PriceFeedId(1),
+                feed_id: Some(PriceFeedId(1)),
+                identifier: None,
                 source_timestamp: TimestampUs::from_micros(124214124124),
                 update: UpdateParams::FundingRateUpdate {
                     price: Some(Price::from_integer(1234567890, 0).unwrap()),
@@ -554,7 +828,8 @@ mod tests {
         let expected = PythLazerAgentJrpcV1 {
             jsonrpc: JsonRpcVersion::V2,
             params: PushUpdate(FeedUpdateParams {
-                feed_id: PriceFeedId(1),
+                feed_id: Some(PriceFeedId(1)),
+                identifier: None,
                 source_timestamp: TimestampUs::from_micros(124214124124),
                 update: UpdateParams::FundingRateUpdate {
                     price: None,

@@ -125,7 +125,8 @@ async fn main() -> Result<()> {
                 id: JrpcId::Null,
                 jsonrpc: JsonRpcVersion::V2,
                 params: pyth_lazer_protocol::jrpc::JrpcCall::PushUpdate(FeedUpdateParams {
-                    feed_id: PriceFeedId(feed_id),
+                    feed_id: Some(PriceFeedId(feed_id)),
+                    identifier: None,
                     source_timestamp: TimestampUs::now(),
                     update: pyth_lazer_protocol::jrpc::UpdateParams::PriceUpdate {
                         price: Some(Price::from_integer((feed_id * 10000 + i).into(), -8)?),

@@ -70,3 +70,41 @@ enable_update_deduplication = false
 - `publisher_interval`: The agent will batch and send transaction bundles at this interval. The Lazer team will provide guidance here.
 - `enable_update_deduplication`: The agent will deduplicate updates based inside each batch before sending it to Lazer.
 - `proxy_url` (optional): HTTP/HTTPS proxy URL for WebSocket connections. Supports Basic authentication via URL credentials (e.g., `http://user:pass@proxy:port`).
+
+## Publishing by CUSIP
+
+A publisher can send an identifier instead of a feed id. An identifier is a `scheme` and a
+`value` whose shape depends on the scheme; each scheme carries the fields that name exactly one
+feed. Today the only scheme is `cusip`, used by the US Treasury feeds: its value is the CUSIP and
+the `quote_currency`, where `%` is the yield feed and `USD` the price feed. The agent routes the
+update to every listed feed matching the identifier and drops identifiers that match no feed, so a
+publisher can push every CUSIP it quotes and never maintain a feed mapping or handle auction rolls.
+The agent reloads the map from the metadata endpoint about once a minute, so a roll takes effect
+within a minute or two; until the first load after start, identifier updates are answered with an
+error. Only publicly listed feeds are routable; feeds not yet listed need `feed_id`. Existing
+`feed_id` updates are unchanged.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "push_update",
+  "params": {
+    "identifier": {
+      "scheme": "cusip",
+      "value": { "cusip": "912797NQ4", "quote_currency": "USD" }
+    },
+    "source_timestamp": 1763400000000000,
+    "update": {
+      "type": "price",
+      "price": 9980000000,
+      "best_bid_price": null,
+      "best_ask_price": null
+    }
+  },
+  "id": 1
+}
+```
+
+`push_updates` takes a list of the same params, and `feed_id` and `identifier` may be mixed in one
+batch. From Rust, `FeedUpdateParams::by_cusip(cusip, "USD", ..)`, `by_identifier` and `by_feed_id` in
+`pyth_lazer_protocol::jrpc` build the params.

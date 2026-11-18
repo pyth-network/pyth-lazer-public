@@ -1,9 +1,11 @@
 use crate::legacy_handle::handle_legacy;
+use crate::metadata::IdentifierMap;
 use crate::publisher_handle::handle_publisher;
 use crate::{
     config::Config, lazer_publisher::LazerPublisher, publisher_handle::PublisherConnectionContext,
 };
 use anyhow::{Context, Result};
+use arc_swap::ArcSwap;
 use hyper::body::Incoming;
 use hyper::{Response, StatusCode, body::Bytes, server::conn::http1, service::service_fn};
 use hyper_util::rt::TokioIo;
@@ -13,6 +15,7 @@ use soketto::{
 };
 use std::fmt::Debug;
 use std::net::SocketAddr;
+use std::sync::Arc;
 use tokio::net::{TcpListener, TcpStream};
 use tracing::{debug, info, instrument, warn};
 use {
@@ -44,7 +47,11 @@ const LEGACY_WS_URI_V1: &str = "/v1/legacy";
 const READINESS_PROBE_PATH: &str = "/ready";
 const LIVENESS_PROBE_PATH: &str = "/live";
 
-pub async fn run(config: Config, lazer_publisher: LazerPublisher) -> Result<()> {
+pub async fn run(
+    config: Config,
+    lazer_publisher: LazerPublisher,
+    identifier_map: Arc<ArcSwap<IdentifierMap>>,
+) -> Result<()> {
     let listener = TcpListener::bind(&config.listen_address).await?;
     info!("listening on {:?}", &config.listen_address);
 
@@ -57,12 +64,19 @@ pub async fn run(config: Config, lazer_publisher: LazerPublisher) -> Result<()> 
             }
         };
         let lazer_publisher_clone = lazer_publisher.clone();
+        let identifier_map = Arc::clone(&identifier_map);
         let config = config.clone();
         #[allow(clippy::disallowed_methods, reason = "instrumented")]
         tokio::spawn(
             async move {
-                if let Err(err) =
-                    try_handle_connection(config, stream, remote_addr, lazer_publisher_clone).await
+                if let Err(err) = try_handle_connection(
+                    config,
+                    stream,
+                    remote_addr,
+                    lazer_publisher_clone,
+                    identifier_map,
+                )
+                .await
                 {
                     warn!("error while handling connection: {err:?}");
                 }
@@ -77,6 +91,7 @@ async fn try_handle_connection(
     stream: TcpStream,
     remote_addr: SocketAddr,
     lazer_publisher: LazerPublisher,
+    identifier_map: Arc<ArcSwap<IdentifierMap>>,
 ) -> Result<()> {
     debug!("accepted connection from {}", remote_addr);
     stream.set_nodelay(true)?;
@@ -90,6 +105,7 @@ async fn try_handle_connection(
                     request,
                     remote_addr,
                     lazer_publisher.clone(),
+                    Arc::clone(&identifier_map),
                 )
             }),
         )
@@ -104,6 +120,7 @@ async fn request_handler(
     request: RelayerRequest,
     remote_addr: SocketAddr,
     lazer_publisher: LazerPublisher,
+    identifier_map: Arc<ArcSwap<IdentifierMap>>,
 ) -> Result<Response<FullBody>, BoxedError> {
     let path = request.0.uri().path();
 
@@ -166,7 +183,7 @@ async fn request_handler(
                     Ok(response.map(|()| FullBody::default()))
                 }
                 Request::JrpcV1 => {
-                    let publisher_connection_context = JrpcConnectionContext {};
+                    let publisher_connection_context = JrpcConnectionContext { identifier_map };
                     #[allow(clippy::disallowed_methods, reason = "instrumented")]
                     tokio::spawn(
                         handle_jrpc(

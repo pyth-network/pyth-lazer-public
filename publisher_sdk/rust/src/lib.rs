@@ -2,7 +2,7 @@ use crate::publisher_update::feed_update::Update;
 use crate::publisher_update::{FeedUpdate, FundingRateUpdate, PriceUpdate};
 use crate::state::FeedState;
 use ::protobuf::{EnumOrUnknown, MessageField};
-use pyth_lazer_protocol::jrpc::{FeedUpdateParams, UpdateParams};
+use pyth_lazer_protocol::jrpc::{ResolvedFeedUpdate, UpdateParams};
 use pyth_lazer_protocol::publisher::PriceFeedDataV2;
 use pyth_lazer_protocol::{
     ExchangeAssetClass, ExchangeAssetSector, ExchangeAssetSubclass, FeedKind, SymbolState,
@@ -45,8 +45,8 @@ mod protobuf {
 
 mod convert_dynamic_value;
 
-impl From<FeedUpdateParams> for FeedUpdate {
-    fn from(value: FeedUpdateParams) -> Self {
+impl From<ResolvedFeedUpdate> for FeedUpdate {
+    fn from(value: ResolvedFeedUpdate) -> Self {
         FeedUpdate {
             feed_id: Some(value.feed_id.0),
             source_timestamp: value.source_timestamp.into(),

@@ -1,7 +1,80 @@
+use arc_swap::ArcSwap;
 use cached::proc_macro::cached;
-use pyth_lazer_protocol::jrpc::SymbolMetadata;
+use pyth_lazer_protocol::PriceFeedId;
+use pyth_lazer_protocol::SymbolState;
+use pyth_lazer_protocol::jrpc::{Identifier, SymbolMetadata};
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
+use tokio::task::JoinHandle;
+use tracing::{Instrument, info_span, warn};
 use url::Url;
+
+/// Keys are [`Identifier::normalized`].
+pub type IdentifierMap = HashMap<Identifier, Vec<PriceFeedId>>;
+
+/// Identifier updates dropped because nothing mapped them; reported by the refresh task.
+pub static DROPPED_IDENTIFIER_UPDATES: AtomicU64 = AtomicU64::new(0);
+/// Set after the first successful metadata load; identifier updates are refused before it.
+pub static IDENTIFIER_MAP_LOADED: AtomicBool = AtomicBool::new(false);
+
+pub fn identifier_map(symbols: &[SymbolMetadata]) -> IdentifierMap {
+    let mut map = IdentifierMap::new();
+    for symbol in symbols {
+        if matches!(symbol.state, SymbolState::Expired | SymbolState::Inactive) {
+            continue;
+        }
+        let (Some(value), Some(quote_currency)) = (&symbol.cusip, &symbol.quote_currency) else {
+            continue;
+        };
+        if value.trim().is_empty() {
+            continue;
+        }
+        let identifier = Identifier::cusip(value, quote_currency).normalized();
+        map.entry(identifier)
+            .or_default()
+            .push(symbol.pyth_lazer_id);
+    }
+    map
+}
+
+/// A failed or empty fetch keeps the last good map and retries quickly until the first load
+/// succeeds. The task never ends on its own; the caller treats its exit as fatal.
+pub fn spawn_identifier_map_refresh(url: Url) -> (Arc<ArcSwap<IdentifierMap>>, JoinHandle<()>) {
+    let map = Arc::new(ArcSwap::from_pointee(IdentifierMap::new()));
+    let shared = Arc::clone(&map);
+    #[allow(clippy::disallowed_methods, reason = "instrumented")]
+    let handle = tokio::spawn(
+        async move {
+            let mut loaded = false;
+            loop {
+                match fetch_metadata(&url).await {
+                    Ok(symbols) if symbols.is_empty() => {
+                        warn!("metadata returned no symbols, keeping the identifier map");
+                    }
+                    Ok(symbols) => {
+                        shared.store(Arc::new(identifier_map(&symbols)));
+                        loaded = true;
+                        IDENTIFIER_MAP_LOADED.store(true, Ordering::Relaxed);
+                    }
+                    Err(err) => warn!("failed to refresh identifier map: {err:?}"),
+                }
+                let dropped = DROPPED_IDENTIFIER_UPDATES.swap(0, Ordering::Relaxed);
+                if dropped > 0 {
+                    warn!(
+                        dropped,
+                        "identifier updates dropped: no feed carried the identifier"
+                    );
+                }
+                let interval = if loaded { 60 } else { 5 };
+                tokio::time::sleep(Duration::from_secs(interval)).await;
+            }
+        }
+        .instrument(info_span!("identifier map refresh")),
+    );
+    (map, handle)
+}
 
 /// Fetch metadata from the given URL and cache the result for 60 seconds.
 /// The cache is shared across all calls to this function.
@@ -17,7 +90,12 @@ use url::Url;
     convert = "{ () }"
 )]
 pub async fn fetch_metadata(url: &Url) -> anyhow::Result<Vec<SymbolMetadata>> {
-    let result = reqwest::get(url.clone()).await?;
+    let result = reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .build()?
+        .get(url.clone())
+        .send()
+        .await?;
     if result.status().is_success() {
         Ok(serde_json::from_str::<Vec<SymbolMetadata>>(
             &result.text().await?,
@@ -32,8 +110,72 @@ pub async fn fetch_metadata(url: &Url) -> anyhow::Result<Vec<SymbolMetadata>> {
 }
 
 #[cfg(test)]
+pub(crate) fn test_symbol(id: u32, name: &str, asset_type: &str) -> SymbolMetadata {
+    use pyth_lazer_protocol::{SymbolState, api::Channel, time::FixedRate};
+
+    SymbolMetadata {
+        pyth_lazer_id: PriceFeedId(id),
+        name: name.to_string(),
+        symbol: "".to_string(),
+        description: "".to_string(),
+        asset_type: asset_type.to_string(),
+        exponent: 0,
+        cmc_id: None,
+        funding_rate_interval: None,
+        min_publishers: 0,
+        min_channel: Channel::FixedRate(FixedRate::MIN),
+        state: SymbolState::Stable,
+        hermes_id: None,
+        quote_currency: None,
+        nasdaq_symbol: None,
+        cusip: None,
+        auction_date: None,
+        issue_date: None,
+        maturity_date: None,
+        coupon: None,
+        next_auction_date: None,
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_identifier_map() {
+        let mut us3m = test_symbol(1, "US3M", "rate");
+        us3m.cusip = Some("912797NQ4".to_string());
+        us3m.quote_currency = Some("%".to_string());
+        let mut us6m = test_symbol(2, "US6M", "rate");
+        us6m.cusip = Some(" 912797nq4 ".to_string());
+        us6m.quote_currency = Some(" % ".to_string());
+        let mut price = test_symbol(3, "US3M/USD", "rate");
+        price.cusip = Some("912797NQ4".to_string());
+        price.quote_currency = Some("usd".to_string());
+        let mut btc = test_symbol(4, "BTC", "crypto");
+        btc.quote_currency = Some("USD".to_string());
+        let mut blank = test_symbol(5, "US1M", "rate");
+        blank.cusip = Some("".to_string());
+        blank.quote_currency = Some("%".to_string());
+        let mut retired = test_symbol(6, "US2M", "rate");
+        retired.cusip = Some("912797NQ4".to_string());
+        retired.quote_currency = Some("%".to_string());
+        retired.state = SymbolState::Expired;
+        let mut no_quote = test_symbol(7, "US4M", "rate");
+        no_quote.cusip = Some("912797NQ4".to_string());
+
+        let map = identifier_map(&[us3m, us6m, price, btc, blank, retired, no_quote]);
+
+        assert_eq!(
+            map[&Identifier::cusip("912797NQ4", "%")],
+            vec![PriceFeedId(1), PriceFeedId(2)]
+        );
+        assert_eq!(
+            map[&Identifier::cusip("912797NQ4", "USD")],
+            vec![PriceFeedId(3)]
+        );
+        assert_eq!(map.len(), 2);
+    }
 
     #[tokio::test]
     #[ignore]
