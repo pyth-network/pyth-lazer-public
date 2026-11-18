@@ -282,6 +282,12 @@
         "enabled": false
       },
       "includes": ["apps/pyth-app/src/data/feed-descriptions/**/*.md"]
+    },
+    {
+      "formatter": {
+        "enabled": false
+      },
+      "includes": ["apps/mcp/skills/**/*.md"]
     }
   ],
   "root": true,
