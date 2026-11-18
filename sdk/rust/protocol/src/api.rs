@@ -989,6 +989,25 @@ pub enum PayloadLayout {
 }
 
 impl PayloadLayout {
+    /// The layout of `properties` in `formats` for `num_feeds` feeds, or why
+    /// a request may not combine them. These are the payload rules of a
+    /// price request; which feeds it selects is not checked here.
+    pub fn new(
+        properties: Vec<PriceFeedProperty>,
+        formats: Vec<Format>,
+        num_feeds: usize,
+    ) -> Result<Self, &'static str> {
+        validate_requested_payload(&properties, &formats, num_feeds)?;
+        Ok(if formats.contains(&Format::PackedEvmEcdsa) {
+            Self::PackedEvm
+        } else {
+            Self::Standard {
+                properties,
+                formats,
+            }
+        })
+    }
+
     pub fn properties(&self) -> &[PriceFeedProperty] {
         match self {
             PayloadLayout::Standard { properties, .. } => properties,
