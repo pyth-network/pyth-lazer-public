@@ -295,7 +295,7 @@
 
     "@babel/helper-validator-identifier": ["@babel/helper-validator-identifier@7.29.7", "", {}, "sha512-qehxGkRj55h/ff8EMaJ+cYhyaKlHIxqYDn682wQD7RNp9UujOQsHog2uS0r2vzr4pW+sXf90NeeayjcNaX3fFg=="],
 
-    "@babel/runtime": ["@babel/runtime@7.29.14", "", {}, "sha512-Y5tqevQaUAZhhj82BpYMNC1ssvLQTVAfwKdm8iy8qwmhvC2/CpcAu8OC+QEtjM7pMk7knx83u1Qj8gzkicyelw=="],
+    "@babel/runtime": ["@babel/runtime@7.29.15", "", {}, "sha512-304gsbbGVmQc+cNGHzwHBlqepYdWLKj3VXCQBGt/EGcV7PUPfKI7kAUNW1FZEOCwlQiLvQjg1JEaAlRQ616h+Q=="],
 
     "@better-builds/ts-duality": ["@better-builds/ts-duality@1.3.2", "", { "dependencies": { "@swc/core": "^1.15.10", "chalk": "^5.6.2", "chokidar": "^5.0.0", "detect-indent": "^7.0.2", "execa": "^9.6.1", "fs-extra": "^11.3.3", "glob": "^13.0.0", "package-manager-detector": "^1.6.0", "type-fest": "^5.4.1", "yargs": "^18.0.0" }, "optionalDependencies": { "@biomejs/biome": "^2", "prettier": "^3" }, "peerDependencies": { "typescript": "^5" }, "bin": { "ts-duality": "bin/ts-duality" } }, "sha512-OJYIEPE4vlCtC6Q2OeTjDhAQApW3TSOhB37LeueFow05yghsVFbuJ5pExCfs0f2gZvJgS6qxfu5iVd9/KbDGKg=="],
 
