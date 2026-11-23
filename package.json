@@ -140,6 +140,7 @@
     "react-dom": "19.3.1",
     "react-markdown": "10.1.0",
     "react-svg-credit-card-payment-icons": "6.0.4",
+    "react-textarea-autosize": "8.5.9",
     "recharts": "3.10.1",
     "rehype-katex": "7.0.1",
     "remark": "15.0.1",
