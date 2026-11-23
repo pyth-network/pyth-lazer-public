@@ -288,6 +288,18 @@
         "enabled": false
       },
       "includes": ["apps/mcp/skills/**/*.md"]
+    },
+    {
+      "assist": {
+        "enabled": false
+      },
+      "formatter": {
+        "enabled": false
+      },
+      "includes": ["apps/operations-dashboard/openapi.json"],
+      "linter": {
+        "enabled": false
+      }
     }
   ],
   "root": true,
