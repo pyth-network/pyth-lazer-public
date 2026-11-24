@@ -9,7 +9,8 @@
         "useSortedKeys": "on"
       }
     },
-    "enabled": true
+    "enabled": true,
+    "includes": ["**", "!apps/pyth-metrics/src/data/*.json"]
   },
   "css": {
     "parser": {
@@ -19,6 +20,8 @@
   "files": {
     "ignoreUnknown": true,
     "includes": [
+      "**",
+
       "!!**/node_modules",
       "!!**/dist",
       "!!**/build",
@@ -41,13 +44,12 @@
       "!!**/*.tsbuildinfo",
       "!!**/*.gen.ts",
       "!!**/*.gen.css",
+      "!!**/*.svg",
       "!!apps/operations-dashboard/openapi.json",
 
       "!!**/*.rs",
       "!!**/Cargo.toml",
       "!!**/Cargo.lock",
-
-      "**",
 
       "!**/schemas/**",
       "!scripts/**/*.sh",
