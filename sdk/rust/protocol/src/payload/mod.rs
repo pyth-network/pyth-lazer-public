@@ -28,6 +28,8 @@ pub struct AggregatedPriceFeedData {
     pub feed_update_timestamp: Option<TimestampUs>,
     pub publisher_ids: Vec<PublisherId>,
     pub publisher_data: Vec<PublisherDatapoint>,
+    /// Market session at `feed_update_timestamp`.
+    pub update_market_session: Option<MarketSession>,
 }
 
 impl AggregatedPriceFeedData {
@@ -48,6 +50,7 @@ impl AggregatedPriceFeedData {
             feed_update_timestamp: Some(now),
             publisher_ids: Vec::new(),
             publisher_data: Vec::new(),
+            update_market_session: None,
         }
     }
 }

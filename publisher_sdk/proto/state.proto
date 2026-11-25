@@ -280,6 +280,9 @@ message FeedAggregateData {
     repeated uint32 publisher_ids = 14;
     // Per-publisher data: price mantissas for price feeds, rate mantissas for funding rate feeds (same order as publisher_ids).
     repeated int64 publisher_data = 15;
+    // [optional] Market session at `feed_update_timestamp`. Differs from `market_session` while a price
+    // is carried forward. Absent unless the `enable_update_market_session` feature flag is set.
+    optional MarketSession update_market_session = 16;
 }
 
 // An item of the state describing an asset.
