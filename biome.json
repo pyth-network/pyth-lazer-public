@@ -38,6 +38,7 @@
       "!!**/venv",
       "!!**/tilt",
       "!!ansible",
+      "!!vendor",
       "!!scripts/lazer-holiday-check/tests/fixtures",
       "!!packages/contract-data/src/store",
       "!!**/tilt.state.json",

@@ -7,7 +7,7 @@ members = [
   "sdk/rust/client",
   "sdk/rust/protocol",
 ]
-exclude = ["vendor/sqlx-core"]
+exclude = ["vendor/cedar-policy-core", "vendor/sqlx-core"]
 
 [workspace.dependencies]
 alloy-primitives = "0.8.5"
@@ -32,6 +32,7 @@ bs58 = "0.5.1"
 byte-unit = "5.1.6"
 byteorder = "1.5.0"
 cadd = "0.2.0"
+cedar-policy = "=4.14.0"
 config = "0.15.11"
 convert_case = "0.6.0"
 crc32fast = "1.4.2"
@@ -203,7 +204,7 @@ version = "0.56.0"
 
 [workspace.dependencies.chrono]
 features = ["serde"]
-version = "0.4.41"
+version = "0.4.45"
 
 [workspace.dependencies.chrono-tz]
 features = ["serde"]
