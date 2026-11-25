@@ -217,7 +217,7 @@
         "noConstantBinaryExpressions": "error",
         "noControlCharactersInRegex": "error",
         "noDebugger": "error",
-        "noDeprecatedImports": "warn",
+        "noDeprecatedImports": "off",
         "noDocumentCookie": "error",
         "noDoubleEquals": "error",
         "noDuplicateCase": "error",
