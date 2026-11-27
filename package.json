@@ -39,6 +39,7 @@
     "@pythnetwork/entropy-sdk-solidity": "2.2.1",
     "@pythnetwork/pyth-solana-receiver": "0.17.0",
     "@react-hookz/web": "26.1.0",
+    "@shadcn/react": "0.3.1",
     "@solana/buffer-layout": "4.0.1",
     "@solana/web3.js": "1.99.0",
     "@storybook/addon-a11y": "10.6.7",
